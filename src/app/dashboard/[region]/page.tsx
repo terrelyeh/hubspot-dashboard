@@ -1,9 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import MetricCard from '@/components/dashboard/MetricCard';
+import {
+  DollarSign,
+  TrendingUp,
+  Target as TargetIcon,
+  Activity,
+  BarChart3,
+  PieChart as PieChartIcon,
+  ArrowLeft,
+  Calendar,
+  User,
+} from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -16,6 +26,8 @@ import {
   PieChart,
   Pie,
   Cell,
+  LineChart,
+  Line,
 } from 'recharts';
 
 interface Deal {
@@ -62,9 +74,36 @@ interface ForecastData {
   }>;
 }
 
-export default function RegionalDashboardPage() {
+// Region-specific color schemes
+const REGION_COLORS: Record<string, { from: string; to: string; accent: string }> = {
+  US: { from: 'from-blue-700', to: 'to-blue-900', accent: 'bg-blue-600' },
+  APAC: { from: 'from-emerald-700', to: 'to-emerald-900', accent: 'bg-emerald-600' },
+  IN: { from: 'from-amber-700', to: 'to-amber-900', accent: 'bg-amber-600' },
+  JP: { from: 'from-purple-700', to: 'to-purple-900', accent: 'bg-purple-600' },
+  EU: { from: 'from-red-700', to: 'to-red-900', accent: 'bg-red-600' },
+};
+
+// Professional chart colors
+const CHART_COLORS = {
+  primary: '#3B82F6',    // blue-500
+  secondary: '#10B981',  // emerald-500
+  tertiary: '#F59E0B',   // amber-500
+  quaternary: '#8B5CF6', // purple-500
+  quinary: '#EF4444',    // red-500
+  senary: '#EC4899',     // pink-500
+};
+
+const PIE_COLORS = [
+  CHART_COLORS.primary,
+  CHART_COLORS.secondary,
+  CHART_COLORS.tertiary,
+  CHART_COLORS.quaternary,
+  CHART_COLORS.quinary,
+  CHART_COLORS.senary,
+];
+
+export default function RegionalDashboardPageOptimized() {
   const params = useParams();
-  const router = useRouter();
   const regionCode = (params.region as string)?.toUpperCase();
 
   const [forecast, setForecast] = useState<ForecastData | null>(null);
@@ -110,55 +149,99 @@ export default function RegionalDashboardPage() {
     }
   }, [regionCode]);
 
+  // Loading State with Skeleton
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading regional dashboard...</p>
+      <div className="min-h-screen bg-slate-50">
+        <div className="bg-slate-200 border-b border-slate-300 animate-pulse">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div className="h-8 bg-slate-300 rounded w-1/4 mb-2"></div>
+            <div className="h-4 bg-slate-300 rounded w-1/6"></div>
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Metric Cards Skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="bg-white border border-slate-200 rounded-xl p-6 animate-pulse">
+                <div className="h-4 bg-slate-200 rounded w-1/2 mb-4"></div>
+                <div className="h-8 bg-slate-200 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-slate-200 rounded w-1/3"></div>
+              </div>
+            ))}
+          </div>
+          {/* Charts Skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {[1, 2].map((i) => (
+              <div key={i} className="bg-white border border-slate-200 rounded-xl p-6 animate-pulse">
+                <div className="h-6 bg-slate-200 rounded w-1/3 mb-4"></div>
+                <div className="h-64 bg-slate-100 rounded"></div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
+  // Error State
   if (error || !forecast) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
-          <h2 className="text-red-800 font-semibold text-lg mb-2">Error</h2>
-          <p className="text-red-600">{error || 'Failed to load data'}</p>
-          <Link
-            href="/dashboard"
-            className="inline-block mt-4 text-blue-600 hover:underline"
-          >
-            ← Back to Dashboard
-          </Link>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 max-w-md">
+          <div className="flex items-start gap-3">
+            <svg className="h-6 w-6 text-red-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+              <h2 className="text-red-800 font-semibold text-lg mb-2">Error Loading Dashboard</h2>
+              <p className="text-red-600 text-sm">{error || 'Failed to load data'}</p>
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-1 mt-4 text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#ec4899'];
+  const regionColors = REGION_COLORS[regionCode] || REGION_COLORS.US;
+  const achievementRate = forecast.forecast.achievementRate;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="min-h-screen bg-slate-50">
+      {/* Professional Header with Region-Specific Gradient */}
+      <div className={`bg-gradient-to-r ${regionColors.from} via-slate-800 ${regionColors.to} border-b border-slate-900/50`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="flex items-center justify-between">
             <div>
               <Link
                 href="/dashboard"
-                className="text-sm text-blue-600 hover:underline mb-2 inline-block"
+                className="inline-flex items-center text-sm font-medium text-white/80 hover:text-white transition-colors mb-3 group"
               >
-                ← Back to Global Dashboard
+                <ArrowLeft className="h-4 w-4 mr-1 group-hover:-translate-x-1 transition-transform" />
+                Back to Global Dashboard
               </Link>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-white tracking-tight">
                 {forecast.region.name}
               </h1>
-              <p className="text-gray-600 mt-1">
-                Q{forecast.period.quarter} {forecast.period.year} • Regional Detail
-              </p>
+              <div className="flex items-center gap-3 mt-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold bg-white/10 text-white border border-white/20 backdrop-blur-sm">
+                  <Calendar className="h-4 w-4" />
+                  Q{forecast.period.quarter} {forecast.period.year}
+                </span>
+                <span className="text-white/60">•</span>
+                <span className="text-white/80 text-sm font-medium">Regional Detail</span>
+              </div>
+            </div>
+            <div className={`px-5 py-3 rounded-xl ${regionColors.accent} text-white shadow-lg`}>
+              <div className="text-sm font-semibold opacity-90">Achievement Rate</div>
+              <div className="text-3xl font-bold">{achievementRate.toFixed(0)}%</div>
             </div>
           </div>
         </div>
@@ -166,104 +249,207 @@ export default function RegionalDashboardPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Key Metrics */}
+        {/* Key Metrics - Enhanced Design */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <MetricCard
-            title="Total Pipeline"
-            value={forecast.forecast.simpleFormatted}
-            subtitle={`${forecast.dealCount} deals`}
-            icon="💰"
-            colorScheme="blue"
-          />
-          <MetricCard
-            title="Weighted Forecast"
-            value={forecast.forecast.weightedFormatted}
-            subtitle="Probability-adjusted"
-            icon="📊"
-            colorScheme="green"
-          />
-          <MetricCard
-            title="Target"
-            value={forecast.forecast.targetFormatted}
-            subtitle="Quarterly goal"
-            icon="🎯"
-            colorScheme="purple"
-          />
-          <MetricCard
-            title="Achievement"
-            value={forecast.forecast.achievementRateFormatted}
-            subtitle={
-              forecast.forecast.achievementRate >= 100
-                ? 'Exceeding target'
-                : forecast.forecast.achievementRate >= 90
-                ? 'On track'
-                : 'Behind target'
-            }
-            icon={
-              forecast.forecast.achievementRate >= 100
-                ? '✅'
-                : forecast.forecast.achievementRate >= 90
-                ? '⚠️'
-                : '❌'
-            }
-            colorScheme={
-              forecast.forecast.achievementRate >= 100
-                ? 'green'
-                : forecast.forecast.achievementRate >= 90
-                ? 'orange'
-                : 'red'
-            }
-          />
+          {/* Total Pipeline */}
+          <div className="group bg-white border border-slate-200 rounded-xl p-6 hover:shadow-lg hover:border-blue-300 transition-all duration-200 cursor-pointer">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 bg-blue-50 rounded-lg group-hover:scale-110 transition-transform">
+                    <DollarSign className="h-5 w-5 text-blue-700" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-600 uppercase tracking-wide">
+                    Total Pipeline
+                  </p>
+                </div>
+                <p className="text-3xl font-bold text-slate-900 mb-1">
+                  {forecast.forecast.simpleFormatted}
+                </p>
+                <p className="text-sm text-slate-500">{forecast.dealCount} deals</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Weighted Forecast */}
+          <div className="group bg-white border border-slate-200 rounded-xl p-6 hover:shadow-lg hover:border-emerald-300 transition-all duration-200 cursor-pointer">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 bg-emerald-50 rounded-lg group-hover:scale-110 transition-transform">
+                    <Activity className="h-5 w-5 text-emerald-700" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-600 uppercase tracking-wide">
+                    Weighted Forecast
+                  </p>
+                </div>
+                <p className="text-3xl font-bold text-slate-900 mb-1">
+                  {forecast.forecast.weightedFormatted}
+                </p>
+                <p className="text-sm text-slate-500">Probability-adjusted</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Target */}
+          <div className="group bg-white border border-slate-200 rounded-xl p-6 hover:shadow-lg hover:border-purple-300 transition-all duration-200 cursor-pointer">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 bg-purple-50 rounded-lg group-hover:scale-110 transition-transform">
+                    <TargetIcon className="h-5 w-5 text-purple-700" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-600 uppercase tracking-wide">
+                    Target
+                  </p>
+                </div>
+                <p className="text-3xl font-bold text-slate-900 mb-1">
+                  {forecast.forecast.targetFormatted}
+                </p>
+                <p className="text-sm text-slate-500">Quarterly goal</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Achievement */}
+          <div className={`group bg-gradient-to-br ${
+            achievementRate >= 100
+              ? 'from-emerald-50 to-green-50 border-emerald-300'
+              : achievementRate >= 90
+              ? 'from-amber-50 to-yellow-50 border-amber-300'
+              : 'from-red-50 to-rose-50 border-red-300'
+          } border rounded-xl p-6 hover:shadow-lg transition-all duration-200 cursor-pointer`}>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+                    Achievement
+                  </p>
+                </div>
+                <p className={`text-3xl font-bold mb-1 ${
+                  achievementRate >= 100
+                    ? 'text-emerald-700'
+                    : achievementRate >= 90
+                    ? 'text-amber-700'
+                    : 'text-red-700'
+                }`}>
+                  {forecast.forecast.achievementRateFormatted}
+                </p>
+                <p className={`text-sm font-medium ${
+                  achievementRate >= 100
+                    ? 'text-emerald-600'
+                    : achievementRate >= 90
+                    ? 'text-amber-600'
+                    : 'text-red-600'
+                }`}>
+                  {achievementRate >= 100
+                    ? '✓ Exceeding target'
+                    : achievementRate >= 90
+                    ? '~ On track'
+                    : '✗ Behind target'}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Charts Row */}
+        {/* Charts Section - Enhanced */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* By Stage Chart */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Pipeline by Stage
-            </h3>
+          {/* Pipeline by Stage - Bar Chart */}
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <BarChart3 className="h-5 w-5 text-blue-700" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">
+                Pipeline by Stage
+              </h3>
+            </div>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={forecast.byStage}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="stage" angle={-45} textAnchor="end" height={80} />
-                <YAxis />
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                <XAxis
+                  dataKey="stage"
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
+                  tick={{ fill: '#475569', fontSize: 12 }}
+                />
+                <YAxis tick={{ fill: '#475569', fontSize: 12 }} />
                 <Tooltip
                   formatter={(value: number) => `$${(value / 1000000).toFixed(2)}M`}
+                  contentStyle={{
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                  }}
                 />
-                <Legend />
-                <Bar dataKey="simple" fill="#3b82f6" name="Simple" />
-                <Bar dataKey="weighted" fill="#10b981" name="Weighted" />
+                <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                <Bar
+                  dataKey="simple"
+                  fill={CHART_COLORS.primary}
+                  name="Simple"
+                  radius={[8, 8, 0, 0]}
+                />
+                <Bar
+                  dataKey="weighted"
+                  fill={CHART_COLORS.secondary}
+                  name="Weighted"
+                  radius={[8, 8, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          {/* By Month Chart */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Forecast by Month
-            </h3>
+          {/* Forecast by Month - Bar Chart */}
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-purple-50 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-purple-700" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">
+                Forecast by Month
+              </h3>
+            </div>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={forecast.byMonth}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                <XAxis dataKey="month" tick={{ fill: '#475569', fontSize: 12 }} />
+                <YAxis tick={{ fill: '#475569', fontSize: 12 }} />
                 <Tooltip
                   formatter={(value: number) => `$${(value / 1000000).toFixed(2)}M`}
+                  contentStyle={{
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                  }}
                 />
-                <Legend />
-                <Bar dataKey="weighted" fill="#8b5cf6" name="Weighted Forecast" />
+                <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                <Bar
+                  dataKey="weighted"
+                  fill={CHART_COLORS.quaternary}
+                  name="Weighted Forecast"
+                  radius={[8, 8, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Stage Distribution Pie Chart */}
+        {/* Stage Distribution & Breakdown */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Deal Distribution by Stage
-            </h3>
+          {/* Deal Distribution - Pie Chart */}
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-amber-50 rounded-lg">
+                <PieChartIcon className="h-5 w-5 text-amber-700" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">
+                Deal Distribution by Stage
+              </h3>
+            </div>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -272,48 +458,69 @@ export default function RegionalDashboardPage() {
                   nameKey="stage"
                   cx="50%"
                   cy="50%"
-                  outerRadius={100}
-                  label={({ stage, count }) => `${stage}: ${count}`}
+                  outerRadius={110}
+                  label={({ stage, percent }) =>
+                    `${stage}: ${(percent * 100).toFixed(0)}%`
+                  }
+                  labelLine={{ stroke: '#64748B', strokeWidth: 1 }}
                 >
                   {forecast.byStage.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={PIE_COLORS[index % PIE_COLORS.length]}
+                      stroke="#FFFFFF"
+                      strokeWidth={2}
+                    />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Stage Breakdown Table */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          {/* Stage Breakdown Table - Enhanced */}
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">
               Stage Breakdown
             </h3>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
+            <div className="overflow-hidden">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
                       Stage
                     </th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-right text-xs font-bold text-slate-700 uppercase tracking-wider">
                       Count
                     </th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-right text-xs font-bold text-slate-700 uppercase tracking-wider">
                       Weighted
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-slate-200">
                   {forecast.byStage.map((stage, index) => (
-                    <tr key={index}>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900">
-                        {stage.stage}
+                    <tr key={index} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 text-sm font-semibold text-slate-900">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
+                          />
+                          {stage.stage}
+                        </div>
                       </td>
-                      <td className="px-4 py-2 text-sm text-gray-600 text-right">
+                      <td className="px-4 py-3 text-sm text-slate-600 text-right font-medium">
                         {stage.count}
                       </td>
-                      <td className="px-4 py-2 text-sm font-semibold text-gray-900 text-right">
+                      <td className="px-4 py-3 text-sm font-bold text-slate-900 text-right">
                         {stage.weightedFormatted}
                       </td>
                     </tr>
@@ -324,57 +531,89 @@ export default function RegionalDashboardPage() {
           </div>
         </div>
 
-        {/* Recent Deals */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Recent Deals (Top 50)
-          </h3>
+        {/* Recent Deals - Enhanced Table */}
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="px-6 py-5 border-b border-slate-200">
+            <h3 className="text-lg font-bold text-slate-900">
+              Recent Deals (Top 50)
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Showing {deals.length} deals for Q{forecast.period.quarter} {forecast.period.year}
+            </p>
+          </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Deal Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Amount
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Stage
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Probability
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Owner
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Close Date
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-slate-200">
                 {deals.map((deal) => (
-                  <tr key={deal.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {deal.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {deal.amountUsdFormatted}
+                  <tr key={deal.id} className="hover:bg-slate-50 transition-colors group">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
+                        {deal.name}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                      <div className="text-sm font-semibold text-slate-900">
+                        {deal.amountUsdFormatted}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
                         {deal.stage}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {deal.stageProbability}%
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-slate-200 rounded-full h-2 w-16">
+                          <div
+                            className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${deal.stageProbability}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium text-slate-600">
+                          {deal.stageProbability}%
+                        </span>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {deal.ownerName || 'Unassigned'}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2 text-sm text-slate-600">
+                        {deal.ownerName ? (
+                          <>
+                            <User className="h-4 w-4 text-slate-400" />
+                            <span className="font-medium">{deal.ownerName}</span>
+                          </>
+                        ) : (
+                          <span className="text-slate-400 italic">Unassigned</span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {new Date(deal.closeDate).toLocaleDateString()}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                      {new Date(deal.closeDate).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
                     </td>
                   </tr>
                 ))}
