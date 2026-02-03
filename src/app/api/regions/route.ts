@@ -33,6 +33,8 @@ export async function GET(request: Request) {
           flag: config.flag,
           isActive: config.isActive,
           hubspot: config.hubspot,
+          team: config.team,
+          pipeline: config.pipeline,
         })),
       });
     }
@@ -69,6 +71,8 @@ export async function GET(request: Request) {
         flag: config.flag,
         isActive: config.isActive,
         hubspot: config.hubspot,
+        team: config.team,
+        pipeline: config.pipeline,
         stats: {
           dealCount: dbRegion?._count.deals || 0,
           totalPipeline: totalPipeline,
