@@ -5,7 +5,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -34,13 +34,13 @@ model Deal {
   regionId             String
 
   name                 String
-  amount               Decimal   @db.Decimal(15, 2)
+  amount               Float
   currency             String
-  amountUsd            Decimal   @db.Decimal(15, 2)
-  exchangeRate         Decimal   @db.Decimal(10, 4)
+  amountUsd            Float
+  exchangeRate         Float
 
   stage                String
-  stageProbability     Decimal   @db.Decimal(5, 2)
+  stageProbability     Float
   probabilitySource    String
   forecastCategory     String?
 
@@ -71,7 +71,7 @@ model Target {
   year            Int
   quarter         Int
 
-  amount          Decimal  @db.Decimal(15, 2)
+  amount          Float
   currency        String   @default("USD")
 
   createdAt       DateTime @default(now())
@@ -99,7 +99,7 @@ model SyncLog {
   dealsUpdated    Int      @default(0)
   dealsFailed     Int      @default(0)
 
-  errorMessage    String?  @db.Text
+  errorMessage    String?
   errorDetails    Json?
 
   triggerType     String
@@ -116,7 +116,7 @@ model StageProbability {
   id              String   @id @default(cuid())
 
   stage           String   @unique
-  probability     Decimal  @db.Decimal(5, 2)
+  probability     Float
   source          String
 
   totalDeals      Int      @default(0)
@@ -135,8 +135,8 @@ model ExchangeRate {
   fromCurrency    String
   toCurrency      String   @default("USD")
 
-  rate            Decimal  @db.Decimal(10, 4)
-  date            DateTime @db.Date
+  rate            Float
+  date            DateTime
 
   source          String   @default("exchangerate-api")
 
@@ -151,7 +151,7 @@ model User {
   email           String   @unique
   name            String
   role            String
-  regionAccess    String[]
+  regionAccess    String   // Comma-separated region codes
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
