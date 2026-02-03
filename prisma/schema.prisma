@@ -1,0 +1,157 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Core Models
+
+model Region {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  currency    String
+  timezone    String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  deals       Deal[]
+  targets     Target[]
+  syncLogs    SyncLog[]
+
+  @@index([code])
+}
+
+model Deal {
+  id                   String    @id @default(cuid())
+  hubspotId            String
+  regionId             String
+
+  name                 String
+  amount               Decimal   @db.Decimal(15, 2)
+  currency             String
+  amountUsd            Decimal   @db.Decimal(15, 2)
+  exchangeRate         Decimal   @db.Decimal(10, 4)
+
+  stage                String
+  stageProbability     Decimal   @db.Decimal(5, 2)
+  probabilitySource    String
+  forecastCategory     String?
+
+  closeDate            DateTime
+  createdAt            DateTime
+  lastModifiedAt       DateTime
+
+  ownerName            String?
+  ownerEmail           String?
+
+  hubspotUrl           String?
+  rawData              Json?
+
+  region               Region    @relation(fields: [regionId], references: [id])
+
+  @@unique([hubspotId, regionId])
+  @@index([regionId])
+  @@index([stage])
+  @@index([closeDate])
+  @@index([lastModifiedAt])
+  @@index([regionId, closeDate])
+}
+
+model Target {
+  id              String   @id @default(cuid())
+  regionId        String
+
+  year            Int
+  quarter         Int
+
+  amount          Decimal  @db.Decimal(15, 2)
+  currency        String   @default("USD")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String?
+  notes           String?
+
+  region          Region   @relation(fields: [regionId], references: [id])
+
+  @@unique([regionId, year, quarter])
+  @@index([year, quarter])
+}
+
+model SyncLog {
+  id              String   @id @default(cuid())
+  regionId        String
+
+  status          String
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  duration        Int?
+
+  dealsProcessed  Int      @default(0)
+  dealsCreated    Int      @default(0)
+  dealsUpdated    Int      @default(0)
+  dealsFailed     Int      @default(0)
+
+  errorMessage    String?  @db.Text
+  errorDetails    Json?
+
+  triggerType     String
+  triggeredBy     String?
+
+  region          Region   @relation(fields: [regionId], references: [id])
+
+  @@index([regionId])
+  @@index([startedAt])
+  @@index([status])
+}
+
+model StageProbability {
+  id              String   @id @default(cuid())
+
+  stage           String   @unique
+  probability     Decimal  @db.Decimal(5, 2)
+  source          String
+
+  totalDeals      Int      @default(0)
+  wonDeals        Int      @default(0)
+  lastCalculated  DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([stage])
+}
+
+model ExchangeRate {
+  id              String   @id @default(cuid())
+
+  fromCurrency    String
+  toCurrency      String   @default("USD")
+
+  rate            Decimal  @db.Decimal(10, 4)
+  date            DateTime @db.Date
+
+  source          String   @default("exchangerate-api")
+
+  createdAt       DateTime @default(now())
+
+  @@unique([fromCurrency, toCurrency, date])
+  @@index([date])
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String
+  role            String
+  regionAccess    String[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
