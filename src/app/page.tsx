@@ -17,7 +17,7 @@ export default function HomePage() {
               📊 Dashboard
             </h2>
             <p className="text-sm text-blue-700 mb-4">
-              Global and regional pipeline overview (Coming Soon)
+              Global and regional pipeline overview
             </p>
             <Link
               href="/dashboard"
@@ -47,7 +47,7 @@ export default function HomePage() {
               🎯 Targets
             </h2>
             <p className="text-sm text-purple-700 mb-4">
-              Manage quarterly targets (Coming Soon)
+              Manage quarterly targets and bulk operations
             </p>
             <Link
               href="/targets"
@@ -82,11 +82,13 @@ export default function HomePage() {
             <li>✓ GET /api/regions - List all regions</li>
             <li>✓ GET /api/deals - List deals with filters</li>
             <li>✓ GET /api/forecast - Calculate forecast with targets</li>
+            <li>✓ Global & Regional Dashboard with charts</li>
+            <li>✓ Target Management with bulk operations</li>
           </ul>
         </div>
 
         <div className="mt-6 text-center text-sm text-gray-500">
-          Phase 1 Week 2 Complete • Next.js 15 + TypeScript + Prisma
+          Phase 1-2 & 4-5 Complete • Next.js 15 + TypeScript + Prisma + Recharts
         </div>
       </div>
     </div>
