@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, TestTube2, Target, Globe2, CheckCircle2 } from "lucide-react";
+import { BarChart3, TestTube2, Target, Globe2, CheckCircle2, GitBranch } from "lucide-react";
 
 export default function HomePageOptimized() {
   return (
@@ -105,6 +105,35 @@ export default function HomePageOptimized() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </Link>
+          </div>
+
+          {/* Pipeline Stages Card */}
+          <div className="group bg-white rounded-2xl p-8 shadow-lg border-2 border-slate-200 hover:border-indigo-400 hover:shadow-2xl transition-all duration-300">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="p-4 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
+                <GitBranch className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">Pipeline Stages</h2>
+                <p className="text-slate-500 text-sm font-medium">Configuration</p>
+              </div>
+            </div>
+            <p className="text-slate-600 mb-6 leading-relaxed">
+              View and manage standard pipeline stages with win probabilities, stage ordering, and visual configuration
+            </p>
+            <Link
+              href="/pipeline-stages"
+              className="inline-flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/30"
+            >
+              View Stages
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </Link>
+            <div className="mt-6 pt-6 border-t border-slate-100 flex items-center gap-2 text-sm text-emerald-600 font-medium">
+              <CheckCircle2 className="h-4 w-4" />
+              <span>9 Standard Stages with Color Coding</span>
+            </div>
           </div>
 
           {/* Regions Card */}
