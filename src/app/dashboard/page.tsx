@@ -30,6 +30,7 @@ export default function DashboardPageOptimized() {
   const [regions, setRegions] = useState<RegionStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -153,6 +154,35 @@ export default function DashboardPageOptimized() {
   const globalAchievementRate =
     totalTarget > 0 ? (totalForecast / totalTarget) * 100 : 0;
 
+  // Demo mode: Modify achievement rates to show different visual states
+  const displayRegions = demoMode
+    ? regions.map((region, index) => {
+        if (!region.forecast) return region;
+
+        // Create different achievement rates for demo
+        let demoAchievementRate;
+        if (index === 0) demoAchievementRate = 120; // Exceeding (green)
+        else if (index === 1) demoAchievementRate = 95; // On Track (yellow)
+        else if (index === 2) demoAchievementRate = 75; // Behind (red)
+        else if (index === 3) demoAchievementRate = 88; // Behind (red)
+        else demoAchievementRate = 105; // Exceeding (green)
+
+        const demoTarget = region.forecast.target;
+        const demoWeighted = (demoTarget * demoAchievementRate) / 100;
+
+        return {
+          ...region,
+          forecast: {
+            ...region.forecast,
+            weighted: demoWeighted,
+            weightedFormatted: `$${(demoWeighted / 1000000).toFixed(2)}M`,
+            achievementRate: demoAchievementRate,
+            achievementRateFormatted: `${demoAchievementRate.toFixed(1)}%`,
+          },
+        };
+      })
+    : regions;
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Professional Header with Gradient */}
@@ -171,7 +201,22 @@ export default function DashboardPageOptimized() {
                 <span>Multi-Region Overview</span>
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
+              {/* Demo Mode Toggle */}
+              <button
+                onClick={() => setDemoMode(!demoMode)}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
+                  demoMode
+                    ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30 hover:bg-amber-600'
+                    : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
+                }`}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                {demoMode ? 'Demo Mode ON' : 'Demo Mode'}
+              </button>
               <div className="text-right">
                 <p className="text-sm text-blue-200 font-medium">Active Regions</p>
                 <p className="text-2xl font-bold text-white">{regions.length}</p>
@@ -323,8 +368,32 @@ export default function DashboardPageOptimized() {
               </div>
             </div>
           </div>
+
+          {/* Demo Mode Alert */}
+          {demoMode && (
+            <div className="mb-6 bg-amber-50 border-2 border-amber-400 rounded-xl p-4 animate-in fade-in duration-300">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-amber-900 mb-1">Demo Mode Active</h4>
+                  <p className="text-sm text-amber-800">
+                    Achievement rates have been adjusted to demonstrate different visual states:
+                    <span className="font-semibold text-emerald-700"> Green (≥100%)</span>,
+                    <span className="font-semibold text-amber-700"> Yellow (90-99%)</span>, and
+                    <span className="font-semibold text-red-700"> Red (&lt;90%)</span>.
+                    Turn off Demo Mode to see actual data.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {regions.map((region) => (
+            {displayRegions.map((region) => (
               <RegionCard
                 key={region.code}
                 region={{
