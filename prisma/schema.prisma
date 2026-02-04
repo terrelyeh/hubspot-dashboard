@@ -112,21 +112,26 @@ model SyncLog {
   @@index([status])
 }
 
-model StageProbability {
+model PipelineStage {
   id              String   @id @default(cuid())
 
-  stage           String   @unique
-  probability     Float
-  source          String
+  name            String   @unique  // e.g., "Initial Contact"
+  code            String   @unique  // e.g., "initial_contact"
+  probability     Float             // Win probability (0-100)
+  displayOrder    Int               // Order in pipeline (1-9)
 
-  totalDeals      Int      @default(0)
-  wonDeals        Int      @default(0)
-  lastCalculated  DateTime?
+  isActive        Boolean  @default(true)
+  isFinal         Boolean  @default(false)  // true for Closed Won/Lost
+  isWon           Boolean  @default(false)  // true for Closed Won
+
+  color           String?           // Optional color code for UI
+  description     String?           // Optional description
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  @@index([stage])
+  @@index([displayOrder])
+  @@index([isActive])
 }
 
 model ExchangeRate {
