@@ -1,249 +1,408 @@
-# HubSpot Multi-Region Pipeline Dashboard
+# HubSpot Multi-Region Dashboard
 
-A comprehensive web dashboard that integrates 5 independent HubSpot accounts (US, APAC, IN, JP, EU) with target management and forecast calculation capabilities.
+A powerful web dashboard that integrates multiple HubSpot accounts across different regions, providing comprehensive pipeline visibility, target management, and forecast calculations.
 
-## Tech Stack
+## 🌟 Key Features
 
-- **Frontend**: Next.js 14+ (App Router), React 19, TypeScript
+- 🌍 **Multi-Region Support**: Seamlessly switch between regions (US, APAC, IN, JP, EU)
+- 🔑 **Multi-Account Architecture**: Each region connects to its own HubSpot account with separate API keys
+- 📊 **Deal Details**: Expandable deal cards showing Line Items, Contacts, and custom properties
+- 🎯 **Target Management**: Set and track quarterly targets by owner and region
+- 📈 **Weighted Forecast**: Intelligent forecasting based on pipeline stage probabilities
+- 💱 **Multi-Currency**: Support for USD, JPY with automatic conversion
+- ⚡ **Real-time Sync**: Live data synchronization from HubSpot CRM
+- 🎨 **Interactive UI**: Slideout panels, expandable sections, and intuitive navigation
+
+---
+
+## 🏗️ Architecture
+
+### Single-Layer Dashboard Design
+
+Unlike traditional two-tier dashboards, this system uses a **single-layer architecture** with regional switching:
+
+```
+Dashboard (/)
+  └─ Region Selector (Top-right corner)
+      ├─ US → HubSpot Account 1 (API Key 1)
+      ├─ APAC → HubSpot Account 2 (API Key 2)
+      ├─ JP → HubSpot Account 3 (API Key 3)
+      ├─ IN → HubSpot Account 4 (API Key 4)
+      └─ EU → HubSpot Account 5 (API Key 5)
+```
+
+**Why this approach?**
+- Each region has different Pipeline Stage definitions
+- Deal properties vary by region
+- Independent HubSpot accounts per region
+- Direct access to relevant data without extra navigation
+
+---
+
+## 🛠️ Tech Stack
+
+- **Frontend**: Next.js 15.5+ (App Router), React 19, TypeScript 5
 - **Backend**: Next.js API Routes
-- **Database**: PostgreSQL
-- **ORM**: Prisma
-- **Styling**: Tailwind CSS
-- **Charts**: Recharts
-- **Deployment**: Zeabur
+- **Database**: SQLite (dev) / PostgreSQL (production recommended)
+- **ORM**: Prisma 6.2.0
+- **Styling**: Tailwind CSS 3.4.1
+- **Deployment**: Vercel (recommended) or any Node.js hosting
 
-## Features
+---
 
-- ✅ Multi-region HubSpot integration (5 accounts)
-- ✅ Target management (quarter × region matrix)
-- ✅ Forecast engine (Simple & Weighted)
-- ✅ Two-level dashboard (Global overview + Regional detail)
-- ✅ Currency conversion (USD, JPY, INR)
-- ✅ Pipeline health monitoring
-- ✅ Deal-level visibility
-
-## Project Structure
-
-```
-hubspot-dashboard/
-├── src/
-│   ├── app/              # Next.js App Router
-│   ├── components/       # React components
-│   ├── lib/              # Business logic
-│   ├── types/            # TypeScript types
-│   └── hooks/            # React hooks
-├── regions/              # Regional office config (MD files)
-├── prisma/
-│   ├── schema.prisma    # Database schema
-│   ├── migrations/      # Migration history
-│   └── seed.ts          # Seed script
-└── scripts/             # Utility scripts
-```
-
-## Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Node.js 18+ (currently using v22.19.0)
-- PostgreSQL database
+- Node.js 18+
 - npm or yarn
+- HubSpot Private App API Keys (one per region)
 
 ### Installation
 
-1. Clone the repository:
+1. **Clone the repository**:
 ```bash
-cd "/path/to/hubspot-dashboard"
+git clone https://github.com/terrelyeh/hubspot-dashboard.git
+cd hubspot-dashboard
 ```
 
-2. Install dependencies:
+2. **Install dependencies**:
 ```bash
 npm install
 ```
 
-3. Set up environment variables:
+3. **Set up environment variables**:
 ```bash
 cp .env.example .env.local
-# Edit .env.local with your actual values
 ```
 
-4. Set up the database:
+Edit `.env.local` with your HubSpot API keys:
 ```bash
-# Run migrations
-npx prisma migrate dev
+# Multi-Account Configuration
+# Each region uses its own HubSpot account
+HUBSPOT_API_KEY=your-primary-api-key-here
 
+# Optional: Future multi-account setup
+# HUBSPOT_API_KEY_US=your-us-api-key
+# HUBSPOT_API_KEY_APAC=your-apac-api-key
+# HUBSPOT_API_KEY_JP=your-jp-api-key
+# HUBSPOT_API_KEY_IN=your-in-api-key
+# HUBSPOT_API_KEY_EU=your-eu-api-key
+
+# Database
+DATABASE_URL="file:./dev.db"
+```
+
+4. **Set up the database**:
+```bash
 # Generate Prisma client
 npx prisma generate
 
-# Seed with mock data
-npm run db:seed
+# Run migrations
+npx prisma migrate dev
+
+# Seed with sample data (optional)
+npx prisma db seed
 ```
 
-5. Start the development server:
+5. **Start the development server**:
 ```bash
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Available Scripts
+---
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm start` - Start production server
-- `npm run lint` - Run ESLint
-- `npm run type-check` - Run TypeScript type checking
-- `npm run db:generate` - Generate Prisma client
-- `npm run db:push` - Push schema to database (no migration)
-- `npm run db:migrate` - Create and run migration
-- `npm run db:studio` - Open Prisma Studio
-- `npm run db:seed` - Seed database with mock data
+## 📖 Available Scripts
 
-## Database
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server (localhost:3000) |
+| `npm run build` | Build for production |
+| `npm start` | Start production server |
+| `npm run lint` | Run ESLint |
+| `npx prisma studio` | Open Prisma Studio (database GUI) |
+| `npx prisma db seed` | Seed database with sample data |
 
-### Setup PostgreSQL
+---
 
-You can use a local PostgreSQL instance or a cloud provider (e.g., Neon, Supabase, Railway).
+## 📂 Project Structure
 
-Update `DATABASE_URL` in `.env.local`:
-```bash
-DATABASE_URL="postgresql://user:password@localhost:5432/hubspot_dashboard"
+```
+hubspot-dashboard/
+├── src/
+│   ├── app/
+│   │   ├── api/               # API endpoints
+│   │   │   ├── dashboard/     # Dashboard data API
+│   │   │   ├── deals/[id]/    # Deal details API
+│   │   │   ├── hubspot/       # HubSpot sync & test
+│   │   │   ├── pipeline-stages/ # Stage configuration
+│   │   │   ├── regions/       # Region list
+│   │   │   └── targets/       # Target management
+│   │   ├── dashboard/
+│   │   │   └── page.tsx       # Main dashboard with region selector
+│   │   ├── pipeline-stages/   # Pipeline stage config page
+│   │   ├── settings/          # Settings pages
+│   │   └── layout.tsx         # Global layout
+│   ├── components/            # React components
+│   ├── lib/                   # Business logic & utilities
+│   │   ├── hubspot/          # HubSpot API client & sync
+│   │   ├── currency/         # Currency conversion
+│   │   └── db.ts             # Prisma client
+│   └── types/                # TypeScript type definitions
+├── prisma/
+│   ├── schema.prisma         # Database schema
+│   ├── migrations/           # Migration history
+│   └── seed.ts               # Seed script
+├── regions/                  # Regional configuration files
+│   ├── US.md
+│   ├── APAC.md
+│   ├── JP.md
+│   ├── IN.md
+│   └── EU.md
+└── [documentation files]
 ```
 
-### View Data
+---
 
-```bash
-npx prisma studio
-```
+## 🔧 Configuration
 
-This opens a web UI at http://localhost:5555 to browse your data.
+### HubSpot API Setup
 
-## Development Workflow
+Each region requires a HubSpot Private App with the following scopes:
 
-### Phase 0: Environment Setup ✅
-- [x] Initialize Next.js project
-- [x] Install dependencies
-- [x] Create Prisma schema
-- [x] Create regional MD files
-- [x] Set up environment variables
+**Required Scopes**:
+- `crm.objects.deals.read`
+- `crm.objects.deals.write`
+- `crm.objects.owners.read`
+- `crm.objects.line_items.read`
+- `crm.objects.contacts.read`
+- `crm.objects.companies.read`
+- `crm.schemas.deals.read`
+- `crm.schemas.line_items.read`
+- `crm.schemas.contacts.read`
+- `crm.schemas.companies.read`
 
-### Phase 1: Multi-Account Integration (In Progress)
-- [ ] Mock data generator
-- [ ] HubSpot API client
-- [ ] Sync orchestration
-- [ ] Currency conversion
-- [ ] API endpoints
+See [HUBSPOT_SETUP.md](./HUBSPOT_SETUP.md) for detailed setup instructions.
 
-### Phase 2: Target Management
-- [ ] Target CRUD operations
-- [ ] Target matrix UI
-- [ ] Batch operations
+### Region Configuration
 
-### Phase 3: Forecast Engine
-- [ ] Forecast calculation
-- [ ] Stage probability logic
-- [ ] Gap analysis
-
-### Phase 4-5: Dashboard UI
-- [ ] Global overview (Level 1)
-- [ ] Regional detail (Level 2)
-- [ ] KPI cards and charts
-
-## Regional Configuration
-
-Each region has a dedicated Markdown file in the `regions/` folder with YAML frontmatter:
-
-- `US.md` - United States
-- `APAC.md` - Asia Pacific
-- `IN.md` - India
-- `JP.md` - Japan
-- `EU.md` - Europe
-
-These files contain:
+Each region has a configuration file in the `regions/` directory containing:
 - Region metadata (code, name, currency, timezone)
-- HubSpot configuration
+- HubSpot account details
 - Team structure
-- Default stage probabilities
+- Default pipeline stage probabilities
 
-## API Endpoints
+---
 
-### Sync
-- `POST /api/sync` - Trigger sync for all regions
-- `GET /api/sync/status` - Get sync status
-- `POST /api/sync/[region]` - Sync specific region
+## 📊 Key Features Explained
 
-### Targets
-- `GET /api/targets` - List targets
-- `POST /api/targets` - Create target
-- `PUT /api/targets/[id]` - Update target
-- `DELETE /api/targets/[id]` - Delete target
-- `POST /api/targets/batch` - Batch operations
+### 1. Dashboard with Region Switching
 
-### Forecast
-- `GET /api/forecast` - Calculate forecast
-- `GET /api/forecast/gap-analysis` - Gap analysis
+The main dashboard (`/dashboard`) displays comprehensive metrics for the selected region:
 
-### Dashboard
-- `GET /api/dashboard/global` - Global overview data
-- `GET /api/dashboard/region/[code]` - Regional detail data
+**Metrics Displayed**:
+- Quarter Performance (Simple Total, Weighted Forecast, Target, Achievement Rate)
+- Pipeline by Stage (breakdown with counts and amounts)
+- Forecast Categories (Commit, Best Case, Pipeline, Omitted)
+- Key Activities (New Deals, Closed Won/Lost, Stale Deals, Large Deals)
+- Top 10 Deals (clickable table rows)
 
-## Deployment
+**Region Selector**: Located in the top-right corner, allows instant switching between regions. Each switch loads data from the corresponding HubSpot account.
 
-### Zeabur
+### 2. Deal Details with Line Items & Contacts
 
-1. Connect your Git repository to Zeabur
-2. Set environment variables in Zeabur dashboard
-3. Deploy
+Click any deal card or table row to view:
 
-Zeabur will automatically:
-- Build your Next.js app
-- Run database migrations
-- Start the server
+**Deal Information**:
+- Expected Close Date
+- Distributor (if any)
+- Priority level
+- Description
+- Number of contacts
+
+**Line Items** (Product Details):
+- Product name and description
+- Quantity
+- Unit price
+- Total amount
+
+**Contacts**:
+- Full name and email
+- Job title
+- Phone number
+- Company
+
+### 3. Target Management
+
+Set quarterly targets for each owner by region:
+- Owner selection
+- Quarter selection (Q1-Q4)
+- Currency selection (USD/JPY with auto-conversion)
+- Region assignment
+
+### 4. Pipeline Stages Configuration
+
+Configure probability values for each pipeline stage:
+- Used for weighted forecast calculations
+- Customizable per region (future enhancement)
+- Synced from HubSpot or manually set
+
+---
+
+## 🔄 HubSpot Synchronization
+
+### Initial Sync
+
+1. Navigate to Settings → HubSpot Integration
+2. Click "Sync Now"
+3. Wait for synchronization to complete
+
+### What Gets Synced
+
+- **Deals**: All deal records with properties
+- **Owners**: Sales rep information
+- **Pipeline Stages**: Stage names and order
+
+### On-Demand Data
+
+For performance optimization, the following data is fetched only when needed:
+- **Line Items**: Loaded when deal details are expanded
+- **Contacts**: Loaded when deal details are expanded
+
+---
+
+## 🌐 Deployment
 
 ### Environment Variables for Production
 
-Make sure to set these in your deployment environment:
-- `DATABASE_URL` - PostgreSQL connection string
-- `HUBSPOT_API_KEY_*` - HubSpot API keys for each region
-- `ENABLE_MOCK_DATA=false` - Disable mock data in production
-- `CRON_SECRET` - Secret for cron job authentication
+```bash
+# HubSpot API Keys (Multi-Account)
+HUBSPOT_API_KEY=your-default-api-key
+HUBSPOT_API_KEY_US=your-us-api-key
+HUBSPOT_API_KEY_APAC=your-apac-api-key
+HUBSPOT_API_KEY_JP=your-jp-api-key
+HUBSPOT_API_KEY_IN=your-in-api-key
+HUBSPOT_API_KEY_EU=your-eu-api-key
 
-## Troubleshooting
+# Database (PostgreSQL recommended for production)
+DATABASE_URL=postgresql://user:password@host:5432/database
+```
 
-### Database Connection Issues
+### Deployment Steps
+
+1. **Build the application**:
+```bash
+npm run build
+```
+
+2. **Run database migrations**:
+```bash
+npx prisma migrate deploy
+```
+
+3. **Start the server**:
+```bash
+npm start
+```
+
+For detailed deployment instructions, see [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md).
+
+### Recommended Platforms
+
+- **Vercel** (Recommended): Zero-config deployment with automatic builds
+- **Railway**: Easy PostgreSQL integration
+- **Render**: Good for full-stack apps
+
+---
+
+## 🔐 Security Notes
+
+- ✅ API keys are only used server-side
+- ✅ All sensitive data in `.env` files (excluded from git)
+- ✅ Database queries include proper validation
+- ✅ No sensitive information exposed in frontend
+
+---
+
+## 📚 Additional Documentation
+
+- [FEATURES.md](./FEATURES.md) - Complete feature documentation and technical architecture
+- [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) - Pre-deployment checklist
+- [HUBSPOT_SETUP.md](./HUBSPOT_SETUP.md) - HubSpot Private App setup guide
+- [PIPELINE_STAGES.md](./PIPELINE_STAGES.md) - Pipeline stage configuration
+
+---
+
+## 🐛 Troubleshooting
+
+### Database Issues
 
 ```bash
 # Test database connection
 npx prisma db pull
 
-# Reset database (WARNING: deletes all data)
+# Reset database (⚠️ deletes all data)
 npx prisma migrate reset
+
+# View data in GUI
+npx prisma studio
 ```
 
-### TypeScript Errors
+### HubSpot Connection Issues
 
-```bash
-# Check for type errors
-npm run type-check
+- Verify API key is correct
+- Check API key has all required scopes
+- Ensure Private App is enabled in HubSpot
 
-# Regenerate Prisma types
-npm run db:generate
-```
-
-### Development Server Issues
+### Build Errors
 
 ```bash
 # Clear Next.js cache
 rm -rf .next
 
 # Reinstall dependencies
-rm -rf node_modules
+rm -rf node_modules package-lock.json
 npm install
+
+# Regenerate Prisma client
+npx prisma generate
 ```
 
-## Contributing
+---
 
-This is an internal project. For questions or issues, contact the development team.
+## 🎯 Roadmap
 
-## License
+### Current Version: 1.0.0
+- ✅ Multi-region dashboard with switching
+- ✅ Deal details with Line Items & Contacts
+- ✅ Target management
+- ✅ Weighted forecasting
+- ✅ Multi-currency support
+
+### Future Enhancements
+- 🔜 Per-region Pipeline Stage configuration
+- 🔜 User authentication & authorization
+- 🔜 Email/Slack notifications
+- 🔜 Report export (PDF/Excel)
+- 🔜 Real-time updates (WebSocket)
+- 🔜 Mobile optimization
+
+---
+
+## 📞 Support
+
+For questions or issues, please contact the development team.
+
+---
+
+## 📄 License
 
 Proprietary - Internal Use Only
+
+---
+
+**Last Updated**: 2026-02-05
+**Version**: 1.0.0
+**Maintainer**: Terrel Yeh

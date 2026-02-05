@@ -15,6 +15,7 @@ import {
   TrendingDown,
   Database,
   Settings,
+  Info,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -28,8 +29,10 @@ interface Deal {
   probability: number;
   forecastCategory: string;
   closeDate: string;
+  createdAt: string;
   daysSinceUpdate: number;
   owner: string;
+  distributor?: string;
   hubspotUrl?: string;
 }
 
@@ -38,6 +41,19 @@ interface DashboardData {
   period: { year: number; quarter: number };
   summary: {
     totalPipelineFormatted: string;
+    totalPipelineDeals: Deal[];
+    newDealAmountFormatted: string;
+    newDealCount: number;
+    newDealsList: Deal[];
+    openDealAmountFormatted: string;
+    openDealCount: number;
+    openDealsList: Deal[];
+    commitRevenueFormatted: string;
+    commitDealCount: number;
+    commitDealsList: Deal[];
+    closedWonAmountFormatted: string;
+    closedWonCount: number;
+    closedWonDealsList: Deal[];
     totalForecastFormatted: string;
     totalTargetFormatted: string;
     gapFormatted: string;
@@ -46,9 +62,9 @@ interface DashboardData {
     gap: number;
   };
   activityKpis: {
-    newDeals: { count: number; trend: string; deals: Deal[] };
-    closedWon: { count: number; amountFormatted: string; deals: Deal[] };
-    closedLost: { count: number; amountFormatted: string; deals: Deal[] };
+    newDeals: { count: number; amountFormatted: string; trend: string; deals: Deal[] };
+    closedWon: { count: number; amountFormatted: string; trend: string; deals: Deal[] };
+    closedLost: { count: number; amountFormatted: string; trend: string; deals: Deal[] };
     winRate: { rate: number; trend: string };
   };
   forecastBreakdown: {
@@ -81,6 +97,40 @@ interface DashboardData {
     availableForecastCategories: string[];
   };
 }
+
+// Forecast Category definitions
+const FORECAST_CATEGORIES = {
+  'Not forecasted': {
+    label: 'Not forecasted',
+    description: '案子還太早期或已輸掉(Closed Lost)，不在本期營收預測範圍內',
+    confidence: '不預測',
+    color: 'text-slate-600',
+  },
+  'Pipeline': {
+    label: 'Pipeline',
+    description: '案子是活的，但成功率還低，變數很大',
+    confidence: '低信心度',
+    color: 'text-blue-600',
+  },
+  'Best case': {
+    label: 'Best case',
+    description: '一切順利會成交，但還有風險或未決因素',
+    confidence: '中等信心度',
+    color: 'text-cyan-600',
+  },
+  'Commit': {
+    label: 'Commit',
+    description: '非常有信心會在本期成交，幾乎是十拿九穩',
+    confidence: '高信心度',
+    color: 'text-emerald-600',
+  },
+  'Closed won': {
+    label: 'Closed won',
+    description: '已成交，合約已簽，錢已進來',
+    confidence: '100%',
+    color: 'text-green-700',
+  },
+};
 
 // Get flag emoji for region code
 function getRegionFlag(regionCode: string): string {
@@ -118,6 +168,7 @@ export default function DashboardPage() {
   // Dropdown states
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [categoryTooltip, setCategoryTooltip] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -427,26 +478,49 @@ export default function DashboardPage() {
                   </svg>
                 </button>
                 {categoryDropdownOpen && (
-                  <div className="absolute z-10 mt-1 w-full bg-white rounded-lg shadow-xl border-2 border-slate-200 max-h-60 overflow-auto">
-                    {data.filters.availableForecastCategories.map(category => (
-                      <label
+                  <div className="absolute z-10 mt-1 w-full bg-white rounded-lg shadow-xl border-2 border-slate-200">
+                    {Object.entries(FORECAST_CATEGORIES).map(([category, info]) => (
+                      <div
                         key={category}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 cursor-pointer transition-colors"
+                        className="relative"
                       >
-                        <input
-                          type="checkbox"
-                          checked={selectedCategories.includes(category)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedCategories([...selectedCategories, category]);
-                            } else {
-                              setSelectedCategories(selectedCategories.filter(c => c !== category));
-                            }
-                          }}
-                          className="w-4 h-4 text-orange-500 border-slate-300 rounded focus:ring-orange-500"
-                        />
-                        <span className="text-sm font-medium text-slate-900">{category}</span>
-                      </label>
+                        <label className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 cursor-pointer transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={selectedCategories.includes(category)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCategories([...selectedCategories, category]);
+                              } else {
+                                setSelectedCategories(selectedCategories.filter(c => c !== category));
+                              }
+                            }}
+                            className="w-4 h-4 text-orange-500 border-slate-300 rounded focus:ring-orange-500 flex-shrink-0"
+                          />
+                          <div className="flex items-center gap-2 flex-1">
+                            <span className={`text-sm font-semibold ${info.color}`}>
+                              {category}
+                            </span>
+                            <span className="text-xs text-slate-500 font-medium">
+                              ({info.confidence})
+                            </span>
+                          </div>
+                          <div
+                            className="relative flex-shrink-0"
+                            onMouseEnter={() => setCategoryTooltip(category)}
+                            onMouseLeave={() => setCategoryTooltip(null)}
+                          >
+                            <Info className="h-4 w-4 text-slate-400 hover:text-blue-500 transition-colors cursor-help" />
+                            {categoryTooltip === category && (
+                              <div className="absolute right-0 top-6 w-72 bg-slate-900 text-white text-xs rounded-lg p-3 shadow-xl z-50 pointer-events-none">
+                                <div className="font-semibold mb-1">{category}</div>
+                                <div className="text-slate-300 leading-relaxed">{info.description}</div>
+                                <div className="absolute -top-1 right-2 w-2 h-2 bg-slate-900 transform rotate-45"></div>
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -471,24 +545,13 @@ export default function DashboardPage() {
             <div className="h-10 w-1 bg-gradient-to-b from-orange-500 to-orange-600 rounded-full"></div>
             <h2 className="text-2xl font-bold text-slate-900">Performance Overview</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-            {/* Active Deals - NEW */}
+          {/* First Row: 4 cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            {/* 1. Pipeline Value */}
             <div
-              onClick={() => openSlideout('All Active Deals', data.topDeals)}
-              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-indigo-300 transition-all duration-300 cursor-pointer"
+              onClick={() => openSlideout('All Pipeline Deals', data.summary.totalPipelineDeals)}
+              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-blue-300 transition-all duration-300 cursor-pointer"
             >
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-base font-bold text-slate-700 uppercase tracking-wide">Active Deals</p>
-                <div className="p-2 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg shadow-md flex-shrink-0">
-                  <Database className="h-4 w-4 text-white" />
-                </div>
-              </div>
-              <p className="text-3xl font-bold text-slate-900 mb-1">{data.summary.dealCount}</p>
-              <p className="text-xs text-slate-500 mt-2">deals in pipeline</p>
-            </div>
-
-            {/* Pipeline */}
-            <div className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-blue-300 transition-all duration-300 cursor-pointer">
               <div className="flex items-start justify-between mb-3">
                 <p className="text-base font-bold text-slate-700 uppercase tracking-wide">Pipeline Value</p>
                 <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-md flex-shrink-0">
@@ -499,19 +562,82 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-500 mt-2">total opportunity value</p>
             </div>
 
-            {/* Forecast */}
-            <div className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-emerald-300 transition-all duration-300 cursor-pointer">
+            {/* 2. New Deal Amount */}
+            <div
+              onClick={() => openSlideout('New Deals Created This Quarter', data.summary.newDealsList)}
+              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-indigo-300 transition-all duration-300 cursor-pointer"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <p className="text-base font-bold text-slate-700 uppercase tracking-wide">New Deal Amount</p>
+                <div className="p-2 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg shadow-md flex-shrink-0">
+                  <TrendingUp className="h-4 w-4 text-white" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-slate-900 mb-1">{data.summary.newDealAmountFormatted}</p>
+              <p className="text-xs text-slate-500 mt-2">{data.summary.newDealCount} new deals</p>
+            </div>
+
+            {/* 3. Open Deals */}
+            <div
+              onClick={() => openSlideout('Open Deals (Not Closed)', data.summary.openDealsList)}
+              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-cyan-300 transition-all duration-300 cursor-pointer"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <p className="text-base font-bold text-slate-700 uppercase tracking-wide">Open Deals</p>
+                <div className="p-2 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-lg shadow-md flex-shrink-0">
+                  <Activity className="h-4 w-4 text-white" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-slate-900 mb-1">{data.summary.openDealAmountFormatted}</p>
+              <p className="text-xs text-slate-500 mt-2">{data.summary.openDealCount} active deals</p>
+            </div>
+
+            {/* 4. Commit Revenue */}
+            <div
+              onClick={() => openSlideout('Commit Deals (High Confidence)', data.summary.commitDealsList)}
+              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-amber-300 transition-all duration-300 cursor-pointer"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <p className="text-base font-bold text-slate-700 uppercase tracking-wide">Commit Revenue</p>
+                <div className="p-2 bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg shadow-md flex-shrink-0">
+                  <Award className="h-4 w-4 text-white" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-slate-900 mb-1">{data.summary.commitRevenueFormatted}</p>
+              <p className="text-xs text-slate-500 mt-2">{data.summary.commitDealCount} high confidence</p>
+            </div>
+          </div>
+
+          {/* Second Row: 4 cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* 5. Closed Won Amount */}
+            <div
+              onClick={() => openSlideout('Closed Won Deals', data.summary.closedWonDealsList)}
+              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-emerald-300 transition-all duration-300 cursor-pointer"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <p className="text-base font-bold text-slate-700 uppercase tracking-wide">Closed Won</p>
+                <div className="p-2 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg shadow-md flex-shrink-0">
+                  <Award className="h-4 w-4 text-white" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-slate-900 mb-1">{data.summary.closedWonAmountFormatted}</p>
+              <p className="text-xs text-slate-500 mt-2">{data.summary.closedWonCount} deals won</p>
+            </div>
+
+            {/* 6. Weighted Forecast */}
+            <div className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-teal-300 transition-all duration-300 cursor-pointer">
               <div className="flex items-start justify-between mb-3">
                 <p className="text-base font-bold text-slate-700 uppercase tracking-wide">Forecast</p>
-                <div className="p-2 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg shadow-md flex-shrink-0">
-                  <Activity className="h-4 w-4 text-white" />
+                <div className="p-2 bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg shadow-md flex-shrink-0">
+                  <BarChart3 className="h-4 w-4 text-white" />
                 </div>
               </div>
               <p className="text-3xl font-bold text-slate-900 mb-1">{data.summary.totalForecastFormatted}</p>
               <p className="text-xs text-slate-500 mt-2">weighted by probability</p>
             </div>
 
-            {/* Target */}
+            {/* 7. Target */}
             <div className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-purple-300 transition-all duration-300 cursor-pointer">
               <div className="flex items-start justify-between mb-3">
                 <p className="text-base font-bold text-slate-700 uppercase tracking-wide">Target</p>
@@ -523,7 +649,7 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-500 mt-2">Q{data.period.quarter} {data.period.year} goal</p>
             </div>
 
-            {/* Achievement */}
+            {/* 8. Achievement */}
             <div className={`group bg-gradient-to-br ${achievementColor === 'emerald' ? 'from-emerald-500 to-emerald-600' : achievementColor === 'orange' ? 'from-orange-500 to-orange-600' : 'from-red-500 to-red-600'} rounded-2xl p-6 shadow-2xl border-2 border-white hover:scale-105 transition-all duration-300 cursor-pointer`}>
               <div className="flex items-start justify-between mb-3">
                 <p className="text-base font-bold text-white uppercase tracking-wide">Achievement</p>
@@ -574,7 +700,9 @@ export default function DashboardPage() {
                 <p className="text-sm font-bold text-slate-600 uppercase tracking-wide">Closed Won</p>
               </div>
               <p className="text-4xl font-bold text-emerald-700 mb-2 group-hover:text-emerald-800 transition-colors">{data.activityKpis.closedWon.count}</p>
-              <p className="text-sm text-slate-600 font-semibold">{data.activityKpis.closedWon.amountFormatted} revenue</p>
+              <p className="text-sm text-emerald-600 font-semibold flex items-center gap-1.5">
+                <TrendingUp className="h-4 w-4" /> {data.activityKpis.closedWon.trend} vs last quarter
+              </p>
               <p className="text-xs text-slate-400 mt-2 font-medium">Click to view all deals →</p>
             </div>
 
@@ -589,7 +717,9 @@ export default function DashboardPage() {
                 <p className="text-sm font-bold text-slate-600 uppercase tracking-wide">Closed Lost</p>
               </div>
               <p className="text-4xl font-bold text-red-700 mb-2 group-hover:text-red-800 transition-colors">{data.activityKpis.closedLost.count}</p>
-              <p className="text-sm text-slate-600 font-semibold">{data.activityKpis.closedLost.amountFormatted} lost</p>
+              <p className="text-sm text-red-600 font-semibold flex items-center gap-1.5">
+                <TrendingUp className="h-4 w-4" /> {data.activityKpis.closedLost.trend} vs last quarter
+              </p>
               <p className="text-xs text-slate-400 mt-2 font-medium">Click to view all deals →</p>
             </div>
 
@@ -940,6 +1070,10 @@ export default function DashboardPage() {
                               </span>
                             </div>
                             <div>
+                              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Close Date</p>
+                              <p className="text-sm font-semibold text-slate-700">{new Date(deal.closeDate).toLocaleDateString()}</p>
+                            </div>
+                            <div>
                               <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Create Date</p>
                               <p className="text-sm font-semibold text-slate-700">{new Date(deal.createdAt).toLocaleDateString()}</p>
                             </div>
@@ -950,6 +1084,12 @@ export default function DashboardPage() {
                                 <span className="text-sm font-semibold text-slate-700">{deal.daysSinceUpdate}d ago</span>
                               </div>
                             </div>
+                            {deal.distributor && (
+                              <div>
+                                <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Distributor</p>
+                                <p className="text-sm font-semibold text-slate-700">{deal.distributor}</p>
+                              </div>
+                            )}
                           </div>
 
                           {/* View Details Button */}
@@ -986,59 +1126,6 @@ export default function DashboardPage() {
                                 </div>
                               ) : dealDetails ? (
                                 <>
-                                  {/* Additional Properties */}
-                                  {(dealDetails.priority || dealDetails.description || dealDetails.numContacts > 0 || dealDetails.closeDate || dealDetails.distributor) && (
-                                    <div className="bg-slate-50 rounded-lg p-4 space-y-3">
-                                      <h4 className="text-xs font-bold text-slate-600 uppercase">Deal Information</h4>
-                                      {dealDetails.closeDate && (
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-sm text-slate-600">Expected Close Date:</span>
-                                          <span className="text-sm font-semibold text-slate-700">
-                                            {new Date(dealDetails.closeDate).toLocaleDateString('en-US', {
-                                              month: 'long',
-                                              day: 'numeric',
-                                              year: 'numeric'
-                                            })}
-                                          </span>
-                                        </div>
-                                      )}
-                                      {dealDetails.distributor && (
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-sm text-slate-600">Distributor:</span>
-                                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-bold bg-purple-100 text-purple-700">
-                                            {dealDetails.distributor}
-                                          </span>
-                                        </div>
-                                      )}
-                                      {dealDetails.priority && (
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-sm text-slate-600">Priority:</span>
-                                          <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold ${
-                                            dealDetails.priority === 'high' ? 'bg-red-100 text-red-700' :
-                                            dealDetails.priority === 'medium' ? 'bg-amber-100 text-amber-700' :
-                                            'bg-green-100 text-green-700'
-                                          }`}>
-                                            {dealDetails.priority === 'high' ? '🔴 High' :
-                                             dealDetails.priority === 'medium' ? '⚠️ Medium' :
-                                             '🟢 Low'}
-                                          </span>
-                                        </div>
-                                      )}
-                                      {dealDetails.numContacts > 0 && (
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-sm text-slate-600">Contacts:</span>
-                                          <span className="text-sm font-semibold text-slate-700">{dealDetails.numContacts} person(s)</span>
-                                        </div>
-                                      )}
-                                      {dealDetails.description && (
-                                        <div>
-                                          <span className="text-sm text-slate-600 block mb-1">Description:</span>
-                                          <p className="text-sm text-slate-700 italic">{dealDetails.description}</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-
                                   {/* Line Items */}
                                   {dealDetails.lineItems && dealDetails.lineItems.length > 0 && (
                                     <div className="bg-blue-50 rounded-lg p-4">

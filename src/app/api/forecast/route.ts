@@ -108,14 +108,13 @@ export async function GET(request: Request) {
       0
     );
 
-    // Fetch target for this region/quarter
-    const target = await prisma.target.findUnique({
+    // Fetch target for this region/quarter (region-level target where ownerName is null)
+    const target = await prisma.target.findFirst({
       where: {
-        regionId_year_quarter: {
-          regionId: region.id,
-          year,
-          quarter,
-        },
+        regionId: region.id,
+        year,
+        quarter,
+        ownerName: null,
       },
     });
 

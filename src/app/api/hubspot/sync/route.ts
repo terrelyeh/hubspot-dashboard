@@ -150,18 +150,16 @@ export async function GET() {
   try {
     // Get last 10 sync logs
     const syncLogs = await prisma.syncLog.findMany({
-      where: { source: 'hubspot' },
-      orderBy: { syncedAt: 'desc' },
+      orderBy: { startedAt: 'desc' },
       take: 10,
     });
 
     // Get last successful sync
     const lastSuccess = await prisma.syncLog.findFirst({
       where: {
-        source: 'hubspot',
         status: 'success',
       },
-      orderBy: { syncedAt: 'desc' },
+      orderBy: { startedAt: 'desc' },
     });
 
     return NextResponse.json({

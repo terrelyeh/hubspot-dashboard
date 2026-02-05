@@ -1,366 +1,348 @@
-# HubSpot Dashboard - Feature Documentation
+# HubSpot Dashboard - Complete Feature Documentation
 
-## 📋 目錄
-
-1. [專案概述](#專案概述)
-2. [核心功能](#核心功能)
-3. [技術架構](#技術架構)
-4. [資料庫架構](#資料庫架構)
-5. [API 端點](#api-端點)
-6. [HubSpot 整合](#hubspot-整合)
-7. [多幣別支援](#多幣別支援)
-8. [部署準備](#部署準備)
+**Version**: 1.0.0
+**Last Updated**: 2026-02-05
+**Maintainer**: Terrel Yeh
 
 ---
 
-## 專案概述
+## 📋 Table of Contents
 
-**HubSpot Dashboard** 是一個專為銷售團隊設計的即時業績追蹤與預測系統，整合 HubSpot CRM 資料，提供多區域、多幣別的業績分析與目標管理功能。
-
-### 主要特點
-
-- 🎯 **即時業績追蹤**: 與 HubSpot CRM 即時同步，顯示最新的交易狀態
-- 🌍 **多區域管理**: 支援北美、歐洲、亞太等多個地區的獨立追蹤
-- 💱 **多幣別支援**: USD、JPY 等多種貨幣，自動轉換與顯示
-- 📊 **銷售漏斗分析**: 依據 Pipeline Stage 分析交易進度
-- 🎲 **加權預測**: 基於成交機率的智能業績預測
-- 👥 **Owner 級別目標**: 個人與團隊目標設定與追蹤
-- 📈 **Deal 詳細資訊**: Line Items、Contacts、Deal Properties 完整顯示
+1. [Overview](#overview)
+2. [Architecture](#architecture)
+3. [Core Features](#core-features)
+4. [Technical Stack](#technical-stack)
+5. [Database Schema](#database-schema)
+6. [API Endpoints](#api-endpoints)
+7. [HubSpot Integration](#hubspot-integration)
+8. [Multi-Currency Support](#multi-currency-support)
+9. [Deployment](#deployment)
 
 ---
 
-## 核心功能
+## Overview
 
-### 1. Dashboard 首頁 (/)
+**HubSpot Dashboard** is a comprehensive sales tracking and forecasting system designed for multi-region teams. It integrates with multiple HubSpot CRM accounts, providing real-time visibility into deal pipelines, target management, and weighted forecasting across different regions.
 
-**檔案位置**: `src/app/page.tsx`
+### Key Capabilities
 
-#### 功能概述
-- 顯示全公司總覽資料
-- Pipeline Stages 配置卡片
-- Region 快速切換
-- 季度業績摘要
-
-#### 關鍵元素
-```typescript
-// 主要區塊
-- Header: 公司 Logo、導航選單、Demo Mode 切換
-- Pipeline Stages Card: Stage 配置與機率設定
-- Region Cards: 各區域業績總覽與快速連結
-- Metrics Overview: 關鍵指標摘要
-```
-
-#### 特殊功能
-- **Demo Mode**: 切換真實 HubSpot 資料與模擬資料
-- **Quick Actions**: 快速導航到 Targets、Settings
-- **Region Flags**: 視覺化顯示各區域國旗圖示
+- 🌍 **Multi-Region, Multi-Account**: Each region (US, APAC, JP, IN, EU) uses its own HubSpot account
+- 📊 **Rich Deal Details**: Line Items (products), Contacts, and custom properties
+- 🎯 **Target Management**: Owner-level quarterly targets with achievement tracking
+- 📈 **Weighted Forecasting**: Intelligent forecast based on stage probabilities
+- 💱 **Multi-Currency**: Automatic conversion between USD, JPY, and more
+- ⚡ **On-Demand Loading**: Performance-optimized data fetching
+- 🎨 **Interactive UI**: Slideout panels, expandable cards, one-click navigation
 
 ---
 
-### 2. Region Dashboard (/dashboard/[region])
+## Architecture
 
-**檔案位置**: `src/app/dashboard/[region]/page.tsx`
+### Single-Layer Design with Region Switching
 
-#### 功能概述
-單一區域的詳細業績儀表板，顯示該區域所有相關指標與交易資訊。
+The dashboard uses a **streamlined single-layer architecture** instead of traditional two-tier designs:
 
-#### 主要指標卡片
+```
+┌─────────────────────────────────────────┐
+│         Dashboard (/)                    │
+│  ┌─────────────────────────────────┐   │
+│  │  Region Selector (Top-right)    │   │
+│  │  ┌─────┬──────┬─────┬─────┬────┐│   │
+│  │  │ US  │ APAC │ JP  │ IN  │ EU ││   │
+│  │  └─────┴──────┴─────┴─────┴────┘│   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  [Quarter Performance]                  │
+│  [Pipeline by Stage]                    │
+│  [Forecast Categories]                  │
+│  [Key Activities]                       │
+│  [Top 10 Deals - Clickable]            │
+└─────────────────────────────────────────┘
+```
 
-##### Quarter Performance (季度業績)
-- **Simple Total**: 所有交易金額總和
-- **Weighted Forecast**: 加權預測金額（金額 × 成交機率）
-- **Target**: 季度目標
-- **Achievement Rate**: 達成率百分比
+### Multi-Account Architecture
 
-##### Pipeline by Stage (階段分布)
-- 各個 Pipeline Stage 的交易數量
-- Simple 與 Weighted 金額
-- 視覺化分布圖
+**Each region connects to its own HubSpot account:**
 
-##### Forecast Categories (預測分類)
-- **Commit**: 確定成交
-- **Best Case**: 最佳情況
-- **Pipeline**: 一般管道
-- **Omitted**: 排除項目
+| Region | HubSpot Account | API Key | Database Isolation |
+|--------|-----------------|---------|-------------------|
+| US | Account 1 | `HUBSPOT_API_KEY_US` | `regionId = 'US'` |
+| APAC | Account 2 | `HUBSPOT_API_KEY_APAC` | `regionId = 'APAC'` |
+| JP | Account 3 | `HUBSPOT_API_KEY_JP` | `regionId = 'JP'` |
+| IN | Account 4 | `HUBSPOT_API_KEY_IN` | `regionId = 'IN'` |
+| EU | Account 5 | `HUBSPOT_API_KEY_EU` | `regionId = 'EU'` |
 
-##### Key Activities (關鍵活動)
-- **New Deals**: 本季新建交易
-- **Closed Won**: 已成交
-- **Closed Lost**: 已流失
-- **Stale Deals**: 超過 14 天未更新
-- **Large Deals**: 超過 $100K 的大額交易
-
-#### 互動功能
-- **Slideout Panel**: 點擊任何指標卡片，右側展開詳細資料
-- **Deal Cards**: 顯示每筆交易的詳細資訊
-- **Expandable Details**: 點擊 "View Details" 展開 Line Items、Contacts 等資訊
+**Why this approach?**
+- ✅ Each region has unique Pipeline Stage definitions
+- ✅ Deal properties vary by region
+- ✅ Independent data management per account
+- ✅ No extra navigation layers
+- ✅ Direct access to relevant information
 
 ---
 
-### 3. Deal 資訊卡片系統
+## Core Features
 
-#### Deal Card 基本資訊
+### 1. Dashboard with Region Switching
 
-**顯示欄位**:
-```typescript
-{
-  name: string              // 交易名稱
-  amount: number           // 金額（USD）
-  amountFormatted: string  // 格式化顯示（如：$150K）
-  currency: string         // 幣別（USD/JPY）
-  stage: string           // Pipeline Stage
-  probability: number     // 成交機率 (%)
-  forecastCategory: string // Commit/Best Case/Pipeline/Omitted
-  createdAt: Date         // 建立日期
-  owner: string           // 負責業務
-  daysSinceUpdate: number // 最後更新距今天數
-}
-```
+**Route**: `/dashboard`
 
-#### 視覺元素
-- **Forecast Badge**: 依據分類顯示不同顏色
-  - Commit: 綠色
-  - Best Case: 藍色
-  - Pipeline: 灰色
-  - Omitted: 紅色
+The main dashboard displays comprehensive metrics for the selected region. Users can switch regions instantly via the top-right selector.
 
-- **Update Status Indicator**:
-  - 綠點: 近期更新 (< 7 天)
-  - 黃點: 需注意 (7-14 天)
-  - 紅點: 過期 (> 14 天)
+#### Displayed Metrics
 
-#### Expandable Details (展開資訊)
+##### A. Quarter Performance
+- **Simple Total**: Sum of all deal amounts
+- **Weighted Forecast**: Amount × Probability for each deal
+- **Target**: Quarterly target set for the region
+- **Achievement Rate**: (Weighted / Target) × 100%
 
-點擊 "View Details" 後展開三個區塊：
+##### B. Pipeline by Stage
+Shows distribution across pipeline stages:
+- Stage name
+- Deal count
+- Simple total
+- Weighted total
+- Average probability
 
-##### 1. Deal Information (交易資訊)
-```typescript
-{
-  closeDate: Date          // Expected Close Date (預計成交日期)
-  distributor: string?     // Distributor (經銷商) - 紫色 badge
-  priority: 'high' | 'medium' | 'low'  // 優先級
-  description: string?     // 描述
-  numContacts: number      // 關聯聯絡人數量
-}
-```
+##### C. Forecast Categories
+- **Commit**: High-confidence deals
+- **Best Case**: Optimistic forecast
+- **Pipeline**: Standard pipeline
+- **Omitted**: Excluded from forecast
 
-##### 2. Line Items (產品明細)
-```typescript
-{
-  name: string            // 產品名稱
-  description: string?    // 產品描述
-  quantity: number        // 數量
-  price: number          // 單價
-  amount: number         // 總額 (quantity × price)
-}
-```
+##### D. Key Activities
+- **New Deals**: Created this quarter
+- **Closed Won**: Successfully closed
+- **Closed Lost**: Lost opportunities
+- **Stale Deals**: Not updated in 14+ days
+- **Large Deals**: Value > $100K closing this month
 
-顯示格式：
-- 藍色背景區塊
-- 每個產品顯示為獨立卡片
-- 顯示產品圖示與完整資訊
-
-##### 3. Contacts (聯絡人)
-```typescript
-{
-  firstName: string
-  lastName: string
-  email: string?
-  jobTitle: string?
-  phone: string?
-  company: string?
-}
-```
-
-顯示格式：
-- 綠色背景區塊
-- 聯絡人卡片包含頭像與詳細資訊
+##### E. Top 10 Deals
+Sortable table showing:
+- Deal name
+- Amount
+- Stage
+- Owner
+- Close date
+- **Interactive**: Click any row to open detailed slideout
 
 ---
 
-### 4. Top 10 Deals 互動功能
+### 2. Deal Details with Expandable Information
 
-**功能**: 點擊 Top 10 Deals 表格中的任何一列，會開啟右側 Slideout 顯示該 Deal 的完整資訊。
+**Click any deal card or table row** to reveal comprehensive deal information.
 
-**檔案位置**: `src/app/dashboard/page.tsx`
-
-**實作方式**:
-```typescript
-<tr
-  onClick={() => openSlideout(deal.name, [deal])}
-  className="hover:bg-blue-50/50 transition-colors duration-150 cursor-pointer"
->
-  ...
-</tr>
+#### Deal Information Section
 ```
+┌─────────────────────────────────────────┐
+│ Deal Information                         │
+├─────────────────────────────────────────┤
+│ Expected Close Date: February 15, 2026  │
+│ Distributor: MRL [Purple Badge]         │
+│ Priority: 🔴 High                        │
+│ Contacts: 3 person(s)                   │
+│ Description: [Deal description text]    │
+└─────────────────────────────────────────┘
+```
+
+#### Line Items (Product Details)
+```
+┌─────────────────────────────────────────┐
+│ Line Items (3 products) [Blue]          │
+├─────────────────────────────────────────┤
+│ ┌─────────────────────────────────────┐ │
+│ │ ECW260                              │ │
+│ │ Description: Product description    │ │
+│ │ Qty: 5 × $179.50 = $897.50        │ │
+│ └─────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────┐ │
+│ │ ECW536                              │ │
+│ │ Qty: 1 × $299.50 = $299.50        │ │
+│ └─────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────┐ │
+│ │ ECS1008P                            │ │
+│ │ Qty: 10 × $74.99 = $749.90        │ │
+│ └─────────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+```
+
+#### Contacts (Associated People)
+```
+┌─────────────────────────────────────────┐
+│ Contacts (3 contacts) [Green]           │
+├─────────────────────────────────────────┤
+│ ┌─────────────────────────────────────┐ │
+│ │ 👤 John Smith                       │ │
+│ │ 📧 john@example.com                │ │
+│ │ 💼 Sales Manager                   │ │
+│ │ 📞 +1 234 567 8900                 │ │
+│ │ 🏢 ABC Company                     │ │
+│ └─────────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+```
+
+**Implementation**: Data is fetched on-demand when user clicks "View Details" to optimize performance.
 
 ---
 
-### 5. Target Management (目標管理)
+### 3. Target Management
 
-**檔案位置**: `src/app/settings/targets/page.tsx`
+**Route**: `/settings/targets`
 
-#### 功能概述
-設定與管理 Owner 級別的季度業績目標。
+Set and manage quarterly targets for each sales owner by region.
 
-#### 功能特點
-- **Owner Selection**: 選擇業務員
-- **Quarter Selection**: 選擇目標季度
-- **Currency Selection**: 選擇目標幣別 (USD/JPY)
-- **Region Assignment**: 指定所屬區域
-- **Auto-conversion**: 自動轉換為 USD 儲存
+#### Features
+- **Owner Selection**: Choose from synced HubSpot owners
+- **Quarter Selection**: Q1-Q4 for any year
+- **Currency Selection**: USD, JPY (auto-converted to USD for storage)
+- **Region Assignment**: Link target to specific region
+- **Bulk Operations**: Set multiple targets at once
 
-#### 批量管理
-- 支援一次設定多個 Owner 的目標
-- 自動檢查重複目標
-- 更新現有目標或建立新目標
-
----
-
-### 6. Pipeline Stages Configuration
-
-**檔案位置**: `src/app/pipeline-stages/page.tsx`
-
-#### 功能概述
-設定每個 Pipeline Stage 的機率值，用於計算加權預測。
-
-#### 資料結構
-```typescript
-{
-  id: string
-  stageName: string      // Stage 名稱
-  probability: number    // 成交機率 (0-100)
-  stageOrder: number    // 排序
-}
+#### Data Flow
 ```
-
-#### 使用場景
-1. 從 HubSpot 同步 Pipeline Stages
-2. 為每個 Stage 設定機率值
-3. 用於計算 Weighted Forecast
-
----
-
-### 7. HubSpot 同步系統
-
-**檔案位置**:
-- `src/lib/hubspot/client.ts`
-- `src/lib/hubspot/sync.ts`
-- `src/app/api/hubspot/sync/route.ts`
-
-#### 同步資料類型
-1. **Deals**: 交易基本資料
-2. **Owners**: 業務員資訊
-3. **Pipeline Stages**: 銷售階段
-4. **Line Items**: 產品明細 (on-demand)
-5. **Contacts**: 聯絡人資訊 (on-demand)
-
-#### 同步方式
-- **Full Sync**: 完整同步所有資料
-- **Incremental Sync**: 僅同步更新的資料
-- **On-Demand Fetch**: 展開 Deal Details 時才抓取
-
-#### HubSpot API 權限要求
-```
-crm.objects.deals.read
-crm.objects.deals.write
-crm.objects.owners.read
-crm.objects.line_items.read
-crm.objects.contacts.read
-crm.objects.companies.read
-crm.schemas.deals.read
-crm.schemas.line_items.read
-crm.schemas.contacts.read
-crm.schemas.companies.read
+User Input (JPY ¥15,000,000)
+    ↓
+Currency Conversion (150 JPY = 1 USD)
+    ↓
+Stored as USD ($100,000)
+    ↓
+Display in any currency
 ```
 
 ---
 
-### 8. Currency Support (多幣別系統)
+### 4. Pipeline Stages Configuration
 
-**檔案位置**:
-- `src/lib/currency.ts`
-- `src/lib/currency/converter.ts`
+**Route**: `/pipeline-stages`
 
-#### 支援幣別
-- USD (美元) - 基準貨幣
-- JPY (日圓)
-- 可擴充其他幣別
+Configure the probability value for each pipeline stage, used in weighted forecast calculations.
 
-#### 轉換邏輯
-```typescript
-// 所有資料以 USD 儲存在資料庫
-deal.amountUsd = originalAmount / exchangeRate
+#### Configuration
+- **Stage Name**: Synced from HubSpot
+- **Probability**: 0-100% (user-defined)
+- **Stage Order**: Determines display sequence
 
-// 顯示時依據用戶選擇的幣別轉換
-displayAmount = deal.amountUsd * exchangeRate
+#### Example Configuration
+```
+┌──────────────────────┬──────────────┐
+│ Stage                │ Probability  │
+├──────────────────────┼──────────────┤
+│ Qualification        │ 10%          │
+│ Demo Scheduled       │ 20%          │
+│ Proposal Sent        │ 40%          │
+│ Negotiation          │ 60%          │
+│ Verbal Commit        │ 80%          │
+│ Closed Won           │ 100%         │
+│ Closed Lost          │ 0%           │
+└──────────────────────┴──────────────┘
 ```
 
-#### Exchange Rate
-- 可從 API 取得即時匯率
-- 目前使用固定匯率：1 USD = 150 JPY
+**Note**: Future enhancement will support per-region stage configuration.
 
 ---
 
-## 技術架構
+### 5. HubSpot Synchronization
 
-### 前端技術棧
+**Route**: `/settings/hubspot`
+
+#### Sync Types
+
+##### Full Sync
+- Syncs all deals, owners, and pipeline stages
+- Use for initial setup or data refresh
+- Longer duration depending on data volume
+
+##### Incremental Sync
+- Only updates changed records
+- Faster performance
+- Recommended for routine updates
+
+##### On-Demand Fetch
+- **Line Items**: Fetched when deal is expanded
+- **Contacts**: Fetched when deal is expanded
+- Reduces initial load time
+
+#### What Gets Synced
+
+**Deals**:
+- Deal name, amount, currency
+- Stage, probability, forecast category
+- Close date, created date
+- Owner information
+- Custom properties (distributor, priority, description)
+
+**Owners**:
+- Name and email
+- Used for target assignment
+
+**Pipeline Stages**:
+- Stage names and order
+- Used for probability configuration
+
+**Not Synced Initially** (fetched on-demand):
+- Line Items
+- Contacts
+- Companies
+
+---
+
+## Technical Stack
+
+### Frontend
 - **Framework**: Next.js 15.5.11 (App Router)
 - **Language**: TypeScript 5
+- **UI Library**: React 19
 - **Styling**: Tailwind CSS 3.4.1
-- **UI Components**: 自訂元件
+- **State Management**: React hooks (useState, useEffect)
 
-### 後端技術棧
-- **API**: Next.js API Routes
+### Backend
+- **API**: Next.js API Routes (serverless functions)
 - **Database ORM**: Prisma 6.2.0
-- **Database**: SQLite (開發) / PostgreSQL (生產推薦)
-- **Runtime**: Node.js
+- **Database**: SQLite (dev) / PostgreSQL (production)
+- **Runtime**: Node.js 18+
 
-### 整合服務
+### Integrations
 - **CRM**: HubSpot Private App API
-- **Currency**: Exchange Rate API (optional)
+- **Currency**: exchangerate-api.com (optional)
 
 ---
 
-## 資料庫架構
+## Database Schema
 
-### Prisma Schema
+### Core Models
 
-**檔案位置**: `prisma/schema.prisma`
-
-#### 主要資料表
-
-##### 1. Region (區域)
+#### Region
 ```prisma
 model Region {
-  id          String   @id @default(cuid())
-  code        String   @unique  // NA, EU, APAC
-  name        String              // North America, Europe, Asia Pacific
-  flag        String?             // 國旗 emoji
-  deals       Deal[]
-  targets     Target[]
+  id       String   @id @default(cuid())
+  code     String   @unique  // NA, EU, APAC, JP, IN
+  name     String
+  flag     String?  // Emoji flag
+  deals    Deal[]
+  targets  Target[]
 }
 ```
 
-##### 2. Deal (交易)
+#### Deal
 ```prisma
 model Deal {
   id                String   @id @default(cuid())
   hubspotId         String   @unique
   name              String
-  amountUsd         Float              // 統一以 USD 儲存
+  amountUsd         Float    // Stored in USD
   currency          String   @default("USD")
   stage             String
   stageProbability  Float
-  forecastCategory  String?            // Commit, Best Case, Pipeline, Omitted
+  forecastCategory  String?
   closeDate         DateTime
   createdAt         DateTime
   lastModifiedAt    DateTime
   ownerEmail        String?
   ownerName         String?
-  priority          String?            // high, medium, low
+  priority          String?  // high, medium, low
   description       String?
-  distributor       String?            // 經銷商
+  distributor       String?
   numContacts       Int      @default(0)
   hubspotUrl        String?
   regionId          String
@@ -370,7 +352,7 @@ model Deal {
 }
 ```
 
-##### 3. LineItem (產品明細)
+#### LineItem
 ```prisma
 model LineItem {
   id                String   @id @default(cuid())
@@ -388,7 +370,7 @@ model LineItem {
 }
 ```
 
-##### 4. DealContact (交易聯絡人)
+#### DealContact
 ```prisma
 model DealContact {
   id               String   @id @default(cuid())
@@ -406,14 +388,14 @@ model DealContact {
 }
 ```
 
-##### 5. Target (目標)
+#### Target
 ```prisma
 model Target {
   id         String   @id @default(cuid())
   ownerEmail String
   ownerName  String?
-  quarter    String   // Q1 2024, Q2 2024, etc.
-  targetUsd  Float    // 統一以 USD 儲存
+  quarter    String   // "Q1 2024", "Q2 2024"
+  targetUsd  Float    // Stored in USD
   currency   String   @default("USD")
   regionId   String
   region     Region   @relation(fields: [regionId], references: [id])
@@ -424,491 +406,435 @@ model Target {
 }
 ```
 
-##### 6. PipelineStage (銷售階段)
+#### PipelineStage
 ```prisma
 model PipelineStage {
   id          String   @id @default(cuid())
   stageName   String   @unique
-  probability Float              // 成交機率 0-100
-  stageOrder  Int                // 排序
+  probability Float    // 0-100
+  stageOrder  Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 ```
 
-### 資料庫遷移紀錄
-
-所有 migration 檔案位於 `prisma/migrations/`:
-- `20260204000000_add_owner_to_targets`: 新增 Owner 資訊到 Target
-- `20260204131951_add_pipeline_stage`: 新增 PipelineStage 表
-- `20260204152805_add_line_items_contacts_and_deal_properties`: 新增 LineItem、DealContact、Deal 額外欄位
-- `20260205012742_add_distributor_to_deals`: 新增 Distributor 欄位到 Deal
-
 ---
 
-## API 端點
+## API Endpoints
 
-### Dashboard APIs
+### Dashboard API
 
-#### 1. GET /api/dashboard
-**功能**: 取得 Dashboard 總覽資料
-
+#### `GET /api/dashboard`
 **Query Parameters**:
-- `region`: Region code (NA, EU, APAC, etc.)
+- `region`: Region code (optional, defaults to first region)
 
 **Response**:
-```typescript
+```json
 {
-  quarterPerformance: {
-    simple: number
-    weighted: number
-    target: number
-    achievementRate: number
-    currency: string
+  "quarterPerformance": {
+    "simple": 1500000,
+    "weighted": 750000,
+    "target": 1000000,
+    "achievementRate": 75,
+    "currency": "USD"
   },
-  pipelineByStage: Array<{
-    stage: string
-    count: number
-    simple: number
-    weighted: number
-    probability: number
-  }>,
-  forecastByCategory: {
-    commit: number
-    bestCase: number
-    pipeline: number
-    omitted: number
-  },
-  keyActivities: {
-    newDeals: { count, amount }
-    closedWon: { count, amount }
-    closedLost: { count, amount }
-    staleDeals: { count, amount }
-    largeDeals: { count, amount }
-  },
-  topDeals: Array<Deal>,
-  detailedDeals: {
-    newDeals, closedWonDeals, closedLostDeals,
-    staleDeals, largeDeals, commitDeals,
-    bestCaseDeals, pipelineDeals
-  },
-  region: { code, name }
+  "pipelineByStage": [...],
+  "forecastByCategory": {...},
+  "keyActivities": {...},
+  "topDeals": [...],
+  "detailedDeals": {...},
+  "region": { "code": "US", "name": "United States" }
 }
 ```
 
-#### 2. GET /api/deals/[id]
-**功能**: 取得單一 Deal 的詳細資訊，包含 Line Items 和 Contacts
+### Deal Details API
 
+#### `GET /api/deals/[id]`
 **Response**:
-```typescript
+```json
 {
-  success: boolean
-  deal: {
-    id: string
-    hubspotId: string
-    name: string
-    amount: number
-    currency: string
-    stage: string
-    probability: number
-    forecastCategory: string
-    closeDate: string
-    createdAt: string
-    owner: string
-    ownerEmail: string
-    priority: string
-    description: string
-    distributor: string
-    numContacts: number
-    lineItems: Array<LineItem>
-    contacts: Array<Contact>
-    region: { code, name }
+  "success": true,
+  "deal": {
+    "id": "...",
+    "name": "Deal Name",
+    "amount": 33989.9,
+    "currency": "USD",
+    "closeDate": "2026-02-15T00:00:00.000Z",
+    "distributor": "MRL",
+    "priority": "high",
+    "lineItems": [
+      {
+        "id": "...",
+        "name": "ECW260",
+        "quantity": 5,
+        "price": 179.50,
+        "amount": 897.50
+      }
+    ],
+    "contacts": [
+      {
+        "id": "...",
+        "fullName": "John Smith",
+        "email": "john@example.com",
+        "jobTitle": "Sales Manager"
+      }
+    ]
   }
 }
 ```
 
 ### HubSpot Integration APIs
 
-#### 3. POST /api/hubspot/sync
-**功能**: 從 HubSpot 同步資料到本地資料庫
+#### `POST /api/hubspot/sync`
+Trigger data synchronization from HubSpot.
 
 **Body**:
-```typescript
+```json
 {
-  syncDeals?: boolean
-  syncOwners?: boolean
-  syncStages?: boolean
+  "syncDeals": true,
+  "syncOwners": true,
+  "syncStages": true
 }
 ```
 
-#### 4. GET /api/hubspot/test
-**功能**: 測試 HubSpot API 連線
+#### `GET /api/hubspot/test`
+Test HubSpot API connection.
 
 ### Target Management APIs
 
-#### 5. GET /api/targets
-**功能**: 取得所有 Target 設定
+#### `GET /api/targets`
+List all targets.
 
-#### 6. POST /api/targets
-**功能**: 建立或更新 Target
+#### `POST /api/targets`
+Create or update a target.
 
 **Body**:
-```typescript
+```json
 {
-  ownerEmail: string
-  ownerName: string
-  quarter: string
-  targetAmount: number
-  currency: string
-  regionId: string
+  "ownerEmail": "john@example.com",
+  "ownerName": "John Smith",
+  "quarter": "Q1 2026",
+  "targetAmount": 100000,
+  "currency": "USD",
+  "regionId": "us-region-id"
 }
 ```
 
-#### 7. POST /api/targets/bulk
-**功能**: 批量建立或更新多個 Targets
+#### `POST /api/targets/bulk`
+Batch create/update multiple targets.
 
 ### Other APIs
 
-#### 8. GET /api/regions
-**功能**: 取得所有 Region 資訊
+#### `GET /api/regions`
+List all available regions.
 
-#### 9. GET /api/pipeline-stages
-**功能**: 取得所有 Pipeline Stage 配置
+#### `GET /api/pipeline-stages`
+Get pipeline stage configuration.
 
-#### 10. POST /api/pipeline-stages
-**功能**: 更新 Pipeline Stage 機率設定
+#### `POST /api/pipeline-stages`
+Update pipeline stage probabilities.
 
 ---
 
-## HubSpot 整合
+## HubSpot Integration
 
-### 設定步驟
+### Required API Scopes
 
-1. **建立 HubSpot Private App**
-   - 登入 HubSpot Account
-   - Settings → Integrations → Private Apps
-   - 建立新的 Private App
-   - 設定所需權限（見上方權限清單）
+```
+crm.objects.deals.read
+crm.objects.deals.write
+crm.objects.owners.read
+crm.objects.line_items.read
+crm.objects.contacts.read
+crm.objects.companies.read
+crm.schemas.deals.read
+crm.schemas.line_items.read
+crm.schemas.contacts.read
+crm.schemas.companies.read
+```
 
-2. **設定環境變數**
+### HubSpot Client Implementation
 
-   在 `.env` 或 `.env.local` 檔案中：
-   ```bash
-   HUBSPOT_API_KEY=your-private-app-token
-   ```
+**File**: `src/lib/hubspot/client.ts`
 
-3. **初始同步**
-
-   執行同步指令或呼叫 API：
-   ```bash
-   # 或透過 UI 在 Settings → HubSpot Integration 點擊 "Sync Now"
-   ```
-
-### 資料同步策略
-
-#### 完整同步 (Full Sync)
-- 適用場景: 初次設定、資料不一致
-- 執行時間: 較長（依資料量而定）
-- 操作: 刪除現有資料，重新匯入
-
-#### 增量同步 (Incremental Sync)
-- 適用場景: 定期更新
-- 執行時間: 較短
-- 操作: 僅更新有變動的資料
-
-#### 按需抓取 (On-Demand Fetch)
-- 適用場景: Line Items、Contacts
-- 執行時間: 即時
-- 操作: 使用者點擊時才從 HubSpot API 抓取
-
-### HubSpot Client 實作
-
-**檔案**: `src/lib/hubspot/client.ts`
-
-主要方法:
+**Key Methods**:
 ```typescript
 class HubSpotClient {
-  // 基本 Deal 查詢
+  // Fetch all deals
   async fetchDeals(): Promise<HubSpotDeal[]>
 
-  // 批量抓取 Line Items
-  async fetchLineItems(lineItemIds: string[]): Promise<HubSpotLineItem[]>
+  // Batch fetch line items
+  async fetchLineItems(ids: string[]): Promise<HubSpotLineItem[]>
 
-  // 批量抓取 Contacts
-  async fetchContacts(contactIds: string[]): Promise<HubSpotContact[]>
+  // Batch fetch contacts
+  async fetchContacts(ids: string[]): Promise<HubSpotContact[]>
 
-  // 抓取 Deal 及其關聯資料
+  // Fetch deal with all associations
   async fetchDealWithAssociations(dealId: string): Promise<{
     deal: HubSpotDeal
     lineItems: HubSpotLineItem[]
     contacts: HubSpotContact[]
   }>
 
-  // 抓取 Owners
+  // Fetch owners
   async fetchOwners(): Promise<HubSpotOwner[]>
 
-  // 抓取 Pipeline Stages
+  // Fetch pipeline stages
   async fetchPipelineStages(): Promise<HubSpotPipelineStage[]>
 }
 ```
 
+### Multi-Account Support (Future)
+
+**Environment Variables**:
+```bash
+HUBSPOT_API_KEY_US=token-for-us-account
+HUBSPOT_API_KEY_APAC=token-for-apac-account
+HUBSPOT_API_KEY_JP=token-for-jp-account
+HUBSPOT_API_KEY_IN=token-for-in-account
+HUBSPOT_API_KEY_EU=token-for-eu-account
+```
+
+**Client Factory**:
+```typescript
+function createHubSpotClient(region: string): HubSpotClient {
+  const apiKey = getApiKeyForRegion(region);
+  return new HubSpotClient(apiKey);
+}
+```
+
 ---
 
-## 多幣別支援
+## Multi-Currency Support
 
-### 實作架構
+### Overview
 
-#### 儲存策略
-- **資料庫**: 所有金額以 USD 儲存（`amountUsd`, `targetUsd`）
-- **紀錄原幣別**: 保留原始幣別資訊（`currency`）
-- **轉換時機**:
-  - 寫入時: 其他幣別 → USD
-  - 讀取時: USD → 使用者選擇的幣別
+The system supports multiple currencies with automatic conversion. All amounts are stored in USD for consistent calculations and reporting.
 
-#### 匯率管理
+### Supported Currencies
 
-**檔案**: `src/lib/currency/converter.ts`
+- **USD** (US Dollar) - Base currency
+- **JPY** (Japanese Yen)
+- **EUR** (Euro)
+- **GBP** (British Pound)
+- **CNY** (Chinese Yuan)
+- **KRW** (Korean Won)
+- **SGD** (Singapore Dollar)
+- **HKD** (Hong Kong Dollar)
+- **AUD** (Australian Dollar)
+- **CAD** (Canadian Dollar)
+- And 150+ more via exchangerate-api.com
+
+### How It Works
+
+#### 1. Data Storage Strategy
+```typescript
+// All amounts stored in USD
+{
+  amount: 5000000,        // Original amount
+  currency: "JPY",        // Original currency
+  amountUsd: 33333.33,    // Converted to USD
+  exchangeRate: 150       // Rate used: 150 JPY = 1 USD
+}
+```
+
+#### 2. Currency Conversion Flow
+```
+HubSpot Deal (¥5,000,000 JPY)
+        ↓
+Fetch Exchange Rate (1 USD = 150 JPY)
+        ↓
+Convert to USD ($33,333.33)
+        ↓
+Store in Database (amountUsd)
+        ↓
+Display in Any Currency
+```
+
+#### 3. Exchange Rate Management
+
+**File**: `src/lib/currency/converter.ts`
 
 ```typescript
-// 支援的幣別
-const SUPPORTED_CURRENCIES = ['USD', 'JPY']
+// Convert currency
+const result = await convertCurrency(5000000, "JPY", "USD");
+// Returns: { amount: 33333.33, rate: 150 }
 
-// 匯率設定（相對於 USD）
+// Supported rates
 const EXCHANGE_RATES = {
   USD: 1,
-  JPY: 150,  // 1 USD = 150 JPY
-}
-
-// 轉換函數
-function convertCurrency(
-  amount: number,
-  fromCurrency: string,
-  toCurrency: string
-): number
+  JPY: 150,
+  EUR: 0.92,
+  GBP: 0.79,
+  // ... more currencies
+};
 ```
 
-#### 前端顯示
+#### 4. Rate Caching
 
-使用者可在 Target 設定時選擇幣別：
-```tsx
-<select value={currency} onChange={(e) => setCurrency(e.target.value)}>
-  <option value="USD">USD ($)</option>
-  <option value="JPY">JPY (¥)</option>
-</select>
+- Exchange rates cached for 24 hours
+- Reduces API calls
+- Fallback to built-in rates if API fails
+
+### Target Management with Currency
+
+Users can set targets in their preferred currency:
+
+```typescript
+// User sets target: ¥15,000,000 JPY
+const targetAmount = 15000000;
+const currency = "JPY";
+
+// System converts and stores
+const targetUsd = targetAmount / exchangeRates["JPY"];
+// Stored: $100,000 USD
+
+// Can display in any currency later
+const displayInJPY = targetUsd * exchangeRates["JPY"];
+// Display: ¥15,000,000 JPY
 ```
 
-### 擴充新幣別
+### Currency Conversion Examples
 
-1. 更新 `SUPPORTED_CURRENCIES`
-2. 新增 `EXCHANGE_RATES` 匯率
-3. 可選: 串接即時匯率 API
+#### Japanese Yen (JPY)
+```
+Original: ¥5,000,000 JPY
+Rate: 1 JPY = $0.00667 USD (150 JPY = 1 USD)
+Converted: $33,333.33 USD
+```
+
+#### Euro (EUR)
+```
+Original: €10,000 EUR
+Rate: 1 EUR ≈ $1.09 USD
+Converted: $10,900 USD
+```
+
+#### British Pound (GBP)
+```
+Original: £8,000 GBP
+Rate: 1 GBP ≈ $1.27 USD
+Converted: $10,160 USD
+```
+
+### Future Enhancements
+
+- 🔜 Real-time exchange rate updates
+- 🔜 Historical rate tracking
+- 🔜 Manual rate overrides
+- 🔜 Multi-base currency (EUR, JPY)
+- 🔜 Currency risk analysis
 
 ---
 
-## 部署準備
+## Deployment
 
-### 環境變數檢查清單
-
-建立 `.env.production` 檔案：
+### Environment Variables
 
 ```bash
-# HubSpot Integration
-HUBSPOT_API_KEY=your-production-hubspot-token
+# HubSpot API Keys
+HUBSPOT_API_KEY=your-primary-api-key
+HUBSPOT_API_KEY_US=your-us-api-key
+HUBSPOT_API_KEY_APAC=your-apac-api-key
+HUBSPOT_API_KEY_JP=your-jp-api-key
+HUBSPOT_API_KEY_IN=your-in-api-key
+HUBSPOT_API_KEY_EU=your-eu-api-key
 
 # Database
-DATABASE_URL=your-production-database-url
+DATABASE_URL=postgresql://user:password@host:5432/database
 
-# Optional: Currency API
-EXCHANGE_RATE_API_KEY=your-api-key
+# Optional
+EXCHANGE_RATE_API_KEY=your-exchange-rate-api-key
 ```
 
-### 資料庫遷移
-
-#### 開發環境 (SQLite)
-```bash
-npx prisma migrate dev
-```
-
-#### 生產環境 (PostgreSQL 推薦)
-```bash
-# 1. 更新 DATABASE_URL 為 PostgreSQL 連線字串
-# 2. 執行 migration
-npx prisma migrate deploy
-
-# 3. 生成 Prisma Client
-npx prisma generate
-```
-
-### 建置步驟
+### Build & Deploy
 
 ```bash
-# 1. 安裝依賴
+# Install dependencies
 npm install
 
-# 2. 執行 Prisma 生成
+# Generate Prisma client
 npx prisma generate
 
-# 3. 建置生產版本
+# Run migrations
+npx prisma migrate deploy
+
+# Build application
 npm run build
 
-# 4. 啟動生產伺服器
+# Start server
 npm start
 ```
 
-### 需要移除的檔案
+### Recommended Platforms
 
-部署前建議移除以下檔案：
+- **Vercel**: Seamless Next.js deployment
+- **Railway**: Easy PostgreSQL integration
+- **Render**: Full-stack support
 
-#### 備份檔案
-- `src/app/targets/page.tsx.backup`
-- `src/app/dashboard/[region]/page.tsx.backup`
-- `src/app/dashboard/page.tsx.backup`
-- `src/app/page.tsx.backup`
-- `src/components/dashboard/RegionCard.tsx.backup`
-- `src/components/dashboard/MetricCard.tsx.backup`
-
-#### 優化版本檔案（如果不使用）
-- `src/app/dashboard/[region]/page-optimized.tsx`
-- `src/app/dashboard/page-optimized.tsx`
-- `src/app/page-optimized.tsx`
-- `src/app/targets/page-optimized.tsx`
-- `src/components/dashboard/MetricCardOptimized.tsx`
-- `src/components/dashboard/RegionCardOptimized.tsx`
-
-#### 測試檔案
-- `src/app/test/page.tsx`
-
-#### 種子檔案（生產環境不需要）
-- `prisma/seed-realistic.ts` (如果不使用)
-- `prisma/seed-stages.ts` (如果不使用)
-
-#### 開發資料庫
-- `dev.db` (根目錄的空檔案)
-- `prisma/dev.db` (保留，或在生產環境使用 PostgreSQL 後刪除)
-
-#### 文件檔案可保留（供團隊參考）
-- `CURRENCY_SUPPORT.md`
-- `HUBSPOT_INTEGRATION.txt`
-- `HUBSPOT_SETUP.md`
-- `PIPELINE_STAGES.md`
-- `README.md`
-- `TESTING_GUIDE.md`
-- `UI_OPTIMIZATION_SUMMARY.md`
-- `UI_UX_OPTIMIZATION.md`
-- `FEATURES.md` (本檔案)
-
-### Vercel 部署建議
-
-1. **連接 GitHub Repository**
-2. **設定環境變數**:
-   - `HUBSPOT_API_KEY`
-   - `DATABASE_URL` (使用 Vercel Postgres 或其他資料庫服務)
-3. **Build 設定**:
-   - Build Command: `npm run build`
-   - Output Directory: `.next`
-4. **部署後執行**:
-   ```bash
-   # SSH 到伺服器或使用 Vercel CLI
-   npx prisma migrate deploy
-   npx prisma db seed  # 如果需要初始資料
-   ```
-
-### 效能優化建議
-
-1. **啟用 ISR (Incremental Static Regeneration)**
-   ```typescript
-   export const revalidate = 60 // 60 秒後重新生成
-   ```
-
-2. **使用 Redis 快取**
-   - 快取 Dashboard 資料
-   - 快取 HubSpot API 回應
-
-3. **資料庫索引**
-   ```prisma
-   @@index([regionId])
-   @@index([ownerEmail])
-   @@index([closeDate])
-   ```
-
-4. **圖片優化**
-   - 使用 Next.js Image 元件
-   - 國旗 emoji 改用 SVG 圖示
+For detailed deployment instructions, see [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md).
 
 ---
 
-## 版本控管
+## Performance Optimization
 
-### .gitignore 重點
+### On-Demand Data Loading
 
-確認以下檔案被忽略：
+**Line Items & Contacts** are not fetched during initial sync:
+- Only loaded when user expands deal details
+- Reduces initial data volume by ~70%
+- Faster dashboard load times
 
-```gitignore
-# 環境變數
-.env
-.env*.local
-.env.production
+### Database Indexing
 
-# 資料庫
-*.db
-*.db-journal
-
-# 依賴
-node_modules/
-
-# Next.js
-.next/
-out/
-
-# 備份檔案
-*.backup
-*.bak
-*.old
-*~
-
-# 系統檔案
-.DS_Store
+Recommended indexes:
+```prisma
+@@index([regionId])
+@@index([ownerEmail])
+@@index([closeDate])
+@@index([hubspotId])
 ```
 
-### Git 提交前檢查
+### Caching Strategy
 
-```bash
-# 檢查未追蹤檔案
-git status
-
-# 確認沒有敏感資訊
-git diff
-
-# 檢查 .env 檔案未被加入
-git ls-files | grep .env
-```
+- Exchange rates: 24-hour cache
+- Dashboard data: Consider Redis for production
+- HubSpot API responses: Rate-limited caching
 
 ---
 
-## 總結
+## Security
 
-### 專案優勢
-
-✅ **完整的 HubSpot CRM 整合**
-✅ **多區域、多幣別支援**
-✅ **詳細的 Deal 資訊展示（Line Items、Contacts）**
-✅ **Owner 級別目標管理**
-✅ **加權預測與多維度分析**
-✅ **響應式 UI 與互動式 Slideout**
-✅ **型別安全的 TypeScript 實作**
-✅ **清晰的資料庫架構與 migration 管理**
-
-### 後續擴充方向
-
-🔜 **權限管理**: User authentication & authorization
-🔜 **通知系統**: Email/Slack 提醒
-🔜 **報表匯出**: PDF/Excel 報表生成
-🔜 **行動版優化**: Mobile-first design
-🔜 **即時更新**: WebSocket 或 Server-Sent Events
-🔜 **進階分析**: 預測模型、趨勢分析
+✅ **API Keys**: Server-side only, never exposed to frontend
+✅ **Environment Variables**: Excluded from git via `.gitignore`
+✅ **Database Queries**: Parameterized with Prisma
+✅ **Input Validation**: Server-side validation on all endpoints
+✅ **HTTPS**: Enforce in production
 
 ---
 
-**最後更新**: 2026-02-05
-**版本**: 1.0.0
-**維護者**: Terrel Yeh
+## Future Roadmap
+
+### Version 1.1
+- 🔜 Per-region Pipeline Stage configuration
+- 🔜 Real-time data updates (WebSocket)
+- 🔜 Enhanced mobile UI
+
+### Version 1.2
+- 🔜 User authentication & authorization
+- 🔜 Role-based access control
+- 🔜 Audit logging
+
+### Version 2.0
+- 🔜 Email/Slack notifications
+- 🔜 Report export (PDF/Excel)
+- 🔜 Advanced analytics & predictions
+- 🔜 Integration with other CRMs
+
+---
+
+**For complete setup instructions, see [README.md](./README.md)**
+
+**For deployment checklist, see [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)**
+
+**For HubSpot setup, see [HUBSPOT_SETUP.md](./HUBSPOT_SETUP.md)**

@@ -98,6 +98,7 @@ export class HubSpotClient {
       'hubspot_owner_id',
       'hs_deal_stage_probability',
       'hs_forecast_category',
+      'distributor',
     ];
 
     const queryParams = new URLSearchParams({

@@ -145,54 +145,69 @@ export async function POST(request: Request) {
       for (const source of sourceTargets) {
         const newAmount = Math.round(source.amount * multiplier);
 
-        const target = await prisma.target.upsert({
-          where: {
-            regionId_year_quarter: {
-              regionId: source.regionId,
-              year: targetYear,
-              quarter: targetQuarter,
-            },
-          },
-          update: {
-            amount: newAmount,
-            notes: growthRate
-              ? `Copied from Q${sourceQuarter} ${sourceYear} with ${growthRate}% growth`
-              : `Copied from Q${sourceQuarter} ${sourceYear}`,
-          },
-          create: {
-            regionId: source.regionId,
-            year: targetYear,
-            quarter: targetQuarter,
-            amount: newAmount,
-            notes: growthRate
-              ? `Copied from Q${sourceQuarter} ${sourceYear} with ${growthRate}% growth`
-              : `Copied from Q${sourceQuarter} ${sourceYear}`,
-          },
-          include: {
-            region: {
-              select: {
-                code: true,
-                name: true,
-                currency: true,
-              },
-            },
-          },
-        });
-
-        // Check if it was created or updated
+        // Check if target already exists
         const existing = await prisma.target.findFirst({
           where: {
             regionId: source.regionId,
             year: targetYear,
             quarter: targetQuarter,
-            createdAt: { lt: target.updatedAt },
+            ownerName: source.ownerName || null,
           },
         });
 
+        let target;
         if (existing) {
-          updated++;
+          // Update existing
+          target = await prisma.target.update({
+            where: { id: existing.id },
+            data: {
+              amount: newAmount,
+              notes: growthRate
+                ? `Copied from Q${sourceQuarter} ${sourceYear} with ${growthRate}% growth`
+                : `Copied from Q${sourceQuarter} ${sourceYear}`,
+            },
+            include: {
+              region: {
+                select: {
+                  code: true,
+                  name: true,
+                  currency: true,
+                },
+              },
+            },
+          });
         } else {
+          // Create new
+          target = await prisma.target.create({
+            data: {
+              regionId: source.regionId,
+              year: targetYear,
+              quarter: targetQuarter,
+              ownerName: source.ownerName || null,
+              amount: newAmount,
+              notes: growthRate
+                ? `Copied from Q${sourceQuarter} ${sourceYear} with ${growthRate}% growth`
+                : `Copied from Q${sourceQuarter} ${sourceYear}`,
+            },
+            include: {
+              region: {
+                select: {
+                  code: true,
+                  name: true,
+                  currency: true,
+                },
+              },
+            },
+          });
+        }
+
+        // Determine if it was created or updated (for logging purposes)
+        const wasNew = !existing;
+
+        if (wasNew) {
           created++;
+        } else {
+          updated++;
         }
 
         results.push({

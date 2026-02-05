@@ -9,10 +9,10 @@ import { createHubSpotClient } from '@/lib/hubspot/client';
  */
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const dealId = params.id;
+    const { id: dealId } = await params;
 
     // Fetch deal from database
     const deal = await prisma.deal.findUnique({

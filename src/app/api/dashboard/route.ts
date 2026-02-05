@@ -5,6 +5,11 @@ import { prisma } from '@/lib/db';
  * Format currency with appropriate unit (K for thousands, M for millions)
  */
 function formatCurrency(amount: number): string {
+  // Handle null, undefined, or NaN
+  if (amount == null || isNaN(amount)) {
+    return '$0';
+  }
+
   if (amount >= 1000000) {
     return `$${(amount / 1000000).toFixed(1)}M`;
   } else if (amount >= 1000) {
@@ -133,6 +138,13 @@ export async function GET(request: Request) {
 
     // Calculate summary metrics
     const totalPipeline = deals.reduce((sum, deal) => sum + deal.amountUsd, 0);
+
+    // Open Deal Amount: all deals that are not Closed Won or Closed Lost
+    const openDeals = deals.filter(d =>
+      d.stage !== 'Closed Won' && d.stage !== 'Closed Lost'
+    );
+    const openDealAmount = openDeals.reduce((sum, deal) => sum + deal.amountUsd, 0);
+
     const weightedForecast = deals.reduce(
       (sum, deal) => sum + deal.amountUsd * (deal.stageProbability / 100),
       0
@@ -149,6 +161,7 @@ export async function GET(request: Request) {
       const created = new Date(d.createdAt);
       return created >= quarterStart && created <= quarterEnd;
     });
+    const newDealAmount = newDeals.reduce((sum, d) => sum + d.amountUsd, 0);
 
     // Closed Won deals
     const closedWonWhere: any = {
@@ -216,6 +229,12 @@ export async function GET(request: Request) {
     });
     const largeDealsAmount = largeDealsClosingSoon.reduce((sum, d) => sum + d.amountUsd, 0);
 
+    // Commit Revenue: total amount of deals with "Commit" forecast category (unweighted)
+    const commitDealsForRevenue = deals.filter(d =>
+      (d.forecastCategory || 'pipeline').toLowerCase() === 'commit'
+    );
+    const commitRevenue = commitDealsForRevenue.reduce((sum, d) => sum + d.amountUsd, 0);
+
     // Forecast breakdown by category
     const forecastByCategory = {
       commit: 0,
@@ -259,6 +278,7 @@ export async function GET(request: Request) {
         createdAt: deal.createdAt.toISOString(),
         daysSinceUpdate,
         owner: deal.ownerName || 'Unassigned',
+        distributor: deal.distributor,
         priority: deal.priority,
         description: deal.description,
         numContacts: deal.numContacts || 0,
@@ -271,6 +291,7 @@ export async function GET(request: Request) {
 
     // Format detailed deal lists for slideout
     const newDealsFormatted = newDeals.map(formatDeal);
+    const openDealsFormatted = openDeals.map(formatDeal);
     const closedWonDealsFormatted = closedWonDeals.map(formatDeal);
     const closedLostDealsFormatted = closedLostDeals.map(formatDeal);
     const staleDealsFormatted = staleDeals.map(formatDeal);
@@ -362,6 +383,23 @@ export async function GET(request: Request) {
       summary: {
         totalPipeline,
         totalPipelineFormatted: formatCurrency(totalPipeline),
+        totalPipelineDeals: deals.map(formatDeal), // All deals for Pipeline Value card
+        newDealAmount,
+        newDealAmountFormatted: formatCurrency(newDealAmount),
+        newDealCount: newDeals.length,
+        newDealsList: newDealsFormatted, // For New Deal Amount card
+        openDealAmount,
+        openDealAmountFormatted: formatCurrency(openDealAmount),
+        openDealCount: openDeals.length,
+        openDealsList: openDealsFormatted, // For Open Deals card
+        commitRevenue,
+        commitRevenueFormatted: formatCurrency(commitRevenue),
+        commitDealCount: commitDeals.length,
+        commitDealsList: commitDeals, // For Commit Revenue card
+        closedWonAmount,
+        closedWonAmountFormatted: formatCurrency(closedWonAmount),
+        closedWonCount: closedWonDeals.length,
+        closedWonDealsList: closedWonDealsFormatted, // For Closed Won Amount card
         totalForecast: weightedForecast,
         totalForecastFormatted: formatCurrency(weightedForecast),
         totalTarget: targetAmount,
@@ -375,6 +413,8 @@ export async function GET(request: Request) {
       activityKpis: {
         newDeals: {
           count: newDeals.length,
+          amount: newDealAmount,
+          amountFormatted: formatCurrency(newDealAmount),
           trend: '+15%', // TODO: Calculate from previous quarter
           deals: newDealsFormatted,
         },
@@ -382,12 +422,14 @@ export async function GET(request: Request) {
           count: closedWonDeals.length,
           amount: closedWonAmount,
           amountFormatted: formatCurrency(closedWonAmount),
+          trend: '+12%', // TODO: Calculate from previous quarter
           deals: closedWonDealsFormatted,
         },
         closedLost: {
           count: closedLostDeals.length,
           amount: closedLostAmount,
           amountFormatted: formatCurrency(closedLostAmount),
+          trend: '-8%', // TODO: Calculate from previous quarter
           deals: closedLostDealsFormatted,
         },
         winRate: {
