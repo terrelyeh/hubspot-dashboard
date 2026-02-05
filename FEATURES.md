@@ -91,11 +91,25 @@ The main dashboard displays comprehensive metrics for the selected region. Users
 
 #### Displayed Metrics
 
-##### A. Quarter Performance
-- **Simple Total**: Sum of all deal amounts
-- **Weighted Forecast**: Amount × Probability for each deal
-- **Target**: Quarterly target set for the region
-- **Achievement Rate**: (Weighted / Target) × 100%
+##### A. Performance Overview (8 Interactive Cards)
+
+**First Row:**
+1. **Pipeline Value** - Total pipeline opportunity value (clickable)
+2. **New Deal Amount** - Value of deals created this quarter (clickable)
+3. **Open Deals** - Active deals not yet closed (clickable)
+4. **Commit Revenue** - High-confidence deals (clickable)
+
+**Second Row:**
+5. **Closed Won Amount** - Successfully closed deals (clickable)
+6. **Weighted Forecast** - Risk-adjusted forecast
+7. **Target** - Quarterly target
+8. **Achievement** - Target achievement percentage
+
+**Interactive Features:**
+- ✨ All cards except Weighted Forecast, Target, and Achievement are clickable
+- 🔍 Click any card to view detailed deal list in slideout panel
+- 📊 Real-time metrics updated from HubSpot data
+- 💱 Multi-currency support with automatic conversion
 
 ##### B. Pipeline by Stage
 Shows distribution across pipeline stages:
@@ -105,18 +119,43 @@ Shows distribution across pipeline stages:
 - Weighted total
 - Average probability
 
-##### C. Forecast Categories
-- **Commit**: High-confidence deals
-- **Best Case**: Optimistic forecast
-- **Pipeline**: Standard pipeline
-- **Omitted**: Excluded from forecast
+##### C. Forecast Categories (Enhanced Dropdown)
 
-##### D. Key Activities
-- **New Deals**: Created this quarter
-- **Closed Won**: Successfully closed
-- **Closed Lost**: Lost opportunities
-- **Stale Deals**: Not updated in 14+ days
-- **Large Deals**: Value > $100K closing this month
+**Available Categories with Tooltips:**
+1. **Not forecasted** (不預測) - Early stage or lost deals
+   - Gray color | Cases: Too early, Closed Lost, future deals
+2. **Pipeline** (低信心度) - Low confidence opportunities
+   - Blue color | Cases: Initial contact, early qualification
+3. **Best case** (中等信心度) - Moderate confidence
+   - Cyan color | Cases: Good progress, some risks remain
+4. **Commit** (高信心度) - High confidence, almost certain
+   - Green color | Cases: Verbal agreement, final approval pending
+5. **Closed won** (100%) - Deal successfully closed
+   - Dark green | Cases: Contract signed, payment received
+
+**UI Features:**
+- 🎨 Color-coded badges for each category
+- ℹ️ Hover info icon to see detailed descriptions
+- 📊 Confidence level indicators
+- ✅ Multi-select checkbox filtering
+
+##### D. Activity Metrics (Trend Analysis)
+
+**Clickable Activity Cards:**
+1. **New Deals** - Deals created this quarter
+   - Shows count with trend vs last quarter
+   - Click to view all new deals
+2. **Closed Won** - Successfully closed deals
+   - Shows count with trend percentage
+   - Click to view all won deals
+3. **Closed Lost** - Lost opportunities
+   - Shows count with trend indicator
+   - Click to view all lost deals
+4. **Win Rate** - Success percentage
+   - Calculated from closed deals
+   - Shows improvement trend
+
+**Note:** All amounts moved to Performance Overview. Activity Metrics focus on counts and trends for quick insights.
 
 ##### E. Top 10 Deals
 Sortable table showing:
@@ -131,20 +170,26 @@ Sortable table showing:
 
 ### 2. Deal Details with Expandable Information
 
-**Click any deal card or table row** to reveal comprehensive deal information.
+**Click any deal card or table row** to reveal comprehensive deal information in a slideout panel.
 
-#### Deal Information Section
+#### Main Deal Information Grid
 ```
 ┌─────────────────────────────────────────┐
-│ Deal Information                         │
+│ [1] Deal Name              $34K         │
+│ Owner • Pipeline                        │
 ├─────────────────────────────────────────┤
-│ Expected Close Date: February 15, 2026  │
-│ Distributor: MRL [Purple Badge]         │
-│ Priority: 🔴 High                        │
-│ Contacts: 3 person(s)                   │
-│ Description: [Deal description text]    │
+│ Stage: Quote Sent    | Probability: 60% │
+│ Close Date: 9/30/24  | Create: 9/11/24  │
+│ Last Updated: 188d   | Distributor: MRL │
 └─────────────────────────────────────────┘
 ```
+
+**Information Displayed:**
+- Deal name, amount, owner, forecast category badge
+- Stage and probability with visual indicators
+- Close date and creation date
+- Last update with status indicator (green/yellow/red)
+- **Distributor** (if set) - synced from HubSpot custom field
 
 #### Line Items (Product Details)
 ```

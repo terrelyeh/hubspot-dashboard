@@ -194,16 +194,37 @@ HubSpot Dashboard is a centralized web application that:
 
 ---
 
-#### User Story 1.2: Pipeline Overview
+#### User Story 1.2: Performance Overview with Interactive Cards
 **As a** Sales Manager
-**I want to** see key pipeline metrics at a glance
-**So that** I understand current performance without digging into details
+**I want to** see key pipeline metrics in organized cards that I can click to explore
+**So that** I understand current performance and drill into specific metrics quickly
 
 **Acceptance Criteria**:
-- Quarter Performance card shows Simple Total, Weighted Forecast, Target, Achievement Rate
-- Pipeline by Stage breakdown visible immediately
-- Forecast Categories (Commit, Best Case, Pipeline, Omitted) clearly displayed
+- 8 metric cards displayed in 4+4 grid layout
+- First row: Pipeline Value, New Deal Amount, Open Deals, Commit Revenue
+- Second row: Closed Won Amount, Weighted Forecast, Target, Achievement
+- 5 cards are clickable (Pipeline, New Deals, Open Deals, Commit, Closed Won)
+- Clicking a card opens slideout with filtered deal list
 - All amounts formatted consistently (e.g., $150K)
+- Cards show both value and count (e.g., "$34K / 5 deals")
+
+**Priority**: P0 (Must Have)
+
+---
+
+#### User Story 1.3: Enhanced Forecast Category Filtering
+**As a** Sales Manager
+**I want to** understand and filter by forecast categories easily
+**So that** I can focus on deals with specific confidence levels
+
+**Acceptance Criteria**:
+- Dropdown shows all 5 categories: Not forecasted, Pipeline, Best case, Commit, Closed won
+- Each category has color coding (gray, blue, cyan, green, dark green)
+- Confidence level shown in parentheses (不預測, 低信心度, 中等信心度, 高信心度, 100%)
+- Info icon (ℹ️) next to each category
+- Hovering over info icon shows tooltip with detailed description
+- Multi-select checkboxes for filtering
+- "Clear" button to reset all filters
 
 **Priority**: P0 (Must Have)
 
@@ -253,6 +274,22 @@ HubSpot Dashboard is a centralized web application that:
 - Phone numbers are formatted correctly
 
 **Priority**: P0 (Must Have)
+
+---
+
+#### User Story 2.4: Distributor Information Display
+**As a** Sales Manager
+**I want to** see which distributor is associated with each deal
+**So that** I can coordinate with the right partners and track channel performance
+
+**Acceptance Criteria**:
+- Distributor field synced from HubSpot custom property
+- Displayed in main deal info grid (alongside stage, dates)
+- Shows in slideout panel for all deals
+- Only displays if distributor is set (graceful null handling)
+- Distributor visible in deal list views
+
+**Priority**: P1 (Should Have)
 
 ---
 
