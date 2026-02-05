@@ -27,7 +27,7 @@ export default function RegionCardOptimized({ region, stats }: RegionCardOptimiz
   const isExceeding = achievementRate >= 100;
 
   return (
-    <Link href={`/dashboard/${region.code.toLowerCase()}`}>
+    <Link href={`/dashboard/region/${region.code}`}>
       <div className="group bg-white border border-slate-200 rounded-xl hover:shadow-xl hover:border-blue-300 transition-all duration-200 overflow-hidden cursor-pointer">
         {/* Header with Gradient Background */}
         <div className={`px-6 py-4 ${

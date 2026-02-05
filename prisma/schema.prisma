@@ -51,10 +51,18 @@ model Deal {
   ownerName            String?
   ownerEmail           String?
 
+  // Additional deal properties
+  priority             String?
+  description          String?
+  distributor          String?
+  numContacts          Int?       @default(0)
+
   hubspotUrl           String?
   rawData              Json?
 
-  region               Region    @relation(fields: [regionId], references: [id])
+  region               Region       @relation(fields: [regionId], references: [id])
+  lineItems            LineItem[]
+  contacts             DealContact[]
 
   @@unique([hubspotId, regionId])
   @@index([regionId])
@@ -64,9 +72,53 @@ model Deal {
   @@index([regionId, closeDate])
 }
 
+model LineItem {
+  id                   String   @id @default(cuid())
+  dealId               String
+  hubspotLineItemId    String
+
+  name                 String
+  description          String?
+  quantity             Float
+  price                Float
+  amount               Float
+
+  productId            String?
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  deal                 Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, hubspotLineItemId])
+  @@index([dealId])
+}
+
+model DealContact {
+  id                   String   @id @default(cuid())
+  dealId               String
+  hubspotContactId     String
+
+  firstName            String?
+  lastName             String?
+  email                String?
+  jobTitle             String?
+  phone                String?
+  company              String?
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  deal                 Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, hubspotContactId])
+  @@index([dealId])
+}
+
 model Target {
   id              String   @id @default(cuid())
   regionId        String
+  ownerName       String?  // null = region-level target, otherwise owner-specific
 
   year            Int
   quarter         Int
@@ -81,8 +133,9 @@ model Target {
 
   region          Region   @relation(fields: [regionId], references: [id])
 
-  @@unique([regionId, year, quarter])
+  @@unique([regionId, year, quarter, ownerName])
   @@index([year, quarter])
+  @@index([ownerName])
 }
 
 model SyncLog {

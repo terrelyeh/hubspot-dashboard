@@ -29,7 +29,7 @@ async function main() {
   await prisma.deal.deleteMany();
   await prisma.syncLog.deleteMany();
   await prisma.target.deleteMany();
-  await prisma.stageProbability.deleteMany();
+  await prisma.pipelineStage.deleteMany();
   await prisma.region.deleteMany();
   console.log('✅ Existing data cleared\n');
 
@@ -49,14 +49,19 @@ async function main() {
   }
   console.log('');
 
-  // 3. Create stage probabilities
-  console.log('📊 Creating stage probabilities...');
-  for (const stage of DEFAULT_STAGES) {
-    await prisma.stageProbability.create({
+  // 3. Create pipeline stages
+  console.log('📊 Creating pipeline stages...');
+  for (let i = 0; i < DEFAULT_STAGES.length; i++) {
+    const stage = DEFAULT_STAGES[i];
+    await prisma.pipelineStage.create({
       data: {
-        stage: stage.name,
+        name: stage.name,
+        code: stage.name.toLowerCase().replace(/\s+/g, '_'),
         probability: stage.probability,
-        source: 'default',
+        displayOrder: i + 1,
+        isActive: true,
+        isFinal: stage.name.includes('Closed'),
+        isWon: stage.name === 'Closed Won',
       },
     });
     console.log(`  ✓ ${stage.name}: ${stage.probability}%`);
@@ -151,6 +156,9 @@ async function main() {
           lastModifiedAt: lastModifiedAt,
           ownerName: faker.helpers.arrayElement(DEAL_OWNERS),
           ownerEmail: faker.internet.email(),
+          priority: faker.helpers.arrayElement(['low', 'medium', 'high']),
+          description: faker.lorem.sentence(),
+          numContacts: faker.number.int({ min: 1, max: 5 }),
           hubspotUrl: `https://app.hubspot.com/contacts/${faker.number.int()}/deal/${faker.number.int()}`,
         },
       });
@@ -166,7 +174,7 @@ async function main() {
   const totalRegions = await prisma.region.count();
   const totalDeals = await prisma.deal.count();
   const totalTargets = await prisma.target.count();
-  const totalStages = await prisma.stageProbability.count();
+  const totalStages = await prisma.pipelineStage.count();
 
   console.log('📈 Seed Summary:');
   console.log(`  • Regions: ${totalRegions}`);

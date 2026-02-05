@@ -47,3 +47,13 @@ prisma/*.db
 prisma/*.db-journal
 
 /src/generated/prisma
+
+# Backup files
+*.backup
+*.bak
+*.old
+*~
+
+# Root level db files
+/*.db
+/*.db-journal

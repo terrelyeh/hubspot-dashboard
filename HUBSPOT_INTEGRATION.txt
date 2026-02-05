@@ -1,0 +1,64 @@
+🎯 HubSpot API Integration - Quick Reference
+
+✅ What's Been Built:
+
+1. HubSpot API Client (/src/lib/hubspot/client.ts)
+   - Fetch deals with pagination
+   - Fetch owners and pipelines
+   - Search deals with filters
+   - Test API connection
+
+2. Sync Service (/src/lib/hubspot/sync.ts)
+   - Sync deals from HubSpot to database
+   - Map owners and stage probabilities
+   - Support for single/multi-region
+
+3. API Endpoints:
+   - POST /api/hubspot/sync - Trigger sync
+   - GET /api/hubspot/sync - Get sync status
+   - GET /api/hubspot/test - Test connection
+
+4. Settings UI (/settings/hubspot)
+   - Test HubSpot connection
+   - Trigger manual sync
+   - View sync results
+   - Step-by-step setup guide
+
+5. Dashboard Integration:
+   - "Connect HubSpot" button in demo mode banner
+   - Settings icon links to HubSpot integration
+   - Seamless switch between mock and real data
+
+📝 Setup Steps:
+
+1. Create HubSpot Private App:
+   - Go to HubSpot Settings → Integrations → Private Apps
+   - Create app with scopes: crm.objects.deals.read, crm.objects.owners.read
+   - Copy access token
+
+2. Configure .env.local:
+   HUBSPOT_API_KEY="pat-na1-your-token-here"
+   ENABLE_REAL_HUBSPOT_SYNC="true"
+
+3. Test & Sync:
+   - Visit http://localhost:3002/settings/hubspot
+   - Click "Test Connection"
+   - Click "Sync Now"
+   - Return to dashboard to see real data
+
+🔐 Security:
+   - Uses Private Apps (more secure than API keys)
+   - Tokens never exposed to frontend
+   - All syncs server-side only
+
+📊 Data Synced:
+   - Deal name, amount, stage, close date
+   - Owner name and email
+   - Stage probability and forecast category
+   - Created/modified timestamps
+
+🚀 Next Steps:
+   1. Follow HUBSPOT_SETUP.md for detailed instructions
+   2. Create your Private App in HubSpot
+   3. Add token to .env.local
+   4. Test connection and sync!

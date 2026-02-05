@@ -10,6 +10,7 @@ import { prisma } from '@/lib/db';
  *   - region: string (optional) - Filter by region code
  *   - year: number (optional) - Filter by year
  *   - quarter: number (optional) - Filter by quarter
+ *   - owner: string (optional) - Filter by owner name (empty string for region-level only)
  *
  * Response:
  *   - targets: Array of target objects with region info
@@ -21,6 +22,7 @@ export async function GET(request: Request) {
     const regionCode = searchParams.get('region');
     const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : undefined;
     const quarter = searchParams.get('quarter') ? parseInt(searchParams.get('quarter')!) : undefined;
+    const owner = searchParams.get('owner');
 
     // Build where clause
     const where: any = {};
@@ -52,6 +54,12 @@ export async function GET(request: Request) {
       where.quarter = quarter;
     }
 
+    if (owner !== undefined && owner !== null) {
+      // If owner is empty string, filter for region-level targets (ownerName = null)
+      // Otherwise, filter for specific owner
+      where.ownerName = owner === '' ? null : owner;
+    }
+
     // Fetch targets
     const targets = await prisma.target.findMany({
       where,
@@ -68,6 +76,7 @@ export async function GET(request: Request) {
         { year: 'desc' },
         { quarter: 'desc' },
         { region: { code: 'asc' } },
+        { ownerName: 'asc' },
       ],
     });
 
@@ -77,8 +86,13 @@ export async function GET(request: Request) {
       region: target.region,
       year: target.year,
       quarter: target.quarter,
+      ownerName: target.ownerName,
+      targetType: target.ownerName ? 'owner' : 'region',
       amount: target.amount,
-      amountFormatted: `$${(target.amount / 1000000).toFixed(2)}M`,
+      currency: target.currency,
+      amountFormatted: target.currency === 'JPY'
+        ? `¥${(target.amount / 1000000).toFixed(2)}M`
+        : `$${(target.amount / 1000000).toFixed(2)}M`,
       notes: target.notes,
       createdAt: target.createdAt.toISOString(),
       updatedAt: target.updatedAt.toISOString(),
@@ -113,6 +127,7 @@ export async function GET(request: Request) {
  *   - year: number (required)
  *   - quarter: number (required, 1-4)
  *   - amount: number (required)
+ *   - ownerName: string (optional) - null or omitted for region-level target
  *   - notes: string (optional)
  *
  * Response:
@@ -121,7 +136,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { regionCode, year, quarter, amount, notes } = body;
+    const { regionCode, year, quarter, amount, ownerName, currency, notes } = body;
 
     // Validate required fields
     if (!regionCode || !year || !quarter || amount === undefined) {
@@ -178,21 +193,25 @@ export async function POST(request: Request) {
     // Upsert target
     const target = await prisma.target.upsert({
       where: {
-        regionId_year_quarter: {
+        regionId_year_quarter_ownerName: {
           regionId: region.id,
           year,
           quarter,
+          ownerName: ownerName || null,
         },
       },
       update: {
         amount,
+        currency: currency || 'USD',
         notes: notes || null,
       },
       create: {
         regionId: region.id,
         year,
         quarter,
+        ownerName: ownerName || null,
         amount,
+        currency: currency || 'USD',
         notes: notes || null,
       },
       include: {
@@ -213,8 +232,13 @@ export async function POST(request: Request) {
         region: target.region,
         year: target.year,
         quarter: target.quarter,
+        ownerName: target.ownerName,
+        targetType: target.ownerName ? 'owner' : 'region',
         amount: target.amount,
-        amountFormatted: `$${(target.amount / 1000000).toFixed(2)}M`,
+        currency: target.currency,
+        amountFormatted: target.currency === 'JPY'
+          ? `¥${(target.amount / 1000000).toFixed(2)}M`
+          : `$${(target.amount / 1000000).toFixed(2)}M`,
         notes: target.notes,
         createdAt: target.createdAt.toISOString(),
         updatedAt: target.updatedAt.toISOString(),
