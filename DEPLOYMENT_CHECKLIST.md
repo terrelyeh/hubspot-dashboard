@@ -5,14 +5,24 @@
 ### 1. 環境變數設定
 
 - [ ] 複製 `.env.example` 到 `.env.production`
-- [ ] 設定正確的 `HUBSPOT_API_KEY`（生產環境）
+- [ ] 設定正確的 HubSpot API Keys（每個區域一個）
 - [ ] 設定正確的 `DATABASE_URL`（PostgreSQL 連線字串）
 - [ ] 確認所有環境變數都沒有遺漏
 
 ```bash
 # .env.production 範例
-HUBSPOT_API_KEY=your-production-hubspot-token
+
+# HubSpot API Keys（命名規則：HUBSPOT_API_KEY_{區域代碼}）
+HUBSPOT_API_KEY_JP=pat-na1-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+HUBSPOT_API_KEY_APAC=pat-na1-yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
+# 新增更多區域只需加入對應的環境變數
+# HUBSPOT_API_KEY_LATAM=pat-na1-zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz
+
+# Database
 DATABASE_URL=postgresql://user:password@host:5432/database
+
+# Optional: Enable real HubSpot sync (default: false for mock data)
+ENABLE_REAL_HUBSPOT_SYNC=true
 ```
 
 ### 2. 資料庫準備
@@ -111,6 +121,44 @@ git commit -m "feat: Complete HubSpot Dashboard with Line Items and Deal Details
 - [ ] 建立資料庫備份策略
 - [ ] 記錄回滾步驟
 - [ ] 建立緊急聯絡清單
+
+---
+
+## 🌍 新增區域指南
+
+### 新增區域步驟
+
+以新增 **LATAM（拉丁美洲）** 為例：
+
+1. **Vercel 環境變數**
+   ```
+   HUBSPOT_API_KEY_LATAM = pat-na1-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   ```
+
+2. **建立區域配置檔案**
+   建立 `/regions/LATAM.md`
+
+3. **更新前端區域列表**
+   - `src/app/dashboard/page.tsx` - REGIONS 陣列
+   - `src/app/settings/targets/page.tsx` - REGIONS 陣列
+
+4. **資料庫新增區域記錄**
+   ```sql
+   INSERT INTO "Region" (id, code, name, currency, timezone, "isActive", "createdAt", "updatedAt")
+   VALUES ('cuid-latam', 'LATAM', 'Latin America', 'USD', 'America/Sao_Paulo', true, NOW(), NOW());
+   ```
+
+### API Key 命名規則
+
+| 區域代碼 | 環境變數名稱 |
+|---------|-------------|
+| JP | `HUBSPOT_API_KEY_JP` |
+| APAC | `HUBSPOT_API_KEY_APAC` |
+| LATAM | `HUBSPOT_API_KEY_LATAM` |
+| US | `HUBSPOT_API_KEY_US` |
+| EU | `HUBSPOT_API_KEY_EU` |
+
+系統自動根據區域代碼組合環境變數名稱：`HUBSPOT_API_KEY_{區域代碼}`
 
 ---
 
@@ -218,4 +266,4 @@ npx prisma db pull
 
 **準備好了嗎？** ✅ 完成所有檢查項目後，就可以進行部署了！
 
-**最後更新**: 2026-02-05
+**最後更新**: 2026-02-08

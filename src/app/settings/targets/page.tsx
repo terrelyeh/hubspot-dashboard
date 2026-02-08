@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Target, Plus, Trash2, Save, Copy, TrendingUp, AlertCircle, Database, ArrowLeft, Globe } from 'lucide-react';
 import Link from 'next/link';
 
@@ -37,11 +39,37 @@ const REGIONS = [
 ];
 
 export default function TargetsSettingsPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
   const [targets, setTargets] = useState<TargetData[]>([]);
   const [owners, setOwners] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // 權限檢查：只有 ADMIN 和 MANAGER 可以訪問
+  useEffect(() => {
+    if (status === 'authenticated') {
+      const role = session?.user?.role;
+      if (role !== 'ADMIN' && role !== 'MANAGER') {
+        router.push('/dashboard');
+      }
+    }
+  }, [session, status, router]);
+
+  // 如果正在加載 session 或是 VIEWER 角色，顯示 loading 或空白
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-slate-400">Loading...</div>
+      </div>
+    );
+  }
+
+  if (status === 'authenticated' && session?.user?.role === 'VIEWER') {
+    return null; // VIEWER 會被重定向，先顯示空白
+  }
 
   // Region selection
   const [selectedRegion, setSelectedRegion] = useState('JP');

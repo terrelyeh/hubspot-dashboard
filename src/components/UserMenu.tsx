@@ -80,14 +80,17 @@ export function UserMenu() {
                 User Management
               </Link>
             )}
-            <Link
-              href="/settings/targets"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-            >
-              <Settings className="h-4 w-4 text-slate-400" />
-              Target Settings
-            </Link>
+            {/* Target Settings - 只對 ADMIN 和 MANAGER 顯示 */}
+            {(session.user.role === 'ADMIN' || session.user.role === 'MANAGER') && (
+              <Link
+                href="/settings/targets"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                <Settings className="h-4 w-4 text-slate-400" />
+                Target Settings
+              </Link>
+            )}
           </div>
 
           {/* Sign Out */}

@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Document Owner**: Terrel Yeh
-**Last Updated**: 2026-02-05
+**Last Updated**: 2026-02-08
 **Status**: ✅ Implemented
 
 ---
@@ -393,6 +393,21 @@ HubSpot Dashboard is a centralized web application that:
 
 ---
 
+#### User Story 5.3: Date Range Sync Optimization
+**As a** User
+**I want** HubSpot sync to only fetch relevant date range data
+**So that** sync is fast and doesn't timeout
+
+**Acceptance Criteria**:
+- Default sync range is YTD (Year To Date)
+- Manual sync uses current dashboard filter date range
+- Filter switching uses client-side filtering (instant, no re-sync)
+- Sync completes within Vercel 10s limit (~200 deals)
+
+**Priority**: P0 (Must Have)
+
+---
+
 ## Feature Requirements
 
 ### Must Have (P0) - Version 1.0 ✅
@@ -407,7 +422,7 @@ HubSpot Dashboard is a centralized web application that:
 | **Expandable Deal Details** | Slideout with Line Items, Contacts, Properties | ✅ Implemented |
 | **Target Management** | Set and track quarterly targets per owner | ✅ Implemented |
 | **Multi-Currency** | USD and JPY with automatic conversion | ✅ Implemented |
-| **HubSpot Sync** | Manual sync from HubSpot accounts | ✅ Implemented |
+| **HubSpot Sync** | Manual sync with YTD default and date range filtering | ✅ Implemented |
 | **Pipeline Stage Config** | Set probability for each stage | ✅ Implemented |
 
 ### Should Have (P1) - Version 1.1

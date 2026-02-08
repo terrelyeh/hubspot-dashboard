@@ -1,7 +1,7 @@
 # HubSpot Dashboard - Complete Feature Documentation
 
 **Version**: 1.0.0
-**Last Updated**: 2026-02-05
+**Last Updated**: 2026-02-08
 **Maintainer**: Terrel Yeh
 
 ---
@@ -298,15 +298,28 @@ Configure the probability value for each pipeline stage, used in weighted foreca
 - Use for initial setup or data refresh
 - Longer duration depending on data volume
 
-##### Incremental Sync
-- Only updates changed records
-- Faster performance
-- Recommended for routine updates
+##### Date Range Sync (Optimized)
+- **Default: YTD (Year To Date)** - Syncs only current year's deals
+- Syncs based on dashboard filter date range when manually triggered
+- Significantly reduces sync time and data volume
+- Prevents Vercel timeout issues (10s limit)
 
 ##### On-Demand Fetch
 - **Line Items**: Fetched when deal is expanded
 - **Contacts**: Fetched when deal is expanded
 - Reduces initial load time
+
+#### Sync Behavior
+
+**Manual Sync Button**:
+- Syncs deals within the currently selected date range (based on quarter filters)
+- Uses `closeDate` filter to limit HubSpot API results
+- Typical sync: ~200 deals/year, ~50 deals/quarter
+
+**Filter Switching**:
+- Changing time range filters uses **client-side filtering** (instant)
+- No re-sync required when switching between quarters
+- Re-sync only when "Sync" button is clicked
 
 #### What Gets Synced
 
@@ -536,9 +549,10 @@ Trigger data synchronization from HubSpot.
 **Body**:
 ```json
 {
-  "syncDeals": true,
-  "syncOwners": true,
-  "syncStages": true
+  "regionCode": "JP",           // Optional: sync specific region
+  "startDate": "2026-01-01",    // Optional: ISO date string
+  "endDate": "2026-12-31",      // Optional: ISO date string
+  "force": false                // Optional: force sync even if disabled
 }
 ```
 
@@ -629,23 +643,33 @@ class HubSpotClient {
 }
 ```
 
-### Multi-Account Support (Future)
+### Multi-Account Support
 
-**Environment Variables**:
+**Environment Variables** (Dynamic Naming):
 ```bash
+# Pattern: HUBSPOT_API_KEY_{REGION_CODE}
 HUBSPOT_API_KEY_US=token-for-us-account
 HUBSPOT_API_KEY_APAC=token-for-apac-account
 HUBSPOT_API_KEY_JP=token-for-jp-account
 HUBSPOT_API_KEY_IN=token-for-in-account
 HUBSPOT_API_KEY_EU=token-for-eu-account
+HUBSPOT_API_KEY_LATAM=token-for-latam-account  # Add any new region
 ```
 
-**Client Factory**:
+**API Key Selection Logic** (Generic):
 ```typescript
-function createHubSpotClient(region: string): HubSpotClient {
-  const apiKey = getApiKeyForRegion(region);
-  return new HubSpotClient(apiKey);
-}
+// System automatically selects API key based on region code
+const apiKey = process.env[`HUBSPOT_API_KEY_${regionCode}`];
+
+// Example: regionCode = 'JP' → uses HUBSPOT_API_KEY_JP
+// Example: regionCode = 'LATAM' → uses HUBSPOT_API_KEY_LATAM
+```
+
+**Adding a New Region**:
+1. Add environment variable: `HUBSPOT_API_KEY_{CODE}`
+2. Add region to database (Region table)
+3. Update frontend REGIONS array
+4. Create `/regions/{CODE}.md` configuration file
 ```
 
 ---

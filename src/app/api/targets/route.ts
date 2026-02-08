@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requirePermission } from '@/lib/auth/permissions';
 
 /**
  * GET /api/targets
@@ -135,6 +136,9 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   try {
+    // 權限檢查：只有 ADMIN 和 MANAGER 可以編輯目標
+    await requirePermission('EDIT_TARGETS');
+
     const body = await request.json();
     const { regionCode, year, quarter, amount, ownerName, currency, notes } = body;
 
@@ -264,8 +268,22 @@ export async function POST(request: Request) {
       },
       message: 'Target saved successfully',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating/updating target:', error);
+
+    // 處理權限錯誤
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    if (error.message === 'Forbidden') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden - insufficient permissions' },
+        { status: 403 }
+      );
+    }
 
     return NextResponse.json(
       {
@@ -291,6 +309,9 @@ export async function POST(request: Request) {
  */
 export async function DELETE(request: Request) {
   try {
+    // 權限檢查：只有 ADMIN 和 MANAGER 可以刪除目標
+    await requirePermission('EDIT_TARGETS');
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -330,8 +351,22 @@ export async function DELETE(request: Request) {
       success: true,
       message: 'Target deleted successfully',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting target:', error);
+
+    // 處理權限錯誤
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    if (error.message === 'Forbidden') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden - insufficient permissions' },
+        { status: 403 }
+      );
+    }
 
     return NextResponse.json(
       {

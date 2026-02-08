@@ -80,14 +80,17 @@ Edit `.env.local` with your HubSpot API keys:
 ```bash
 # Multi-Account Configuration
 # Each region uses its own HubSpot account
-HUBSPOT_API_KEY=your-primary-api-key-here
+# Naming convention: HUBSPOT_API_KEY_{REGION_CODE}
 
-# Optional: Future multi-account setup
+HUBSPOT_API_KEY_JP=pat-na1-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+HUBSPOT_API_KEY_APAC=pat-na1-yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
+# Add more regions as needed:
 # HUBSPOT_API_KEY_US=your-us-api-key
-# HUBSPOT_API_KEY_APAC=your-apac-api-key
-# HUBSPOT_API_KEY_JP=your-jp-api-key
-# HUBSPOT_API_KEY_IN=your-in-api-key
 # HUBSPOT_API_KEY_EU=your-eu-api-key
+# HUBSPOT_API_KEY_LATAM=your-latam-api-key
+
+# Enable real HubSpot sync (set to true for production)
+ENABLE_REAL_HUBSPOT_SYNC=true
 
 # Database
 DATABASE_URL="file:./dev.db"
@@ -253,15 +256,25 @@ Configure probability values for each pipeline stage:
 
 ## 🔄 HubSpot Synchronization
 
-### Initial Sync
+### Sync Behavior
 
-1. Navigate to Settings → HubSpot Integration
-2. Click "Sync Now"
-3. Wait for synchronization to complete
+**Default Sync Range**: YTD (Year To Date)
+- Syncs only current year's deals by default
+- Prevents timeout issues on Vercel (10s limit)
+
+**Manual Sync**:
+1. Set your date range using the dashboard filters
+2. Click "Sync" button
+3. System syncs deals within the selected date range
+
+**Filter Switching**:
+- Uses **client-side filtering** (instant)
+- No re-sync when switching between quarters
+- Data already in local database is filtered
 
 ### What Gets Synced
 
-- **Deals**: All deal records with properties
+- **Deals**: Deal records within selected date range (based on closeDate)
 - **Owners**: Sales rep information
 - **Pipeline Stages**: Stage names and order
 
@@ -403,6 +416,6 @@ Proprietary - Internal Use Only
 
 ---
 
-**Last Updated**: 2026-02-05
+**Last Updated**: 2026-02-08
 **Version**: 1.0.0
 **Maintainer**: Terrel Yeh
