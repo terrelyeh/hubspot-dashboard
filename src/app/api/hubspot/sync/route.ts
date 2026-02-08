@@ -10,6 +10,9 @@ import { prisma } from '@/lib/db';
  * Body (optional):
  *   - regionCode: string - Sync specific region only
  *   - force: boolean - Force sync even if recently synced
+ *   - startDate: string (ISO date) - Start of date range for closeDate filter
+ *   - endDate: string (ISO date) - End of date range for closeDate filter
+ *   If no date range provided, defaults to YTD (Year To Date)
  *
  * Response:
  *   - results: Sync results for each region
@@ -17,7 +20,18 @@ import { prisma } from '@/lib/db';
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { regionCode, force } = body;
+    const { regionCode, force, startDate: startDateStr, endDate: endDateStr } = body;
+
+    // Calculate date range - default to YTD if not provided
+    const now = new Date();
+    const startDate = startDateStr
+      ? new Date(startDateStr)
+      : new Date(now.getFullYear(), 0, 1); // Default: Jan 1 of current year
+    const endDate = endDateStr
+      ? new Date(endDateStr)
+      : new Date(now.getFullYear(), 11, 31, 23, 59, 59); // Default: Dec 31 of current year
+
+    console.log(`Sync date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
     // Check if mock data mode is enabled
     const enableRealSync = process.env.ENABLE_REAL_HUBSPOT_SYNC === 'true';
@@ -67,7 +81,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const result = await syncDealsFromHubSpot(apiKey, region.id);
+      const result = await syncDealsFromHubSpot(apiKey, region.id, { startDate, endDate });
       results = { [regionCode]: result };
     } else {
       // For single organization setup, sync to default region (JP - Japan) only
@@ -101,7 +115,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const result = await syncDealsFromHubSpot(apiKey, defaultRegion.id);
+      const result = await syncDealsFromHubSpot(apiKey, defaultRegion.id, { startDate, endDate });
       results = { [defaultRegionCode]: result };
     }
 

@@ -562,10 +562,20 @@ function DashboardContent() {
       setSyncing(true);
       setSyncMessage(null);
 
+      // Calculate date range based on current filter settings
+      // Start date: first day of start quarter
+      const syncStartDate = new Date(startYear, (startQuarter - 1) * 3, 1);
+      // End date: last day of end quarter
+      const syncEndDate = new Date(endYear, endQuarter * 3, 0, 23, 59, 59);
+
       const response = await fetch('/api/hubspot/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ regionCode: selectedRegion }),
+        body: JSON.stringify({
+          regionCode: selectedRegion,
+          startDate: syncStartDate.toISOString(),
+          endDate: syncEndDate.toISOString(),
+        }),
       });
       const result = await response.json();
 

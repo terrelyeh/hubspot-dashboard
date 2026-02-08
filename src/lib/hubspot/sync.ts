@@ -18,10 +18,20 @@ interface SyncResult {
 
 /**
  * Sync deals from HubSpot to database
+ *
+ * @param apiKey - HubSpot API key
+ * @param regionId - Database region ID
+ * @param options - Optional sync options
+ * @param options.startDate - Start of date range for closeDate filter
+ * @param options.endDate - End of date range for closeDate filter
  */
 export async function syncDealsFromHubSpot(
   apiKey: string,
-  regionId: string
+  regionId: string,
+  options?: {
+    startDate?: Date;
+    endDate?: Date;
+  }
 ): Promise<SyncResult> {
   const startTime = Date.now();
   const errors: string[] = [];
@@ -31,10 +41,25 @@ export async function syncDealsFromHubSpot(
   try {
     const client = new HubSpotClient(apiKey);
 
+    // Build date range filter if provided
+    const closeDateFilter = options?.startDate && options?.endDate
+      ? { start: options.startDate, end: options.endDate }
+      : undefined;
+
+    // Log the date range being synced
+    if (closeDateFilter) {
+      console.log(`Syncing deals with closeDate between ${closeDateFilter.start.toISOString()} and ${closeDateFilter.end.toISOString()}`);
+    } else {
+      console.log('Syncing all deals (no date filter)');
+    }
+
     // Fetch deals, owners, and pipelines in parallel for better performance
     console.log('Fetching data from HubSpot (parallel)...');
     const [hubspotDeals, owners, pipelines] = await Promise.all([
-      client.fetchDeals(),
+      // Use fetchDealsWithFilters if date range is provided, otherwise fetch all
+      closeDateFilter
+        ? client.fetchDealsWithFilters({ closeDate: closeDateFilter })
+        : client.fetchDeals(),
       client.fetchOwners().catch((error) => {
         console.warn('Failed to fetch owners:', error);
         return [];
