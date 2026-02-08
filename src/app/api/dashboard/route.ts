@@ -20,25 +20,175 @@ function formatCurrency(amount: number): string {
 }
 
 /**
+ * Helper function to get quarter date range
+ */
+function getQuarterDateRange(year: number, quarter: number): { start: Date; end: Date } {
+  const start = new Date(year, (quarter - 1) * 3, 1);
+  const end = new Date(year, quarter * 3, 0);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+/**
+ * Helper function to get all quarters between start and end
+ */
+function getQuartersBetween(
+  startYear: number,
+  startQuarter: number,
+  endYear: number,
+  endQuarter: number
+): { year: number; quarter: number }[] {
+  const quarters: { year: number; quarter: number }[] = [];
+  let currentYear = startYear;
+  let currentQuarter = startQuarter;
+
+  while (
+    currentYear < endYear ||
+    (currentYear === endYear && currentQuarter <= endQuarter)
+  ) {
+    quarters.push({ year: currentYear, quarter: currentQuarter });
+    currentQuarter++;
+    if (currentQuarter > 4) {
+      currentQuarter = 1;
+      currentYear++;
+    }
+  }
+
+  return quarters;
+}
+
+/**
+ * Helper function to get the previous comparable period
+ * For single quarter: returns the previous quarter
+ * For multi-quarter range: returns the same length period before
+ */
+function getPreviousPeriod(
+  startYear: number,
+  startQuarter: number,
+  endYear: number,
+  endQuarter: number
+): { startYear: number; startQuarter: number; endYear: number; endQuarter: number } {
+  // Calculate total quarters in the current period
+  const quartersInPeriod = getQuartersBetween(startYear, startQuarter, endYear, endQuarter).length;
+
+  // Go back by that many quarters
+  let prevEndYear = startYear;
+  let prevEndQuarter = startQuarter - 1;
+
+  if (prevEndQuarter < 1) {
+    prevEndQuarter = 4;
+    prevEndYear--;
+  }
+
+  // Calculate start of previous period
+  let prevStartYear = prevEndYear;
+  let prevStartQuarter = prevEndQuarter;
+
+  for (let i = 1; i < quartersInPeriod; i++) {
+    prevStartQuarter--;
+    if (prevStartQuarter < 1) {
+      prevStartQuarter = 4;
+      prevStartYear--;
+    }
+  }
+
+  return {
+    startYear: prevStartYear,
+    startQuarter: prevStartQuarter,
+    endYear: prevEndYear,
+    endQuarter: prevEndQuarter,
+  };
+}
+
+/**
+ * Calculate percentage change between two values
+ */
+function calculatePercentageChange(current: number, previous: number): string {
+  if (previous === 0 && current === 0) {
+    return '0%';
+  }
+  if (previous === 0) {
+    return current > 0 ? '+100%' : '0%';
+  }
+  const change = ((current - previous) / previous) * 100;
+  const rounded = Math.round(change);
+  return `${rounded >= 0 ? '+' : ''}${rounded}%`;
+}
+
+/**
  * GET /api/dashboard
  *
  * Single organization dashboard data
  *
  * Query params:
- *   - year: number (optional) - Default: 2024
- *   - quarter: number (optional) - Default: 3
+ *   - year: number (optional) - Default: current year (for single quarter mode)
+ *   - quarter: number (optional) - Default: current quarter (for single quarter mode)
+ *   - startYear: number (optional) - Start year for date range
+ *   - startQuarter: number (optional) - Start quarter for date range
+ *   - endYear: number (optional) - End year for date range
+ *   - endQuarter: number (optional) - End quarter for date range
  *   - owner: string (optional) - Filter by deal owner
  *   - stage: string (optional) - Filter by deal stage (comma-separated)
  *   - forecastCategory: string (optional) - Filter by forecast category (comma-separated)
+ *   - topDealsLimit: number (optional) - Number of top deals to return (default: 10)
+ *   - topDealsSortBy: string (optional) - Sort top deals by: amount, closeDate, deployTime, updated (default: amount)
+ *   - topDealsSortOrder: string (optional) - Sort order: asc, desc (default: desc for amount, asc for dates)
+ *   - region: string (optional) - Region code (e.g., 'JP', 'APAC'). Default: 'JP'
  */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : 2024;
-    const quarter = searchParams.get('quarter') ? parseInt(searchParams.get('quarter')!) : 3;
+
+    // Get region parameter (default to JP for backwards compatibility)
+    const regionCode = searchParams.get('region') || 'JP';
+
+    // Fetch the region from database
+    const region = await prisma.region.findUnique({
+      where: { code: regionCode },
+    });
+
+    if (!region) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Region not found',
+          message: `No region found with code: ${regionCode}`,
+        },
+        { status: 404 }
+      );
+    }
+
+    // Support both single quarter (year/quarter) and date range (startYear/startQuarter to endYear/endQuarter)
+    const hasDateRange = searchParams.has('startYear') || searchParams.has('endYear');
+
+    let startYear: number, startQuarter: number, endYear: number, endQuarter: number;
+
+    if (hasDateRange) {
+      // Date range mode
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentQuarter = Math.floor(now.getMonth() / 3) + 1;
+
+      startYear = searchParams.get('startYear') ? parseInt(searchParams.get('startYear')!) : currentYear;
+      startQuarter = searchParams.get('startQuarter') ? parseInt(searchParams.get('startQuarter')!) : currentQuarter;
+      endYear = searchParams.get('endYear') ? parseInt(searchParams.get('endYear')!) : currentYear;
+      endQuarter = searchParams.get('endQuarter') ? parseInt(searchParams.get('endQuarter')!) : currentQuarter;
+    } else {
+      // Single quarter mode (backwards compatible)
+      const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : 2024;
+      const quarter = searchParams.get('quarter') ? parseInt(searchParams.get('quarter')!) : 3;
+      startYear = endYear = year;
+      startQuarter = endQuarter = quarter;
+    }
+
     const ownerFilter = searchParams.get('owner');
     const stageFilter = searchParams.get('stage');
     const forecastCategoryFilter = searchParams.get('forecastCategory');
+
+    // Top Deals parameters
+    const topDealsLimit = searchParams.get('topDealsLimit') ? parseInt(searchParams.get('topDealsLimit')!) : 10;
+    const topDealsSortBy = searchParams.get('topDealsSortBy') || 'amount';
+    const topDealsSortOrder = searchParams.get('topDealsSortOrder') || (topDealsSortBy === 'amount' ? 'desc' : 'asc');
 
     // Check if we have real HubSpot data (deals with non-empty hubspotId starting with numbers)
     const hubspotDealsCount = await prisma.deal.count({
@@ -52,13 +202,21 @@ export async function GET(request: Request) {
     });
     const hasRealHubSpotData = hubspotDealsCount > 0;
 
-    // Calculate quarter date range
-    const quarterStart = new Date(year, (quarter - 1) * 3, 1);
-    const quarterEnd = new Date(year, quarter * 3, 0);
-    quarterEnd.setHours(23, 59, 59, 999);
+    // Calculate date range for the selected period
+    const periodStart = getQuarterDateRange(startYear, startQuarter).start;
+    const periodEnd = getQuarterDateRange(endYear, endQuarter).end;
+
+    // For backwards compatibility
+    const quarterStart = periodStart;
+    const quarterEnd = periodEnd;
+
+    // Get all quarters in the range for target calculation
+    const quartersInRange = getQuartersBetween(startYear, startQuarter, endYear, endQuarter);
+    const isMultiQuarter = quartersInRange.length > 1;
 
     // Build where clause for deals
     const where: any = {
+      regionId: region.id,  // Filter by region
       closeDate: {
         gte: quarterStart,
         lte: quarterEnd,
@@ -100,41 +258,44 @@ export async function GET(request: Request) {
       },
     });
 
-    // Get default region (JP for single-org setup)
-    const defaultRegion = await prisma.region.findFirst({
-      where: { code: 'JP' },
-    });
+    // Fetch targets for all quarters in the range and sum them
+    // Also track which quarters have targets and which are missing
+    let targetAmount = 0;
+    const quartersWithTargets: { year: number; quarter: number; amount: number }[] = [];
+    const quartersMissingTargets: { year: number; quarter: number }[] = [];
 
-    // Fetch target for this quarter
-    // If owner filter is applied, try to get owner-specific target first
-    let target = null;
+    for (const q of quartersInRange) {
+      let target = null;
 
-    if (ownerFilter) {
-      // Try to find owner-specific target
-      target = await prisma.target.findFirst({
-        where: {
-          regionId: defaultRegion?.id,
-          year,
-          quarter,
-          ownerName: ownerFilter,
-        },
-      });
+      if (ownerFilter) {
+        // Try to find owner-specific target
+        target = await prisma.target.findFirst({
+          where: {
+            regionId: region.id,
+            year: q.year,
+            quarter: q.quarter,
+            ownerName: ownerFilter,
+          },
+        });
+      } else {
+        // No owner filter: get region-level target (ownerName = null)
+        target = await prisma.target.findFirst({
+          where: {
+            regionId: region.id,
+            year: q.year,
+            quarter: q.quarter,
+            ownerName: null,
+          },
+        });
+      }
 
-      // If no owner-specific target found, don't fall back to region target
-      // This makes it clear when an owner doesn't have a personal target set
-    } else {
-      // No owner filter: get region-level target (ownerName = null)
-      target = await prisma.target.findFirst({
-        where: {
-          regionId: defaultRegion?.id,
-          year,
-          quarter,
-          ownerName: null, // Region-level target
-        },
-      });
+      if (target) {
+        targetAmount += target.amount;
+        quartersWithTargets.push({ year: q.year, quarter: q.quarter, amount: target.amount });
+      } else {
+        quartersMissingTargets.push({ year: q.year, quarter: q.quarter });
+      }
     }
-
-    const targetAmount = target?.amount || 0;
 
     // Calculate summary metrics
     const totalPipeline = deals.reduce((sum, deal) => sum + deal.amountUsd, 0);
@@ -165,6 +326,7 @@ export async function GET(request: Request) {
 
     // Closed Won deals
     const closedWonWhere: any = {
+      regionId: region.id,
       stage: 'Closed Won',
       closeDate: {
         gte: quarterStart,
@@ -187,6 +349,7 @@ export async function GET(request: Request) {
 
     // Closed Lost deals
     const closedLostWhere: any = {
+      regionId: region.id,
       stage: 'Closed Lost',
       closeDate: {
         gte: quarterStart,
@@ -210,6 +373,77 @@ export async function GET(request: Request) {
     // Win Rate
     const totalClosed = closedWonDeals.length + closedLostDeals.length;
     const winRate = totalClosed > 0 ? (closedWonDeals.length / totalClosed) * 100 : 0;
+
+    // ========== PREVIOUS PERIOD COMPARISON ==========
+    // Calculate previous period date range
+    const prevPeriod = getPreviousPeriod(startYear, startQuarter, endYear, endQuarter);
+    const prevPeriodStart = getQuarterDateRange(prevPeriod.startYear, prevPeriod.startQuarter).start;
+    const prevPeriodEnd = getQuarterDateRange(prevPeriod.endYear, prevPeriod.endQuarter).end;
+
+    // Build where clause for previous period (same filters, different date range)
+    const prevWhereBase: any = {
+      regionId: region.id,
+    };
+    if (hasRealHubSpotData) {
+      prevWhereBase.hubspotId = {
+        not: {
+          startsWith: 'mock-',
+        },
+      };
+    }
+    if (ownerFilter) {
+      prevWhereBase.ownerName = ownerFilter;
+    }
+
+    // Previous period: New Deals (created in previous period)
+    const prevNewDeals = await prisma.deal.findMany({
+      where: {
+        ...prevWhereBase,
+        createdAt: {
+          gte: prevPeriodStart,
+          lte: prevPeriodEnd,
+        },
+      },
+    });
+    const prevNewDealCount = prevNewDeals.length;
+
+    // Previous period: Closed Won deals
+    const prevClosedWonDeals = await prisma.deal.findMany({
+      where: {
+        ...prevWhereBase,
+        stage: 'Closed Won',
+        closeDate: {
+          gte: prevPeriodStart,
+          lte: prevPeriodEnd,
+        },
+      },
+    });
+    const prevClosedWonCount = prevClosedWonDeals.length;
+
+    // Previous period: Closed Lost deals
+    const prevClosedLostDeals = await prisma.deal.findMany({
+      where: {
+        ...prevWhereBase,
+        stage: 'Closed Lost',
+        closeDate: {
+          gte: prevPeriodStart,
+          lte: prevPeriodEnd,
+        },
+      },
+    });
+    const prevClosedLostCount = prevClosedLostDeals.length;
+
+    // Previous period: Win Rate
+    const prevTotalClosed = prevClosedWonCount + prevClosedLostCount;
+    const prevWinRate = prevTotalClosed > 0 ? (prevClosedWonCount / prevTotalClosed) * 100 : 0;
+
+    // Calculate trends (percentage change vs previous period)
+    const newDealsTrend = calculatePercentageChange(newDeals.length, prevNewDealCount);
+    const closedWonTrend = calculatePercentageChange(closedWonDeals.length, prevClosedWonCount);
+    const closedLostTrend = calculatePercentageChange(closedLostDeals.length, prevClosedLostCount);
+    const winRateTrend = calculatePercentageChange(Math.round(winRate), Math.round(prevWinRate));
+
+    // ========== END PREVIOUS PERIOD COMPARISON ==========
 
     // Detect stale deals (>14 days since last modified)
     const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
@@ -275,7 +509,9 @@ export async function GET(request: Request) {
         probability: deal.stageProbability,
         forecastCategory: deal.forecastCategory || 'Pipeline',
         closeDate: deal.closeDate.toISOString(),
+        deployTime: deal.deployTime ? deal.deployTime.toISOString() : null,
         createdAt: deal.createdAt.toISOString(),
+        lastModifiedAt: deal.lastModifiedAt.toISOString(),
         daysSinceUpdate,
         owner: deal.ownerName || 'Unassigned',
         distributor: deal.distributor,
@@ -286,8 +522,55 @@ export async function GET(request: Request) {
       };
     };
 
-    // Get top 10 deals
-    const topDeals = deals.slice(0, 10).map(formatDeal);
+    // Get top deals based on the selected dimension
+    // Smart switching based on whether the selected period is in the future or past
+    // - Future period: "closing soonest" / "deploying soonest"
+    // - Past period: "most recently closed" / "most recently deployed"
+    const isFuturePeriod = periodEnd >= now;
+    let topDealsFiltered = [...deals];
+
+    // For date-based dimensions, filter and sort appropriately
+    switch (topDealsSortBy) {
+      case 'closeDate':
+        if (isFuturePeriod) {
+          // Future: Top N deals closing soonest (closest future dates first)
+          topDealsFiltered = topDealsFiltered
+            .filter(d => new Date(d.closeDate) >= now)
+            .sort((a, b) => new Date(a.closeDate).getTime() - new Date(b.closeDate).getTime());
+        } else {
+          // Past: Top N deals most recently closed (newest first)
+          topDealsFiltered = topDealsFiltered
+            .sort((a, b) => new Date(b.closeDate).getTime() - new Date(a.closeDate).getTime());
+        }
+        break;
+      case 'deployTime':
+        // Filter out deals without deployTime first
+        topDealsFiltered = topDealsFiltered.filter(d => d.deployTime);
+        if (isFuturePeriod) {
+          // Future: Top N deals deploying soonest (closest future dates first)
+          topDealsFiltered = topDealsFiltered
+            .filter(d => new Date(d.deployTime!) >= now)
+            .sort((a, b) => new Date(a.deployTime!).getTime() - new Date(b.deployTime!).getTime());
+        } else {
+          // Past: Top N deals most recently deployed (newest first)
+          topDealsFiltered = topDealsFiltered
+            .sort((a, b) => new Date(b.deployTime!).getTime() - new Date(a.deployTime!).getTime());
+        }
+        break;
+      case 'updated':
+        // Top N most recently updated deals (always newest first)
+        topDealsFiltered = topDealsFiltered
+          .sort((a, b) => new Date(b.lastModifiedAt).getTime() - new Date(a.lastModifiedAt).getTime());
+        break;
+      case 'amount':
+      default:
+        // Top N highest value deals
+        topDealsFiltered = topDealsFiltered
+          .sort((a, b) => b.amountUsd - a.amountUsd);
+        break;
+    }
+
+    const topDeals = topDealsFiltered.slice(0, topDealsLimit).map(formatDeal);
 
     // Format detailed deal lists for slideout
     const newDealsFormatted = newDeals.map(formatDeal);
@@ -332,23 +615,78 @@ export async function GET(request: Request) {
       }))
       .sort((a, b) => b.probability - a.probability);
 
-    // Forecast by month
-    const monthMap = new Map<number, { count: number; amount: number }>();
+    // Forecast by month - grouped by quarter with quarterly targets
+    const monthYearMap = new Map<string, { count: number; amount: number; month: number; year: number }>();
 
     deals.forEach(deal => {
-      const month = new Date(deal.closeDate).getMonth();
-      const existing = monthMap.get(month) || { count: 0, amount: 0 };
+      const closeDate = new Date(deal.closeDate);
+      const month = closeDate.getMonth();
+      const year = closeDate.getFullYear();
+      const key = `${year}-${month}`;
+      const existing = monthYearMap.get(key) || { count: 0, amount: 0, month, year };
       existing.count += 1;
       existing.amount += deal.amountUsd * (deal.stageProbability / 100);
-      monthMap.set(month, existing);
+      monthYearMap.set(key, existing);
     });
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const quarterMonths = [(quarter - 1) * 3, (quarter - 1) * 3 + 1, (quarter - 1) * 3 + 2];
 
-    const forecastByMonth = quarterMonths.map(month => {
-      const data = monthMap.get(month) || { count: 0, amount: 0 };
-      const percentOfTarget = targetAmount > 0 ? (data.amount / targetAmount) * 100 : 0;
+    // Build forecast data grouped by quarter
+    const forecastByQuarter = quartersInRange.map(q => {
+      // Get the 3 months in this quarter
+      const qMonthIndices = [(q.quarter - 1) * 3, (q.quarter - 1) * 3 + 1, (q.quarter - 1) * 3 + 2];
+
+      const months = qMonthIndices.map(monthIndex => {
+        const key = `${q.year}-${monthIndex}`;
+        const data = monthYearMap.get(key) || { count: 0, amount: 0, month: monthIndex, year: q.year };
+        return {
+          month: monthNames[monthIndex],
+          monthIndex,
+          year: q.year,
+          dealCount: data.count,
+          amount: data.amount,
+          amountFormatted: formatCurrency(data.amount),
+        };
+      });
+
+      // Get the target for this specific quarter
+      const quarterTarget = quartersWithTargets.find(t => t.year === q.year && t.quarter === q.quarter);
+      const hasTarget = !!quarterTarget;
+      const targetAmount = quarterTarget?.amount || 0;
+
+      // Calculate quarterly totals
+      const totalAmount = months.reduce((sum, m) => sum + m.amount, 0);
+      const totalDeals = months.reduce((sum, m) => sum + m.dealCount, 0);
+      const achievementRate = hasTarget && targetAmount > 0 ? Math.round((totalAmount / targetAmount) * 100) : null;
+
+      return {
+        quarter: q.quarter,
+        year: q.year,
+        label: `Q${q.quarter} ${q.year}`,
+        months,
+        totalAmount,
+        totalAmountFormatted: formatCurrency(totalAmount),
+        totalDeals,
+        target: targetAmount,
+        targetFormatted: hasTarget ? formatCurrency(targetAmount) : null,
+        hasTarget,
+        achievementRate,
+      };
+    });
+
+    // Also keep flat forecastByMonth for backwards compatibility
+    const allMonthsInRange: { month: number; year: number }[] = [];
+    for (const q of quartersInRange) {
+      const qMonths = [(q.quarter - 1) * 3, (q.quarter - 1) * 3 + 1, (q.quarter - 1) * 3 + 2];
+      qMonths.forEach(m => allMonthsInRange.push({ month: m, year: q.year }));
+    }
+
+    const monthlyTargetShare = allMonthsInRange.length > 0 ? targetAmount / allMonthsInRange.length : 0;
+
+    const forecastByMonth = allMonthsInRange.map(({ month, year }) => {
+      const key = `${year}-${month}`;
+      const data = monthYearMap.get(key) || { count: 0, amount: 0, month, year };
+      const percentOfTarget = monthlyTargetShare > 0 ? (data.amount / monthlyTargetShare) * 100 : 0;
 
       return {
         month: monthNames[month],
@@ -370,15 +708,23 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       usingMockData: !hasRealHubSpotData,
-      region: defaultRegion ? {
-        code: defaultRegion.code,
-        name: defaultRegion.name,
-      } : null,
+      region: {
+        code: region.code,
+        name: region.name,
+      },
       period: {
-        year,
-        quarter,
-        startDate: quarterStart.toISOString(),
-        endDate: quarterEnd.toISOString(),
+        // Single quarter mode (backwards compatible)
+        year: startYear,
+        quarter: startQuarter,
+        // Date range mode
+        startYear,
+        startQuarter,
+        endYear,
+        endQuarter,
+        isMultiQuarter,
+        quartersInRange,
+        startDate: periodStart.toISOString(),
+        endDate: periodEnd.toISOString(),
       },
       summary: {
         totalPipeline,
@@ -404,6 +750,14 @@ export async function GET(request: Request) {
         totalForecastFormatted: formatCurrency(weightedForecast),
         totalTarget: targetAmount,
         totalTargetFormatted: formatCurrency(targetAmount),
+        // Target coverage info for multi-quarter periods
+        targetCoverage: {
+          quartersWithTargets,
+          quartersMissingTargets,
+          isComplete: quartersMissingTargets.length === 0,
+          coveredQuarters: quartersWithTargets.length,
+          totalQuarters: quartersInRange.length,
+        },
         gap,
         gapFormatted: `${gap >= 0 ? '+' : ''}${formatCurrency(Math.abs(gap))}`,
         achievementRate: Math.round(achievementRate),
@@ -415,26 +769,30 @@ export async function GET(request: Request) {
           count: newDeals.length,
           amount: newDealAmount,
           amountFormatted: formatCurrency(newDealAmount),
-          trend: '+15%', // TODO: Calculate from previous quarter
+          trend: newDealsTrend,
+          prevCount: prevNewDealCount,
           deals: newDealsFormatted,
         },
         closedWon: {
           count: closedWonDeals.length,
           amount: closedWonAmount,
           amountFormatted: formatCurrency(closedWonAmount),
-          trend: '+12%', // TODO: Calculate from previous quarter
+          trend: closedWonTrend,
+          prevCount: prevClosedWonCount,
           deals: closedWonDealsFormatted,
         },
         closedLost: {
           count: closedLostDeals.length,
           amount: closedLostAmount,
           amountFormatted: formatCurrency(closedLostAmount),
-          trend: '-8%', // TODO: Calculate from previous quarter
+          trend: closedLostTrend,
+          prevCount: prevClosedLostCount,
           deals: closedLostDealsFormatted,
         },
         winRate: {
           rate: Math.round(winRate),
-          trend: '+3%', // TODO: Calculate from previous quarter
+          trend: winRateTrend,
+          prevRate: Math.round(prevWinRate),
         },
       },
       forecastBreakdown: {
@@ -474,6 +832,7 @@ export async function GET(request: Request) {
       topDeals,
       pipelineByStage,
       forecastByMonth,
+      forecastByQuarter,
       filters: {
         availableOwners: uniqueOwners,
         availableStages: uniqueStages,

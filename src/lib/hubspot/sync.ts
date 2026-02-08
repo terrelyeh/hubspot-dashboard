@@ -111,6 +111,10 @@ export async function syncDealsFromHubSpot(
           console.log(`Converted ${amount} ${currency} to ${amountUsd.toFixed(2)} USD (rate: ${exchangeRate})`);
         }
 
+        // Parse deploy time if available (expected_close_date is the HubSpot custom property for Deploy Date)
+        const deployTimeRaw = props.expected_close_date || props.deploy_time;
+        const deployTime = deployTimeRaw ? new Date(deployTimeRaw) : null;
+
         // Prepare deal data
         const dealData = {
           hubspotId: deal.id,
@@ -125,6 +129,7 @@ export async function syncDealsFromHubSpot(
           probabilitySource: 'hubspot',
           forecastCategory: props.hs_forecast_category || 'Pipeline',
           closeDate: closeDate,
+          deployTime: deployTime,
           createdAt: new Date(deal.createdAt),
           lastModifiedAt: new Date(deal.updatedAt),
           ownerName: ownerName,

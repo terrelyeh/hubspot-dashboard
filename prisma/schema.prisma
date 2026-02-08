@@ -45,6 +45,7 @@ model Deal {
   forecastCategory     String?
 
   closeDate            DateTime
+  deployTime           DateTime?
   createdAt            DateTime
   lastModifiedAt       DateTime
 

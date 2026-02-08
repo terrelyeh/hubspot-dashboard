@@ -19,6 +19,9 @@ interface HubSpotDeal {
     hubspot_owner_id?: string;
     hs_deal_stage_probability?: string;
     hs_forecast_category?: string;
+    distributor?: string;
+    deploy_time?: string;
+    expected_close_date?: string;
   };
   createdAt: string;
   updatedAt: string;
@@ -99,6 +102,8 @@ export class HubSpotClient {
       'hs_deal_stage_probability',
       'hs_forecast_category',
       'distributor',
+      'deploy_time',
+      'expected_close_date',
     ];
 
     const queryParams = new URLSearchParams({

@@ -190,40 +190,59 @@ export async function POST(request: Request) {
       );
     }
 
-    // Upsert target
-    const target = await prisma.target.upsert({
+    // Find existing target first (to handle null ownerName properly)
+    const existingTarget = await prisma.target.findFirst({
       where: {
-        regionId_year_quarter_ownerName: {
-          regionId: region.id,
-          year,
-          quarter,
-          ownerName: ownerName || null,
-        },
-      },
-      update: {
-        amount,
-        currency: currency || 'USD',
-        notes: notes || null,
-      },
-      create: {
         regionId: region.id,
         year,
         quarter,
         ownerName: ownerName || null,
-        amount,
-        currency: currency || 'USD',
-        notes: notes || null,
-      },
-      include: {
-        region: {
-          select: {
-            code: true,
-            name: true,
-            currency: true,
-          },
-        },
       },
     });
+
+    let target;
+    if (existingTarget) {
+      // Update existing target
+      target = await prisma.target.update({
+        where: { id: existingTarget.id },
+        data: {
+          amount,
+          currency: currency || 'USD',
+          notes: notes || null,
+        },
+        include: {
+          region: {
+            select: {
+              code: true,
+              name: true,
+              currency: true,
+            },
+          },
+        },
+      });
+    } else {
+      // Create new target
+      target = await prisma.target.create({
+        data: {
+          regionId: region.id,
+          year,
+          quarter,
+          ownerName: ownerName || null,
+          amount,
+          currency: currency || 'USD',
+          notes: notes || null,
+        },
+        include: {
+          region: {
+            select: {
+              code: true,
+              name: true,
+              currency: true,
+            },
+          },
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,

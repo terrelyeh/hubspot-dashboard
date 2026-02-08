@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   TrendingUp,
   Target,
@@ -16,8 +17,19 @@ import {
   Database,
   Settings,
   Info,
+  RefreshCw,
+  CheckCircle,
+  ChevronDown,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useLanguage } from '@/lib/i18n';
+import { LanguageSwitcherDropdown } from '@/components/LanguageSwitcher';
+
+// Available regions configuration
+const REGIONS = [
+  { code: 'JP', name: 'Japan', flag: '🇯🇵' },
+  { code: 'APAC', name: 'Asia Pacific', flag: '🌏' },
+] as const;
 
 interface Deal {
   id: string;
@@ -29,7 +41,9 @@ interface Deal {
   probability: number;
   forecastCategory: string;
   closeDate: string;
+  deployTime?: string | null;
   createdAt: string;
+  lastModifiedAt?: string;
   daysSinceUpdate: number;
   owner: string;
   distributor?: string;
@@ -60,6 +74,13 @@ interface DashboardData {
     achievementRate: number;
     dealCount: number;
     gap: number;
+    targetCoverage: {
+      quartersWithTargets: { year: number; quarter: number; amount: number }[];
+      quartersMissingTargets: { year: number; quarter: number }[];
+      isComplete: boolean;
+      coveredQuarters: number;
+      totalQuarters: number;
+    };
   };
   activityKpis: {
     newDeals: { count: number; amountFormatted: string; trend: string; deals: Deal[] };
@@ -90,6 +111,26 @@ interface DashboardData {
     dealCount: number;
     amountFormatted: string;
     percentOfTarget: number;
+  }>;
+  forecastByQuarter: Array<{
+    quarter: number;
+    year: number;
+    label: string;
+    months: Array<{
+      month: string;
+      monthIndex: number;
+      year: number;
+      dealCount: number;
+      amount: number;
+      amountFormatted: string;
+    }>;
+    totalAmount: number;
+    totalAmountFormatted: string;
+    totalDeals: number;
+    target: number;
+    targetFormatted: string | null;
+    hasTarget: boolean;
+    achievementRate: number | null;
   }>;
   filters: {
     availableOwners: string[];
@@ -144,18 +185,157 @@ function getRegionFlag(regionCode: string): string {
   return flags[regionCode] || '🌍';
 }
 
-export default function DashboardPage() {
+// Type definitions (outside component to avoid re-creation)
+type PeriodPreset = 'current' | 'previous' | 'ytd' | 'h1' | 'h2' | 'fullYear' | 'custom';
+type TopDealsSortBy = 'amount' | 'closeDate' | 'deployTime' | 'updated';
+
+// Loading component for Suspense fallback
+function DashboardLoading() {
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-orange-500 border-r-transparent"></div>
+        <p className="mt-4 text-slate-600 font-medium">Loading Dashboard...</p>
+      </div>
+    </div>
+  );
+}
+
+// Main dashboard content component
+function DashboardContent() {
+  // All hooks must be called at the top level, before any conditional returns
+  const { t, setLanguage } = useLanguage();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Region selection (from URL or default to JP)
+  const regionFromUrl = searchParams.get('region') || 'JP';
+  const [selectedRegion, setSelectedRegion] = useState(regionFromUrl);
+  const [regionDropdownOpen, setRegionDropdownOpen] = useState(false);
+
+  // Update region when URL changes
+  useEffect(() => {
+    const regionParam = searchParams.get('region') || 'JP';
+    if (regionParam !== selectedRegion) {
+      setSelectedRegion(regionParam);
+    }
+  }, [searchParams]);
+
+  const currentRegion = REGIONS.find(r => r.code === selectedRegion) || REGIONS[0];
+
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [usingMockData, setUsingMockData] = useState(true);
 
-  // Filters
-  const [selectedYear, setSelectedYear] = useState(2024);
-  const [selectedQuarter, setSelectedQuarter] = useState(3);
+  // Filters - Date Range
+  const currentYear = new Date().getFullYear();
+  const currentQuarter = Math.floor(new Date().getMonth() / 3) + 1;
+
+  const [startYear, setStartYear] = useState(currentYear);
+  const [startQuarter, setStartQuarter] = useState(currentQuarter);
+  const [endYear, setEndYear] = useState(currentYear);
+  const [endQuarter, setEndQuarter] = useState(currentQuarter);
+
+  // For backwards compatibility
+  const selectedYear = startYear;
+  const selectedQuarter = startQuarter;
+
+  // Quick period presets
+  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('current');
+
   const [selectedOwner, setSelectedOwner] = useState('All');
   const [selectedStages, setSelectedStages] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+  // Top Deals controls
+  const [topDealsLimit, setTopDealsLimit] = useState(10);
+  const [topDealsSortBy, setTopDealsSortBy] = useState<TopDealsSortBy>('amount');
+
+  // Handle region change - reset all filters to defaults
+  const handleRegionChange = (regionCode: string) => {
+    setSelectedRegion(regionCode);
+    setRegionDropdownOpen(false);
+
+    // Reset language based on region (APAC = English only, JP = keep user preference or default to English)
+    if (regionCode === 'APAC') {
+      setLanguage('en');
+    } else if (regionCode === 'JP') {
+      // Reset to English when switching to JP (user can change it manually)
+      setLanguage('en');
+    }
+
+    // Reset all filters to default values
+    setStartYear(currentYear);
+    setStartQuarter(currentQuarter);
+    setEndYear(currentYear);
+    setEndQuarter(currentQuarter);
+    setPeriodPreset('current');
+    setSelectedOwner('All');
+    setSelectedStages([]);
+    setSelectedCategories([]);
+    setTopDealsLimit(10);
+    setTopDealsSortBy('amount');
+
+    // Update URL with only the region parameter (remove other filters)
+    router.push(`/dashboard?region=${regionCode}`);
+  };
+
+  // Sync state
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Helper to apply period presets
+  const applyPeriodPreset = (preset: PeriodPreset) => {
+    setPeriodPreset(preset);
+    const now = new Date();
+    const year = now.getFullYear();
+    const quarter = Math.floor(now.getMonth() / 3) + 1;
+
+    switch (preset) {
+      case 'current':
+        setStartYear(year);
+        setStartQuarter(quarter);
+        setEndYear(year);
+        setEndQuarter(quarter);
+        break;
+      case 'previous':
+        const prevQ = quarter === 1 ? 4 : quarter - 1;
+        const prevY = quarter === 1 ? year - 1 : year;
+        setStartYear(prevY);
+        setStartQuarter(prevQ);
+        setEndYear(prevY);
+        setEndQuarter(prevQ);
+        break;
+      case 'ytd':
+        setStartYear(year);
+        setStartQuarter(1);
+        setEndYear(year);
+        setEndQuarter(quarter);
+        break;
+      case 'h1':
+        setStartYear(year);
+        setStartQuarter(1);
+        setEndYear(year);
+        setEndQuarter(2);
+        break;
+      case 'h2':
+        setStartYear(year);
+        setStartQuarter(3);
+        setEndYear(year);
+        setEndQuarter(4);
+        break;
+      case 'fullYear':
+        setStartYear(year);
+        setStartQuarter(1);
+        setEndYear(year);
+        setEndQuarter(4);
+        break;
+      case 'custom':
+        // Don't change values, user will set manually
+        break;
+    }
+  };
 
   // Slideout panel
   const [slideoutOpen, setSlideoutOpen] = useState(false);
@@ -170,33 +350,92 @@ export default function DashboardPage() {
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [categoryTooltip, setCategoryTooltip] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        const params = new URLSearchParams({
-          year: selectedYear.toString(),
-          quarter: selectedQuarter.toString()
-        });
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const params = new URLSearchParams({
+        region: selectedRegion,
+        startYear: startYear.toString(),
+        startQuarter: startQuarter.toString(),
+        endYear: endYear.toString(),
+        endQuarter: endQuarter.toString(),
+        topDealsLimit: topDealsLimit.toString(),
+        topDealsSortBy: topDealsSortBy,
+      });
 
-        if (selectedOwner !== 'All') params.set('owner', selectedOwner);
-        if (selectedStages.length > 0) params.set('stage', selectedStages.join(','));
-        if (selectedCategories.length > 0) params.set('forecastCategory', selectedCategories.join(','));
+      if (selectedOwner !== 'All') params.set('owner', selectedOwner);
+      if (selectedStages.length > 0) params.set('stage', selectedStages.join(','));
+      if (selectedCategories.length > 0) params.set('forecastCategory', selectedCategories.join(','));
 
-        const response = await fetch(`/api/dashboard?${params}`);
-        const result = await response.json();
+      const response = await fetch(`/api/dashboard?${params}`);
+      const result = await response.json();
 
-        if (!result.success) throw new Error(result.message);
-        setData(result);
-        setUsingMockData(result.usingMockData || false);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setLoading(false);
-      }
+      if (!result.success) throw new Error(result.message);
+      setData(result);
+      setUsingMockData(result.usingMockData || false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
     }
-    fetchData();
-  }, [selectedYear, selectedQuarter, selectedOwner, selectedStages, selectedCategories]);
+  };
+
+  // Sync data from HubSpot
+  const handleSync = async () => {
+    try {
+      setSyncing(true);
+      setSyncMessage(null);
+
+      const response = await fetch('/api/hubspot/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ regionCode: selectedRegion }),
+      });
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Sync failed');
+      }
+
+      setSyncMessage({
+        type: 'success',
+        text: t('syncSuccess').replace('{created}', result.created).replace('{updated}', result.updated)
+      });
+
+      // Refresh dashboard data after sync
+      await fetchDashboardData();
+
+      // Clear success message after 5 seconds
+      setTimeout(() => setSyncMessage(null), 5000);
+    } catch (err) {
+      setSyncMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Sync failed'
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Track previous dropdown states to detect when they close
+  const prevStageDropdownOpen = useRef(stageDropdownOpen);
+  const prevCategoryDropdownOpen = useRef(categoryDropdownOpen);
+
+  useEffect(() => {
+    // Fetch when dropdowns close (user finished selecting) or other filters change
+    const stageDropdownJustClosed = prevStageDropdownOpen.current && !stageDropdownOpen;
+    const categoryDropdownJustClosed = prevCategoryDropdownOpen.current && !categoryDropdownOpen;
+
+    prevStageDropdownOpen.current = stageDropdownOpen;
+    prevCategoryDropdownOpen.current = categoryDropdownOpen;
+
+    // Don't fetch while dropdowns are open
+    if (stageDropdownOpen || categoryDropdownOpen) return;
+
+    fetchDashboardData();
+  }, [selectedRegion, startYear, startQuarter, endYear, endQuarter, selectedOwner, selectedStages, selectedCategories, topDealsLimit, topDealsSortBy, stageDropdownOpen, categoryDropdownOpen]);
 
   const openSlideout = (title: string, deals: Deal[]) => {
     setSlideoutTitle(title);
@@ -236,21 +475,71 @@ export default function DashboardPage() {
     setSlideoutOpen(false);
   };
 
-  // Close dropdowns when clicking outside
+  // Close dropdowns when clicking outside - use refs to track dropdown elements
+  const stageDropdownRef = useRef<HTMLDivElement>(null);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const regionDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Separate effect for stage dropdown
   useEffect(() => {
+    if (!stageDropdownOpen) return;
+
     const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('.stage-dropdown') && stageDropdownOpen) {
+      if (stageDropdownRef.current && !stageDropdownRef.current.contains(event.target as Node)) {
         setStageDropdownOpen(false);
       }
-      if (!target.closest('.category-dropdown') && categoryDropdownOpen) {
+    };
+
+    // Use a small delay to avoid immediate closure
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('click', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [stageDropdownOpen]);
+
+  // Separate effect for category dropdown
+  useEffect(() => {
+    if (!categoryDropdownOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
         setCategoryDropdownOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [stageDropdownOpen, categoryDropdownOpen]);
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('click', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [categoryDropdownOpen]);
+
+  // Separate effect for region dropdown
+  useEffect(() => {
+    if (!regionDropdownOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (regionDropdownRef.current && !regionDropdownRef.current.contains(event.target as Node)) {
+        setRegionDropdownOpen(false);
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('click', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [regionDropdownOpen]);
 
   if (loading) {
     return (
@@ -287,176 +576,302 @@ export default function DashboardPage() {
 
   const getForecastBadge = (category: string) => {
     const c = category.toLowerCase();
-    if (c === 'commit') return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-300">💚 Commit</span>;
-    if (c.includes('best')) return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-300">⭐ Best Case</span>;
+    if (c === 'commit') return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-300">💚 {t('commit')}</span>;
+    if (c.includes('best')) return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-300">⭐ {t('bestCase')}</span>;
     if (c === 'omitted') return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-300">⚫ Omitted</span>;
-    return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-300">📊 Pipeline</span>;
+    return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-300">📊 {t('pipeline')}</span>;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
-      {/* Header with HubSpot Branding */}
-      <div className="bg-gradient-to-r from-[#2D3E50] via-[#1a2736] to-[#2D3E50] shadow-xl">
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 py-8">
-          <div className="flex items-center justify-between mb-6">
+    <div className="min-h-screen bg-slate-50">
+      {/* Header - Clean & Minimal */}
+      <div className="bg-slate-900 border-b border-slate-800">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 py-5">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              {/* HubSpot Logo */}
-              <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-3 rounded-xl shadow-lg">
-                <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+              {/* Logo */}
+              <div className="bg-orange-500 p-2.5 rounded-lg">
+                <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M18.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 5H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3C9.5 5.22 9.28 5 9 5zm9.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 10H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3c0-.28-.22-.5-.5-.5zm9.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 15H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3c0-.28-.22-.5-.5-.5z"/>
                 </svg>
               </div>
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-3xl font-bold text-white tracking-tight">Pipeline Dashboard</h1>
-                  {data.region && (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
-                      <span className="text-2xl">{getRegionFlag(data.region.code)}</span>
-                      <span className="text-sm font-bold text-white">{data.region.name}</span>
-                    </div>
-                  )}
+                  <h1 className="text-xl font-semibold text-white">Pipeline Dashboard</h1>
+                  {/* Region Switcher */}
+                  <div className="relative" ref={regionDropdownRef}>
+                    <button
+                      onClick={() => setRegionDropdownOpen(!regionDropdownOpen)}
+                      className="flex items-center gap-2.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-600 transition-colors"
+                    >
+                      <span className="text-xl">{currentRegion.flag}</span>
+                      <span className="text-base font-medium text-white">{currentRegion.name}</span>
+                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${regionDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {regionDropdownOpen && (
+                      <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-50 min-w-[200px]">
+                        {REGIONS.map((region) => (
+                          <button
+                            key={region.code}
+                            onClick={() => handleRegionChange(region.code)}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 transition-colors ${
+                              selectedRegion === region.code ? 'bg-slate-50' : ''
+                            }`}
+                          >
+                            <span className="text-xl">{region.flag}</span>
+                            <span className={`text-base font-medium ${selectedRegion === region.code ? 'text-slate-900' : 'text-slate-600'}`}>{region.name}</span>
+                            {selectedRegion === region.code && (
+                              <CheckCircle className="h-4 w-4 text-emerald-500 ml-auto" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <p className="text-blue-200 mt-1 text-sm font-medium">HubSpot Sales Analytics • Q{data.period.quarter} {data.period.year}</p>
+                <p className="text-slate-400 text-sm mt-0.5">Q{data.period.quarter} {data.period.year}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              {/* Sync Message */}
+              {syncMessage && (
+                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${
+                  syncMessage.type === 'success'
+                    ? 'bg-emerald-500/10 text-emerald-400'
+                    : 'bg-red-500/10 text-red-400'
+                }`}>
+                  {syncMessage.type === 'success' ? (
+                    <CheckCircle className="h-3.5 w-3.5" />
+                  ) : (
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                  )}
+                  <span>{syncMessage.text}</span>
+                </div>
+              )}
+
+              {/* Sync Button */}
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium text-sm transition-colors border ${
+                  syncing
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed border-slate-700'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                }`}
+                title={t('syncFromHubSpot')}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
+                <span>{syncing ? t('syncing') : t('sync')}</span>
+              </button>
+
+              {/* Language Switcher - Only show for JP region */}
+              {selectedRegion === 'JP' && <LanguageSwitcherDropdown />}
+
               {/* Settings Button */}
               <Link
                 href="/settings/targets"
-                className="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-xl border border-white/20 transition-all duration-200 group"
-                title="Target Management"
+                className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md border border-slate-700 transition-colors"
+                title={t('settings')}
               >
-                <Settings className="h-5 w-5 text-white group-hover:rotate-90 transition-transform duration-300" />
+                <Settings className="h-4 w-4 text-slate-400" />
               </Link>
-
-              {/* Quick Stats Badge */}
-              <div className="hidden md:flex items-center gap-4 bg-white/10 backdrop-blur-sm rounded-xl px-6 py-3 border border-white/20">
-                <div className="text-center">
-                  <p className="text-xs text-blue-200 font-semibold uppercase tracking-wider">Total Deals</p>
-                  <p className="text-2xl font-bold text-white">{data.summary.dealCount}</p>
-                </div>
-                <div className="h-12 w-px bg-white/20"></div>
-                <div className="text-center">
-                  <p className="text-xs text-blue-200 font-semibold uppercase tracking-wider">Achievement</p>
-                  <p className={`text-2xl font-bold ${achievementColor === 'emerald' ? 'text-emerald-400' : achievementColor === 'orange' ? 'text-orange-400' : 'text-red-400'}`}>
-                    {data.summary.achievementRate}%
-                  </p>
-                </div>
-              </div>
             </div>
           </div>
 
           {/* Mock Data Warning Banner - only show if using mock data */}
           {usingMockData && (
-            <div className="bg-amber-500/20 backdrop-blur-sm border-2 border-amber-400/50 rounded-xl px-6 py-4 flex items-center gap-4">
-              <div className="flex-shrink-0 p-2 bg-amber-500 rounded-lg">
-                <Database className="h-5 w-5 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="text-amber-100 font-bold text-sm">
-                  📊 Demo Mode - Using Mock Data
-                </p>
-                <p className="text-amber-200/90 text-xs mt-0.5">
-                  This dashboard is displaying simulated data for demonstration purposes. Connect to HubSpot API for live data.
-                </p>
-              </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center gap-3 mt-4">
+              <Database className="h-4 w-4 text-amber-600 flex-shrink-0" />
+              <p className="text-amber-800 text-sm flex-1">
+                Demo Mode - Showing simulated data
+              </p>
               <Link
                 href="/settings/hubspot"
-                className="flex-shrink-0 px-4 py-2 bg-white hover:bg-amber-50 text-amber-700 rounded-lg font-semibold text-sm transition-colors shadow-sm"
+                className="text-sm font-medium text-amber-700 hover:text-amber-900 transition-colors"
               >
-                Connect HubSpot
+                Connect HubSpot →
               </Link>
             </div>
           )}
 
-          {/* Filters */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Time Period */}
-              <div>
-                <label className="text-xs font-bold text-blue-200 uppercase tracking-wider mb-2 block">Time Period</label>
-                <div className="flex gap-2">
+          {/* Filters - Clean Style */}
+          <div className="bg-slate-800 rounded-lg p-4 mt-4">
+            {/* Row 1: Time Period */}
+            <div className="mb-3">
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2 block">{t('timePeriod')}</label>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Quick Presets */}
+                <div className="flex gap-1">
+                  {[
+                    { key: 'current', label: t('currentQuarter') },
+                    { key: 'ytd', label: t('yearToDate') },
+                    { key: 'custom', label: t('custom') },
+                  ].map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => applyPeriodPreset(key as PeriodPreset)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                        periodPreset === key
+                          ? 'bg-orange-500 text-white'
+                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Divider */}
+                <div className="h-6 w-px bg-slate-700 hidden sm:block"></div>
+
+                {/* Date Range Selectors */}
+                <div className="flex items-center gap-1.5">
                   <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(Number(e.target.value))}
-                    className="flex-1 px-3 py-2.5 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white font-medium focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all cursor-pointer hover:bg-white/30"
+                    value={startYear}
+                    onChange={(e) => {
+                      setStartYear(Number(e.target.value));
+                      setPeriodPreset('custom');
+                    }}
+                    className="w-20 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
                   >
-                    <option value={2024} className="text-slate-900 bg-white">2024</option>
-                    <option value={2025} className="text-slate-900 bg-white">2025</option>
+                    {[2023, 2024, 2025, 2026].map(y => (
+                      <option key={y} value={y} className="bg-slate-800">{y}</option>
+                    ))}
                   </select>
                   <select
-                    value={selectedQuarter}
-                    onChange={(e) => setSelectedQuarter(Number(e.target.value))}
-                    className="flex-1 px-3 py-2.5 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white font-medium focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all cursor-pointer hover:bg-white/30"
+                    value={startQuarter}
+                    onChange={(e) => {
+                      setStartQuarter(Number(e.target.value));
+                      setPeriodPreset('custom');
+                    }}
+                    className="w-16 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
                   >
-                    <option value={1} className="text-slate-900 bg-white">Q1</option>
-                    <option value={2} className="text-slate-900 bg-white">Q2</option>
-                    <option value={3} className="text-slate-900 bg-white">Q3</option>
-                    <option value={4} className="text-slate-900 bg-white">Q4</option>
+                    {[1, 2, 3, 4].map(q => (
+                      <option key={q} value={q} className="bg-slate-800">Q{q}</option>
+                    ))}
+                  </select>
+
+                  <span className="text-slate-300 text-sm font-medium">→</span>
+
+                  <select
+                    value={endYear}
+                    onChange={(e) => {
+                      setEndYear(Number(e.target.value));
+                      setPeriodPreset('custom');
+                    }}
+                    className="w-20 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
+                  >
+                    {[2023, 2024, 2025, 2026].map(y => (
+                      <option key={y} value={y} className="bg-slate-800">{y}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={endQuarter}
+                    onChange={(e) => {
+                      setEndQuarter(Number(e.target.value));
+                      setPeriodPreset('custom');
+                    }}
+                    className="w-16 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
+                  >
+                    {[1, 2, 3, 4].map(q => (
+                      <option key={q} value={q} className="bg-slate-800">Q{q}</option>
+                    ))}
                   </select>
                 </div>
               </div>
+            </div>
 
+            {/* Row 2: Other Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Deal Owner */}
               <div>
-                <label className="text-xs font-bold text-blue-200 uppercase tracking-wider mb-2 block flex items-center gap-2">
-                  <Users className="h-3 w-3" /> Deal Owner
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5 block flex items-center gap-1.5">
+                  <Users className="h-3 w-3" /> {t('dealOwner')}
                 </label>
                 <select
                   value={selectedOwner}
                   onChange={(e) => setSelectedOwner(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white font-medium focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all cursor-pointer hover:bg-white/30"
+                  className="w-full px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-slate-200 text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
                 >
-                  <option value="All" className="text-slate-900 bg-white">All Owners</option>
+                  <option value="All" className="bg-slate-800">{t('allOwners')}</option>
                   {data.filters.availableOwners.map(owner => (
-                    <option key={owner} value={owner} className="text-slate-900 bg-white">{owner}</option>
+                    <option key={owner} value={owner} className="bg-slate-800">{owner}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Deal Stage */}
-              <div className="relative stage-dropdown">
-                <label className="text-xs font-bold text-blue-200 uppercase tracking-wider mb-2 block">Deal Stage</label>
+              {/* Deal Stage - Multi-select */}
+              <div className="relative" ref={stageDropdownRef}>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5 block">{t('dealStage')}</label>
                 <button
                   onClick={() => setStageDropdownOpen(!stageDropdownOpen)}
-                  className="w-full px-3 py-2.5 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white font-medium focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all cursor-pointer hover:bg-white/30 flex items-center justify-between"
+                  className="w-full px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-slate-200 text-sm focus:ring-1 focus:ring-orange-500 cursor-pointer flex items-center justify-between"
                 >
                   <span className="truncate">
-                    {selectedStages.length === 0 ? 'All Stages' : `${selectedStages.length} selected`}
+                    {selectedStages.length === 0
+                      ? t('allStages')
+                      : selectedStages.length <= 2
+                        ? selectedStages.join(', ')
+                        : `${selectedStages.length} stages`}
                   </span>
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className={`h-4 w-4 text-slate-400 transition-transform flex-shrink-0 ${stageDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
                 {stageDropdownOpen && (
-                  <div className="absolute z-10 mt-1 w-full bg-white rounded-lg shadow-xl border-2 border-slate-200 max-h-60 overflow-auto">
+                  <div className="absolute z-10 mt-1 w-full bg-white rounded-lg shadow-lg border border-slate-200 max-h-60 overflow-auto">
+                    {/* Select All / Clear All */}
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 bg-slate-50">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedStages([...data.filters.availableStages]);
+                        }}
+                        className="text-xs font-medium text-slate-600 hover:text-slate-900"
+                      >
+                        Select All
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedStages([]);
+                        }}
+                        className="text-xs font-medium text-slate-400 hover:text-slate-600"
+                      >
+                        Clear
+                      </button>
+                    </div>
                     {data.filters.availableStages.map(stage => (
-                      <label
+                      <div
                         key={stage}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 cursor-pointer transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedStages(prev =>
+                            prev.includes(stage)
+                              ? prev.filter(s => s !== stage)
+                              : [...prev, stage]
+                          );
+                        }}
+                        className={`flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer transition-colors ${
+                          selectedStages.includes(stage) ? 'bg-slate-50' : ''
+                        }`}
                       >
                         <input
                           type="checkbox"
                           checked={selectedStages.includes(stage)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedStages([...selectedStages, stage]);
-                            } else {
-                              setSelectedStages(selectedStages.filter(s => s !== stage));
-                            }
-                          }}
-                          className="w-4 h-4 text-orange-500 border-slate-300 rounded focus:ring-orange-500"
+                          readOnly
+                          className="w-3.5 h-3.5 text-orange-500 border-slate-300 rounded focus:ring-orange-500 pointer-events-none"
                         />
-                        <span className="text-sm font-medium text-slate-900">{stage}</span>
-                      </label>
+                        <span className="text-sm text-slate-700">{stage}</span>
+                      </div>
                     ))}
                   </div>
                 )}
                 {selectedStages.length > 0 && (
                   <button
                     onClick={() => setSelectedStages([])}
-                    className="text-xs text-orange-300 hover:text-orange-100 mt-1 font-semibold"
+                    className="text-xs text-slate-400 hover:text-slate-200 mt-1"
                   >
                     Clear ({selectedStages.length})
                   </button>
@@ -464,62 +879,59 @@ export default function DashboardPage() {
               </div>
 
               {/* Forecast Category */}
-              <div className="relative category-dropdown">
-                <label className="text-xs font-bold text-blue-200 uppercase tracking-wider mb-2 block">Forecast Category</label>
+              <div className="relative" ref={categoryDropdownRef}>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5 block">{t('forecastCategory')}</label>
                 <button
                   onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
-                  className="w-full px-3 py-2.5 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white font-medium focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all cursor-pointer hover:bg-white/30 flex items-center justify-between"
+                  className="w-full px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-slate-200 text-sm focus:ring-1 focus:ring-orange-500 cursor-pointer flex items-center justify-between"
                 >
                   <span className="truncate">
-                    {selectedCategories.length === 0 ? 'All Categories' : `${selectedCategories.length} selected`}
+                    {selectedCategories.length === 0 ? t('allCategories') : `${selectedCategories.length} selected`}
                   </span>
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-4 w-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
                 {categoryDropdownOpen && (
-                  <div className="absolute z-10 mt-1 w-full bg-white rounded-lg shadow-xl border-2 border-slate-200">
+                  <div
+                    className="absolute z-10 mt-1 w-full bg-white rounded-lg shadow-lg border border-slate-200"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {Object.entries(FORECAST_CATEGORIES).map(([category, info]) => (
                       <div
                         key={category}
-                        className="relative"
+                        onClick={() => {
+                          if (selectedCategories.includes(category)) {
+                            setSelectedCategories(selectedCategories.filter(c => c !== category));
+                          } else {
+                            setSelectedCategories([...selectedCategories, category]);
+                          }
+                        }}
+                        className={`flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer transition-colors ${
+                          selectedCategories.includes(category) ? 'bg-slate-50' : ''
+                        }`}
                       >
-                        <label className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 cursor-pointer transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={selectedCategories.includes(category)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedCategories([...selectedCategories, category]);
-                              } else {
-                                setSelectedCategories(selectedCategories.filter(c => c !== category));
-                              }
-                            }}
-                            className="w-4 h-4 text-orange-500 border-slate-300 rounded focus:ring-orange-500 flex-shrink-0"
-                          />
-                          <div className="flex items-center gap-2 flex-1">
-                            <span className={`text-sm font-semibold ${info.color}`}>
-                              {category}
-                            </span>
-                            <span className="text-xs text-slate-500 font-medium">
-                              ({info.confidence})
-                            </span>
-                          </div>
-                          <div
-                            className="relative flex-shrink-0"
-                            onMouseEnter={() => setCategoryTooltip(category)}
-                            onMouseLeave={() => setCategoryTooltip(null)}
-                          >
-                            <Info className="h-4 w-4 text-slate-400 hover:text-blue-500 transition-colors cursor-help" />
-                            {categoryTooltip === category && (
-                              <div className="absolute right-0 top-6 w-72 bg-slate-900 text-white text-xs rounded-lg p-3 shadow-xl z-50 pointer-events-none">
-                                <div className="font-semibold mb-1">{category}</div>
-                                <div className="text-slate-300 leading-relaxed">{info.description}</div>
-                                <div className="absolute -top-1 right-2 w-2 h-2 bg-slate-900 transform rotate-45"></div>
-                              </div>
-                            )}
-                          </div>
-                        </label>
+                        <input
+                          type="checkbox"
+                          checked={selectedCategories.includes(category)}
+                          readOnly
+                          className="w-3.5 h-3.5 text-orange-500 border-slate-300 rounded focus:ring-orange-500 flex-shrink-0 pointer-events-none"
+                        />
+                        <span className="text-sm text-slate-700 flex-1">{category}</span>
+                        <div
+                          className="relative flex-shrink-0"
+                          onMouseEnter={() => setCategoryTooltip(category)}
+                          onMouseLeave={() => setCategoryTooltip(null)}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Info className="h-3.5 w-3.5 text-slate-400 hover:text-slate-600 transition-colors cursor-help" />
+                          {categoryTooltip === category && (
+                            <div className="absolute right-0 top-5 w-64 bg-slate-900 text-white text-xs rounded-lg p-3 shadow-lg z-50 pointer-events-none">
+                              <div className="font-medium mb-1">{category}</div>
+                              <div className="text-slate-300 leading-relaxed">{info.description}</div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -527,7 +939,7 @@ export default function DashboardPage() {
                 {selectedCategories.length > 0 && (
                   <button
                     onClick={() => setSelectedCategories([])}
-                    className="text-xs text-orange-300 hover:text-orange-100 mt-1 font-semibold"
+                    className="text-xs text-slate-400 hover:text-slate-200 mt-1"
                   >
                     Clear ({selectedCategories.length})
                   </button>
@@ -538,128 +950,142 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 py-8 space-y-8">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 py-6 space-y-6">
         {/* Performance Summary */}
         <div>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-10 w-1 bg-gradient-to-b from-orange-500 to-orange-600 rounded-full"></div>
-            <h2 className="text-2xl font-bold text-slate-900">Performance Overview</h2>
-          </div>
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('performanceOverview')}</h2>
           {/* First Row: 4 cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             {/* 1. Pipeline Value */}
             <div
               onClick={() => openSlideout('All Pipeline Deals', data.summary.totalPipelineDeals)}
-              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-blue-300 transition-all duration-300 cursor-pointer"
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
             >
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-base font-bold text-slate-700 uppercase tracking-wide">Pipeline Value</p>
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-md flex-shrink-0">
-                  <DollarSign className="h-4 w-4 text-white" />
-                </div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('pipelineValue')}</p>
+                <DollarSign className="h-4 w-4 text-slate-400" />
               </div>
-              <p className="text-3xl font-bold text-slate-900 mb-1">{data.summary.totalPipelineFormatted}</p>
-              <p className="text-xs text-slate-500 mt-2">total opportunity value</p>
+              <p className="text-2xl font-bold text-slate-900">{data.summary.totalPipelineFormatted}</p>
+              <p className="text-xs text-slate-400 mt-1">{t('totalOpportunityValue')}</p>
             </div>
 
             {/* 2. New Deal Amount */}
             <div
               onClick={() => openSlideout('New Deals Created This Quarter', data.summary.newDealsList)}
-              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-indigo-300 transition-all duration-300 cursor-pointer"
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
             >
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-base font-bold text-slate-700 uppercase tracking-wide">New Deal Amount</p>
-                <div className="p-2 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg shadow-md flex-shrink-0">
-                  <TrendingUp className="h-4 w-4 text-white" />
-                </div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('newDealAmount')}</p>
+                <TrendingUp className="h-4 w-4 text-slate-400" />
               </div>
-              <p className="text-3xl font-bold text-slate-900 mb-1">{data.summary.newDealAmountFormatted}</p>
-              <p className="text-xs text-slate-500 mt-2">{data.summary.newDealCount} new deals</p>
+              <p className="text-2xl font-bold text-slate-900">{data.summary.newDealAmountFormatted}</p>
+              <p className="text-xs text-slate-400 mt-1">{t('xNewDeals').replace('{count}', String(data.summary.newDealCount))}</p>
             </div>
 
             {/* 3. Open Deals */}
             <div
               onClick={() => openSlideout('Open Deals (Not Closed)', data.summary.openDealsList)}
-              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-cyan-300 transition-all duration-300 cursor-pointer"
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
             >
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-base font-bold text-slate-700 uppercase tracking-wide">Open Deals</p>
-                <div className="p-2 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-lg shadow-md flex-shrink-0">
-                  <Activity className="h-4 w-4 text-white" />
-                </div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('openDeals')}</p>
+                <Activity className="h-4 w-4 text-slate-400" />
               </div>
-              <p className="text-3xl font-bold text-slate-900 mb-1">{data.summary.openDealAmountFormatted}</p>
-              <p className="text-xs text-slate-500 mt-2">{data.summary.openDealCount} active deals</p>
+              <p className="text-2xl font-bold text-slate-900">{data.summary.openDealAmountFormatted}</p>
+              <p className="text-xs text-slate-400 mt-1">{t('xActiveDeals').replace('{count}', String(data.summary.openDealCount))}</p>
             </div>
 
             {/* 4. Commit Revenue */}
             <div
               onClick={() => openSlideout('Commit Deals (High Confidence)', data.summary.commitDealsList)}
-              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-amber-300 transition-all duration-300 cursor-pointer"
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
             >
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-base font-bold text-slate-700 uppercase tracking-wide">Commit Revenue</p>
-                <div className="p-2 bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg shadow-md flex-shrink-0">
-                  <Award className="h-4 w-4 text-white" />
-                </div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('commitRevenue')}</p>
+                <Award className="h-4 w-4 text-slate-400" />
               </div>
-              <p className="text-3xl font-bold text-slate-900 mb-1">{data.summary.commitRevenueFormatted}</p>
-              <p className="text-xs text-slate-500 mt-2">{data.summary.commitDealCount} high confidence</p>
+              <p className="text-2xl font-bold text-slate-900">{data.summary.commitRevenueFormatted}</p>
+              <p className="text-xs text-slate-400 mt-1">{t('xHighConfidence').replace('{count}', String(data.summary.commitDealCount))}</p>
             </div>
           </div>
 
           {/* Second Row: 4 cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* 5. Closed Won Amount */}
             <div
               onClick={() => openSlideout('Closed Won Deals', data.summary.closedWonDealsList)}
-              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-emerald-300 transition-all duration-300 cursor-pointer"
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
             >
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-base font-bold text-slate-700 uppercase tracking-wide">Closed Won</p>
-                <div className="p-2 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg shadow-md flex-shrink-0">
-                  <Award className="h-4 w-4 text-white" />
-                </div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedWon')}</p>
+                <Award className="h-4 w-4 text-emerald-500" />
               </div>
-              <p className="text-3xl font-bold text-slate-900 mb-1">{data.summary.closedWonAmountFormatted}</p>
-              <p className="text-xs text-slate-500 mt-2">{data.summary.closedWonCount} deals won</p>
+              <p className="text-2xl font-bold text-emerald-600">{data.summary.closedWonAmountFormatted}</p>
+              <p className="text-xs text-slate-400 mt-1">{t('xDealsWon').replace('{count}', String(data.summary.closedWonCount))}</p>
             </div>
 
             {/* 6. Weighted Forecast */}
-            <div className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-teal-300 transition-all duration-300 cursor-pointer">
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-base font-bold text-slate-700 uppercase tracking-wide">Forecast</p>
-                <div className="p-2 bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg shadow-md flex-shrink-0">
-                  <BarChart3 className="h-4 w-4 text-white" />
-                </div>
+            <div className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('weightedForecast')}</p>
+                <BarChart3 className="h-4 w-4 text-slate-400" />
               </div>
-              <p className="text-3xl font-bold text-slate-900 mb-1">{data.summary.totalForecastFormatted}</p>
-              <p className="text-xs text-slate-500 mt-2">weighted by probability</p>
+              <p className="text-2xl font-bold text-slate-900">{data.summary.totalForecastFormatted}</p>
+              <p className="text-xs text-slate-400 mt-1">{t('weightedByProbability')}</p>
             </div>
 
             {/* 7. Target */}
-            <div className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl border-2 border-slate-100 hover:border-purple-300 transition-all duration-300 cursor-pointer">
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-base font-bold text-slate-700 uppercase tracking-wide">Target</p>
-                <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-md flex-shrink-0">
-                  <Target className="h-4 w-4 text-white" />
+            <div className={`bg-white rounded-xl p-5 border ${!data.summary.targetCoverage.isComplete ? 'border-amber-300' : 'border-slate-200 hover:border-slate-300'} hover:shadow-sm transition-all cursor-pointer relative`}>
+              {!data.summary.targetCoverage.isComplete && (
+                <div className="absolute -top-1.5 -right-1.5 p-1 bg-amber-500 rounded-full" title={t('missingTargetsWarning')}>
+                  <AlertTriangle className="h-3 w-3 text-white" />
                 </div>
+              )}
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('target')}</p>
+                <Target className="h-4 w-4 text-slate-400" />
               </div>
-              <p className="text-3xl font-bold text-slate-900 mb-1">{data.summary.totalTargetFormatted}</p>
-              <p className="text-xs text-slate-500 mt-2">Q{data.period.quarter} {data.period.year} goal</p>
+              <p className="text-2xl font-bold text-slate-900">{data.summary.totalTargetFormatted}</p>
+              {data.summary.targetCoverage.totalQuarters === 1 ? (
+                <p className="text-xs text-slate-400 mt-1">{t('quarterGoal').replace('{quarter}', String(data.period.quarter)).replace('{year}', String(data.period.year))}</p>
+              ) : (
+                <div className="mt-1">
+                  {data.summary.targetCoverage.isComplete ? (
+                    <p className="text-xs text-slate-400">
+                      {t('allQuartersHaveTargets').replace('{count}', String(data.summary.targetCoverage.totalQuarters))}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-600">
+                      {t('partialTargetCoverage').replace('{covered}', String(data.summary.targetCoverage.coveredQuarters)).replace('{total}', String(data.summary.targetCoverage.totalQuarters))}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* 8. Achievement */}
-            <div className={`group bg-gradient-to-br ${achievementColor === 'emerald' ? 'from-emerald-500 to-emerald-600' : achievementColor === 'orange' ? 'from-orange-500 to-orange-600' : 'from-red-500 to-red-600'} rounded-2xl p-6 shadow-2xl border-2 border-white hover:scale-105 transition-all duration-300 cursor-pointer`}>
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-base font-bold text-white uppercase tracking-wide">Achievement</p>
-                <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg flex-shrink-0">
-                  <BarChart3 className="h-4 w-4 text-white" />
-                </div>
+            {/* 8. Achievement - Highlight Card */}
+            <div className={`rounded-xl p-5 border ${
+              achievementColor === 'emerald'
+                ? 'bg-emerald-50 border-emerald-200'
+                : achievementColor === 'orange'
+                  ? 'bg-amber-50 border-amber-200'
+                  : 'bg-red-50 border-red-200'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <p className={`text-sm font-medium ${
+                  achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : 'text-red-700'
+                }`}>{t('achievement')}</p>
+                <BarChart3 className={`h-4 w-4 ${
+                  achievementColor === 'emerald' ? 'text-emerald-500' : achievementColor === 'orange' ? 'text-amber-500' : 'text-red-500'
+                }`} />
               </div>
-              <p className="text-4xl font-bold text-white mb-1">{data.summary.achievementRate}%</p>
-              <p className="text-xs text-white/80 mt-2 font-semibold">
-                {data.summary.achievementRate >= 100 ? '✓ Exceeding Target' : data.summary.achievementRate >= 90 ? '↗ On Track' : '↘ Behind Target'}
+              <p className={`text-3xl font-bold ${
+                achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : 'text-red-700'
+              }`}>{data.summary.achievementRate}%</p>
+              <p className={`text-xs mt-1 ${
+                achievementColor === 'emerald' ? 'text-emerald-600' : achievementColor === 'orange' ? 'text-amber-600' : 'text-red-600'
+              }`}>
+                {data.summary.achievementRate >= 100 ? t('exceedingTarget') : data.summary.achievementRate >= 90 ? t('onTrack') : t('behindTarget')}
               </p>
             </div>
           </div>
@@ -667,214 +1093,275 @@ export default function DashboardPage() {
 
         {/* Activity KPIs */}
         <div>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-10 w-1 bg-gradient-to-b from-orange-500 to-orange-600 rounded-full"></div>
-            <h2 className="text-2xl font-bold text-slate-900">Activity Metrics</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('activityMetrics')}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div
               onClick={() => openSlideout('New Deals Created This Quarter', data.activityKpis.newDeals.deals)}
-              className="bg-white rounded-2xl p-6 shadow-lg border-2 border-slate-100 hover:border-blue-300 hover:shadow-xl transition-all duration-200 cursor-pointer group"
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
-                  <Users className="h-5 w-5 text-blue-600" />
-                </div>
-                <p className="text-sm font-bold text-slate-600 uppercase tracking-wide">New Deals</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('newDeals')}</p>
+                <Users className="h-4 w-4 text-slate-400" />
               </div>
-              <p className="text-4xl font-bold text-slate-900 mb-2 group-hover:text-blue-700 transition-colors">{data.activityKpis.newDeals.count}</p>
-              <p className="text-sm text-emerald-600 font-semibold flex items-center gap-1.5">
-                <TrendingUp className="h-4 w-4" /> {data.activityKpis.newDeals.trend} vs last quarter
+              <p className="text-3xl font-bold text-slate-900 mb-1">{data.activityKpis.newDeals.count}</p>
+              <p className={`text-sm flex items-center gap-1 ${data.activityKpis.newDeals.trend.startsWith('-') ? 'text-red-600' : data.activityKpis.newDeals.trend === '0%' ? 'text-slate-500' : 'text-emerald-600'}`}>
+                {data.activityKpis.newDeals.trend.startsWith('-') ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />} {data.activityKpis.newDeals.trend} {t('vsLastQuarter')}
               </p>
-              <p className="text-xs text-slate-400 mt-2 font-medium">Click to view all deals →</p>
             </div>
 
             <div
-              onClick={() => openSlideout('Closed Won Deals', data.activityKpis.closedWon.deals)}
-              className="bg-white rounded-2xl p-6 shadow-lg border-2 border-slate-100 hover:border-emerald-300 hover:shadow-xl transition-all duration-200 cursor-pointer group"
+              onClick={() => openSlideout(t('closedWonDeals'), data.activityKpis.closedWon.deals)}
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 bg-emerald-100 rounded-lg group-hover:bg-emerald-200 transition-colors">
-                  <Award className="h-5 w-5 text-emerald-600" />
-                </div>
-                <p className="text-sm font-bold text-slate-600 uppercase tracking-wide">Closed Won</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedWon')}</p>
+                <Award className="h-4 w-4 text-emerald-500" />
               </div>
-              <p className="text-4xl font-bold text-emerald-700 mb-2 group-hover:text-emerald-800 transition-colors">{data.activityKpis.closedWon.count}</p>
-              <p className="text-sm text-emerald-600 font-semibold flex items-center gap-1.5">
-                <TrendingUp className="h-4 w-4" /> {data.activityKpis.closedWon.trend} vs last quarter
+              <p className="text-3xl font-bold text-emerald-600 mb-1">{data.activityKpis.closedWon.count}</p>
+              <p className={`text-sm flex items-center gap-1 ${data.activityKpis.closedWon.trend.startsWith('-') ? 'text-red-600' : data.activityKpis.closedWon.trend === '0%' ? 'text-slate-500' : 'text-emerald-600'}`}>
+                {data.activityKpis.closedWon.trend.startsWith('-') ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />} {data.activityKpis.closedWon.trend} {t('vsLastQuarter')}
               </p>
-              <p className="text-xs text-slate-400 mt-2 font-medium">Click to view all deals →</p>
             </div>
 
             <div
-              onClick={() => openSlideout('Closed Lost Deals', data.activityKpis.closedLost.deals)}
-              className="bg-white rounded-2xl p-6 shadow-lg border-2 border-slate-100 hover:border-red-300 hover:shadow-xl transition-all duration-200 cursor-pointer group"
+              onClick={() => openSlideout(t('closedLostDeals'), data.activityKpis.closedLost.deals)}
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 bg-red-100 rounded-lg group-hover:bg-red-200 transition-colors">
-                  <XCircle className="h-5 w-5 text-red-600" />
-                </div>
-                <p className="text-sm font-bold text-slate-600 uppercase tracking-wide">Closed Lost</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedLost')}</p>
+                <XCircle className="h-4 w-4 text-red-500" />
               </div>
-              <p className="text-4xl font-bold text-red-700 mb-2 group-hover:text-red-800 transition-colors">{data.activityKpis.closedLost.count}</p>
-              <p className="text-sm text-red-600 font-semibold flex items-center gap-1.5">
-                <TrendingUp className="h-4 w-4" /> {data.activityKpis.closedLost.trend} vs last quarter
+              <p className="text-3xl font-bold text-red-600 mb-1">{data.activityKpis.closedLost.count}</p>
+              <p className={`text-sm flex items-center gap-1 ${data.activityKpis.closedLost.trend.startsWith('-') ? 'text-emerald-600' : data.activityKpis.closedLost.trend === '0%' ? 'text-slate-500' : 'text-red-600'}`}>
+                {data.activityKpis.closedLost.trend.startsWith('-') ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />} {data.activityKpis.closedLost.trend} {t('vsLastQuarter')}
               </p>
-              <p className="text-xs text-slate-400 mt-2 font-medium">Click to view all deals →</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-slate-100 hover:border-purple-300 hover:shadow-xl transition-all duration-200">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 bg-purple-100 rounded-lg">
-                  <TrendingUp className="h-5 w-5 text-purple-600" />
-                </div>
-                <p className="text-sm font-bold text-slate-600 uppercase tracking-wide">Win Rate</p>
+            <div className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('winRate')}</p>
+                <TrendingUp className="h-4 w-4 text-slate-400" />
               </div>
               <p className="text-4xl font-bold text-purple-700 mb-2">{data.activityKpis.winRate.rate}%</p>
-              <p className="text-sm text-emerald-600 font-semibold flex items-center gap-1.5">
-                <TrendingUp className="h-4 w-4" /> {data.activityKpis.winRate.trend} improvement
+              <p className={`text-sm font-semibold flex items-center gap-1.5 ${data.activityKpis.winRate.trend.startsWith('-') ? 'text-red-600' : data.activityKpis.winRate.trend === '0%' ? 'text-slate-500' : 'text-emerald-600'}`}>
+                {data.activityKpis.winRate.trend.startsWith('-') ? <TrendingDown className="h-4 w-4" /> : <TrendingUp className="h-4 w-4" />} {data.activityKpis.winRate.trend} {t('improvement')}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Forecast Breakdown + Alerts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Forecast Breakdown + Alerts - Unified Typography */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Forecast Confidence */}
-          <div className="bg-white rounded-2xl p-8 shadow-xl border-2 border-slate-100">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2.5 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg">
-                <BarChart3 className="h-5 w-5 text-white" />
-              </div>
-              <h2 className="text-xl font-bold text-slate-900">Forecast Confidence</h2>
+          <div className="bg-white rounded-xl p-5 border border-slate-200">
+            {/* Card Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">{t('forecastConfidence')}</h2>
             </div>
-            <div className="space-y-6">
+
+            {/* Stacked Bar */}
+            <div className="mb-4">
+              <div className="flex h-7 rounded-md overflow-hidden bg-slate-100">
+                {(() => {
+                  const commit = data.forecastBreakdown.commit;
+                  const bestCase = data.forecastBreakdown.bestCase;
+                  const pipeline = data.forecastBreakdown.pipeline;
+                  const total = commit.percentage + bestCase.percentage + pipeline.percentage;
+                  return (
+                    <>
+                      {commit.percentage > 0 && (
+                        <div
+                          onClick={() => openSlideout('Commit Deals (High Confidence)', commit.deals)}
+                          className="bg-emerald-500 cursor-pointer hover:bg-emerald-600 transition-colors flex items-center justify-center"
+                          style={{ width: `${(commit.percentage / total) * 100}%` }}
+                          title={`Commit: ${commit.amountFormatted}`}
+                        >
+                          {commit.percentage > 15 && <span className="text-xs font-semibold text-white">{commit.percentage}%</span>}
+                        </div>
+                      )}
+                      {bestCase.percentage > 0 && (
+                        <div
+                          onClick={() => openSlideout('Best Case Deals (Potential)', bestCase.deals)}
+                          className="bg-amber-500 cursor-pointer hover:bg-amber-600 transition-colors flex items-center justify-center"
+                          style={{ width: `${(bestCase.percentage / total) * 100}%` }}
+                          title={`Best Case: ${bestCase.amountFormatted}`}
+                        >
+                          {bestCase.percentage > 15 && <span className="text-xs font-semibold text-white">{bestCase.percentage}%</span>}
+                        </div>
+                      )}
+                      {pipeline.percentage > 0 && (
+                        <div
+                          onClick={() => openSlideout('Pipeline Deals (Negotiating)', pipeline.deals)}
+                          className="bg-blue-500 cursor-pointer hover:bg-blue-600 transition-colors flex items-center justify-center"
+                          style={{ width: `${(pipeline.percentage / total) * 100}%` }}
+                          title={`Pipeline: ${pipeline.amountFormatted}`}
+                        >
+                          {pipeline.percentage > 15 && <span className="text-xs font-semibold text-white">{pipeline.percentage}%</span>}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Legend Grid */}
+            <div className="grid grid-cols-3 gap-3">
               {[
-                { key: 'commit', label: 'Commit', emoji: '💚', color: 'emerald', title: '💚 Commit Deals (High Confidence)' },
-                { key: 'bestCase', label: 'Best Case', emoji: '⭐', color: 'amber', title: '⭐ Best Case Deals (Potential)' },
-                { key: 'pipeline', label: 'Pipeline', emoji: '📊', color: 'blue', title: '📊 Pipeline Deals (Negotiating)' }
-              ].map(({ key, label, emoji, color, title }) => {
+                { key: 'commit', label: 'Commit', bgColor: 'bg-emerald-50', textColor: 'text-emerald-700', dotColor: 'bg-emerald-500', title: 'Commit Deals (High Confidence)' },
+                { key: 'bestCase', label: 'Best Case', bgColor: 'bg-amber-50', textColor: 'text-amber-700', dotColor: 'bg-amber-500', title: 'Best Case Deals (Potential)' },
+                { key: 'pipeline', label: 'Pipeline', bgColor: 'bg-blue-50', textColor: 'text-blue-700', dotColor: 'bg-blue-500', title: 'Pipeline Deals (Negotiating)' }
+              ].map(({ key, label, bgColor, textColor, dotColor, title }) => {
                 const item = data.forecastBreakdown[key as keyof typeof data.forecastBreakdown];
                 return (
                   <div
                     key={key}
                     onClick={() => openSlideout(title, item.deals)}
-                    className="space-y-2 cursor-pointer hover:bg-slate-50 p-3 rounded-lg transition-all duration-200 group"
+                    className={`p-3 rounded-lg cursor-pointer transition-all hover:shadow-md ${bgColor}`}
                   >
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-bold text-slate-700 flex items-center gap-2 group-hover:text-slate-900">
-                        <span className="text-lg">{emoji}</span> {label}
-                      </span>
-                      <div className="text-right">
-                        <span className={`text-lg font-bold text-${color}-700 group-hover:text-${color}-800`}>{item.amountFormatted}</span>
-                        <span className="text-sm text-slate-500 ml-2">({item.percentage}%)</span>
-                      </div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <div className={`h-2 w-2 rounded-full ${dotColor}`}></div>
+                      <span className="text-xs font-medium text-slate-600">{label}</span>
                     </div>
-                    <div className="relative w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                      <div
-                        className={`absolute inset-y-0 left-0 bg-gradient-to-r from-${color}-500 to-${color}-600 rounded-full transition-all duration-500 shadow-lg`}
-                        style={{ width: `${item.percentage}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-xs text-slate-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                      Click to view {item.deals.length} deals →
-                    </p>
+                    <p className={`text-base font-bold ${textColor}`}>{item.amountFormatted}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{item.deals.length} deals</p>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          {/* Alerts */}
-          <div className="bg-white rounded-2xl p-8 shadow-xl border-2 border-slate-100">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2.5 bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg">
-                <AlertTriangle className="h-5 w-5 text-white" />
-              </div>
-              <h2 className="text-xl font-bold text-slate-900">Alerts & Risks</h2>
+          {/* Alerts & Risks */}
+          <div className="bg-white rounded-xl p-5 border border-slate-200">
+            {/* Card Header */}
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">{t('alertsAndRisks')}</h2>
             </div>
-            <div className="space-y-4">
+
+            {/* Gap to Target */}
+            <div className={`p-4 rounded-lg mb-4 ${data.summary.gap >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">{t('gapToTarget')}</p>
+                  <p className={`text-2xl font-bold ${data.summary.gap >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {data.summary.gapFormatted}
+                  </p>
+                </div>
+                <div className={`p-2.5 rounded-full ${data.summary.gap >= 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                  {data.summary.gap >= 0 ? (
+                    <TrendingUp className="h-5 w-5 text-emerald-600" />
+                  ) : (
+                    <TrendingDown className="h-5 w-5 text-red-600" />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Alert Items */}
+            <div className="space-y-2">
               {data.alerts.staleDeals.count > 0 ? (
                 <div
-                  onClick={() => openSlideout('Stale Deals (>14 days without update)', data.alerts.staleDeals.deals)}
-                  className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-5 shadow-md cursor-pointer hover:shadow-xl hover:border-amber-400 transition-all duration-200 group"
+                  onClick={() => openSlideout(t('staleDealsFull'), data.alerts.staleDeals.deals)}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 cursor-pointer hover:bg-amber-100 transition-colors group"
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="p-2.5 bg-amber-500 rounded-lg flex-shrink-0 group-hover:bg-amber-600 transition-colors">
-                      <Clock className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-amber-900 text-base mb-1">
-                        {data.alerts.staleDeals.count} Stale Deals Detected
-                      </p>
-                      <p className="text-sm text-amber-800">
-                        &gt;14 days without update • {data.alerts.staleDeals.amountFormatted} at risk
-                      </p>
-                      <p className="text-xs text-amber-600 mt-2 font-medium">Click to view details →</p>
-                    </div>
+                  <div className="p-2 bg-amber-500 rounded-lg group-hover:bg-amber-600 transition-colors">
+                    <Clock className="h-4 w-4 text-white" />
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {data.alerts.staleDeals.count} {t('staleDeals')}
+                    </p>
+                    <p className="text-xs text-slate-500">{data.alerts.staleDeals.amountFormatted} at risk</p>
+                  </div>
+                  <span className="text-xs text-amber-600 font-medium">→</span>
                 </div>
               ) : (
-                <div className="bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-300 rounded-xl p-5 shadow-md">
-                  <p className="font-bold text-emerald-900 text-base flex items-center gap-2">
-                    <span className="text-lg">✓</span> All Deals Up to Date
-                  </p>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-50">
+                  <div className="p-2 bg-emerald-500 rounded-lg">
+                    <Activity className="h-4 w-4 text-white" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900">{t('allDealsUpToDate')}</p>
                 </div>
               )}
 
               {data.alerts.largeDealsClosingSoon.count > 0 && (
                 <div
-                  onClick={() => openSlideout('Large Deals Closing Soon (>$100K)', data.alerts.largeDealsClosingSoon.deals)}
-                  className="bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-300 rounded-xl p-5 shadow-md cursor-pointer hover:shadow-xl hover:border-blue-400 transition-all duration-200 group"
+                  onClick={() => openSlideout(t('largeDealsFull'), data.alerts.largeDealsClosingSoon.deals)}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 cursor-pointer hover:bg-blue-100 transition-colors group"
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="p-2.5 bg-blue-500 rounded-lg flex-shrink-0 group-hover:bg-blue-600 transition-colors">
-                      <Target className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-blue-900 text-base mb-1">
-                        {data.alerts.largeDealsClosingSoon.count} Large Deals Closing Soon
-                      </p>
-                      <p className="text-sm text-blue-800">
-                        &gt;$100K deals • {data.alerts.largeDealsClosingSoon.amountFormatted} in pipeline
-                      </p>
-                      <p className="text-xs text-blue-600 mt-2 font-medium">Click to view details →</p>
-                    </div>
+                  <div className="p-2 bg-blue-500 rounded-lg group-hover:bg-blue-600 transition-colors">
+                    <Target className="h-4 w-4 text-white" />
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {data.alerts.largeDealsClosingSoon.count} {t('largeDealsClosing')}
+                    </p>
+                    <p className="text-xs text-slate-500">{data.alerts.largeDealsClosingSoon.amountFormatted} in pipeline</p>
+                  </div>
+                  <span className="text-xs text-blue-600 font-medium">→</span>
                 </div>
               )}
-
-              <div className="bg-gradient-to-r from-slate-50 to-slate-100 border-2 border-slate-200 rounded-xl p-5 shadow-md">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-700 text-base">Gap to Target</span>
-                  <span className={`text-xl font-bold ${data.summary.gap >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {data.summary.gapFormatted}
-                  </span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
 
         {/* Top Deals */}
-        <div className="bg-white rounded-2xl p-8 shadow-xl border-2 border-slate-100">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2.5 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg">
-              <Award className="h-5 w-5 text-white" />
+        <div className="bg-white rounded-xl p-6 border border-slate-200">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-semibold text-slate-900">{t('topDeals')}</h2>
+
+            {/* Controls */}
+            <div className="flex items-center gap-3">
+              {/* Limit Selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-500">{t('show')}</span>
+                <select
+                  value={topDealsLimit}
+                  onChange={(e) => setTopDealsLimit(Number(e.target.value))}
+                  className="px-2 py-1.5 text-sm font-medium border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer"
+                >
+                  {[10, 20, 30, 50].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Rank By Selector - determines what "Top" means */}
+              {(() => {
+                // Check if the selected period end is in the future
+                const periodEndDate = new Date(endYear, endQuarter * 3, 0);
+                const isFuturePeriod = periodEndDate >= new Date();
+                return (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-slate-500">{t('rankBy')}</span>
+                    <select
+                      value={topDealsSortBy}
+                      onChange={(e) => setTopDealsSortBy(e.target.value as TopDealsSortBy)}
+                      className="px-2 py-1.5 text-sm font-medium border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer"
+                    >
+                      <option value="amount">{t('highestAmount')}</option>
+                      <option value="closeDate">{isFuturePeriod ? t('closingSoonest') : t('closedRecently')}</option>
+                      <option value="deployTime">{isFuturePeriod ? t('deployingSoonest') : t('deployedRecently')}</option>
+                      <option value="updated">{t('recentlyUpdated')}</option>
+                    </select>
+                  </div>
+                );
+              })()}
             </div>
-            <h2 className="text-xl font-bold text-slate-900">Top 10 Deals</h2>
           </div>
-          <div className="overflow-x-auto rounded-xl border-2 border-slate-200">
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full">
-              <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-                <tr className="border-b-2 border-slate-200">
-                  <th className="text-left py-4 px-5 text-sm font-bold text-slate-700 uppercase tracking-wider">Deal</th>
-                  <th className="text-right py-4 px-5 text-sm font-bold text-slate-700 uppercase tracking-wider">Amount</th>
-                  <th className="text-left py-4 px-5 text-sm font-bold text-slate-700 uppercase tracking-wider">Owner</th>
-                  <th className="text-left py-4 px-5 text-sm font-bold text-slate-700 uppercase tracking-wider">Category</th>
-                  <th className="text-left py-4 px-5 text-sm font-bold text-slate-700 uppercase tracking-wider">Stage</th>
-                  <th className="text-center py-4 px-5 text-sm font-bold text-slate-700 uppercase tracking-wider">Prob</th>
-                  <th className="text-center py-4 px-5 text-sm font-bold text-slate-700 uppercase tracking-wider">Updated</th>
+              <thead className="bg-slate-50">
+                <tr className="border-b border-slate-200">
+                  <th className="text-left py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('deal')}</th>
+                  <th className="text-right py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('amount')}</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('owner')}</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('category')}</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('stage')}</th>
+                  <th className="text-center py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('probability')}</th>
+                  <th className="text-center py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('closeDate')}</th>
+                  <th className="text-center py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('deployTime')}</th>
+                  <th className="text-center py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('updated')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -886,34 +1373,40 @@ export default function DashboardPage() {
                       onClick={() => openSlideout(deal.name, [deal])}
                       className="hover:bg-blue-50/50 transition-colors duration-150 cursor-pointer"
                     >
-                      <td className="py-4 px-5">
-                        <div className="flex items-center gap-3">
-                          <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-shrink-0 w-6 h-6 bg-slate-100 rounded flex items-center justify-center text-slate-500 font-medium text-xs">
                             {idx + 1}
                           </div>
-                          <div>
-                            <p className="font-bold text-slate-900 text-sm">{deal.name}</p>
-                            <p className="text-xs text-slate-500">Close: {new Date(deal.closeDate).toLocaleDateString()}</p>
-                          </div>
+                          <p className="font-semibold text-slate-900 text-sm truncate max-w-[180px]" title={deal.name}>{deal.name}</p>
                         </div>
                       </td>
-                      <td className="py-4 px-5 text-right font-bold text-slate-900 text-base">{deal.amountFormatted}</td>
-                      <td className="py-4 px-5 text-sm font-medium text-slate-700">{deal.owner}</td>
-                      <td className="py-4 px-5">{getForecastBadge(deal.forecastCategory)}</td>
-                      <td className="py-4 px-5">
-                        <span className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                      <td className="py-3 px-4 text-right font-bold text-slate-900 text-sm">{deal.amountFormatted}</td>
+                      <td className="py-3 px-4 text-sm font-medium text-slate-700">{deal.owner}</td>
+                      <td className="py-3 px-4">{getForecastBadge(deal.forecastCategory)}</td>
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                           {deal.stage}
                         </span>
                       </td>
-                      <td className="py-4 px-5 text-center">
-                        <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-bold bg-blue-100 text-blue-700">
+                      <td className="py-3 px-4 text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-700">
                           {deal.probability}%
                         </span>
                       </td>
-                      <td className="py-4 px-5">
-                        <div className="flex items-center justify-center gap-2">
-                          <div className={`h-2.5 w-2.5 rounded-full bg-${status}-500 shadow-lg`}></div>
-                          <span className="text-sm font-semibold text-slate-700">{deal.daysSinceUpdate}d ago</span>
+                      <td className="py-3 px-4 text-center text-sm text-slate-700">
+                        {new Date(deal.closeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </td>
+                      <td className="py-3 px-4 text-center text-sm text-slate-700">
+                        {deal.deployTime
+                          ? new Date(deal.deployTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                          : <span className="text-slate-400">—</span>
+                        }
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <div className={`h-2 w-2 rounded-full ${status === 'emerald' ? 'bg-emerald-500' : status === 'amber' ? 'bg-amber-500' : 'bg-red-500'}`}></div>
+                          <span className="text-xs font-medium text-slate-600">{deal.daysSinceUpdate}{t('daysAgo')}</span>
                         </div>
                       </td>
                     </tr>
@@ -924,68 +1417,158 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Pipeline by Stage & Monthly Forecast */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white rounded-2xl p-8 shadow-xl border-2 border-slate-100">
-            <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
-              <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-              Pipeline by Stage
-            </h3>
-            <div className="space-y-4">
-              {data.pipelineByStage.map(stage => (
-                <div key={stage.stage} className="border-b-2 border-slate-100 pb-4 last:border-0 hover:bg-slate-50 p-3 rounded-lg transition-colors duration-150 cursor-pointer">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-bold text-slate-900">{stage.stage}</span>
-                    <span className="text-base font-bold text-slate-700">{stage.totalAmountFormatted}</span>
+        {/* Pipeline by Stage & Monthly Forecast - Unified Typography */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Pipeline by Stage */}
+          <div className="bg-white rounded-xl p-5 border border-slate-200">
+            {/* Card Header */}
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">{t('pipelineByStage')}</h3>
+            </div>
+
+            {/* Stage List */}
+            <div className="space-y-3">
+              {data.pipelineByStage.map((stage) => {
+                const maxAmount = Math.max(...data.pipelineByStage.map(s => parseFloat(s.totalAmountFormatted.replace(/[$,KMB]/g, ''))));
+                const currentAmount = parseFloat(stage.totalAmountFormatted.replace(/[$,KMB]/g, ''));
+                const barWidth = maxAmount > 0 ? (currentAmount / maxAmount) * 100 : 0;
+
+                return (
+                  <div key={stage.stage} className="group">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-sm font-medium text-slate-700">{stage.stage}</span>
+                      <span className="text-sm font-bold text-slate-900">{stage.totalAmountFormatted}</span>
+                    </div>
+                    <div className="relative h-6 bg-slate-100 rounded-md overflow-hidden">
+                      <div
+                        className="absolute inset-y-0 left-0 bg-blue-500 transition-all duration-500 flex items-center"
+                        style={{ width: `${barWidth}%` }}
+                      >
+                        {barWidth > 25 && (
+                          <span className="ml-auto pr-2 text-xs font-semibold text-white">{stage.probability}%</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs text-slate-500">{stage.dealCount} deals</span>
+                      <span className="text-xs text-slate-500">Weighted: {stage.weightedAmountFormatted}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center text-xs text-slate-500 mb-2">
-                    <span className="font-semibold">{stage.dealCount} deals • {stage.probability}% probability</span>
-                    <span className="font-semibold">Weighted: {stage.weightedAmountFormatted}</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${stage.probability}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-8 shadow-xl border-2 border-slate-100">
-            <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
-              <div className="h-2 w-2 bg-orange-500 rounded-full"></div>
-              Forecast by Month
-            </h3>
-            <div className="space-y-4">
-              {data.forecastByMonth.map(month => (
-                <div key={month.month} className="border-b-2 border-slate-100 pb-4 last:border-0 hover:bg-slate-50 p-3 rounded-lg transition-colors duration-150 cursor-pointer">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-bold text-slate-900">{month.month} {month.year}</span>
-                    <span className="text-base font-bold text-slate-700">{month.amountFormatted}</span>
+          {/* Forecast by Month - Grouped by Quarter */}
+          <div className="bg-white rounded-xl p-5 border border-slate-200">
+            {/* Card Header */}
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">{t('forecastByMonth')}</h3>
+            </div>
+
+            {/* Quarters List */}
+            <div className="space-y-6">
+              {data.forecastByQuarter.map((quarter) => {
+                const achievementColor = quarter.achievementRate === null
+                  ? 'text-slate-500'
+                  : quarter.achievementRate >= 100
+                    ? 'text-emerald-600'
+                    : quarter.achievementRate >= 70
+                      ? 'text-amber-600'
+                      : 'text-red-500';
+                const achievementBg = quarter.achievementRate === null
+                  ? 'bg-slate-100'
+                  : quarter.achievementRate >= 100
+                    ? 'bg-emerald-50'
+                    : quarter.achievementRate >= 70
+                      ? 'bg-amber-50'
+                      : 'bg-red-50';
+                const progressBarColor = quarter.achievementRate === null
+                  ? 'bg-slate-300'
+                  : quarter.achievementRate >= 100
+                    ? 'bg-emerald-500'
+                    : quarter.achievementRate >= 70
+                      ? 'bg-amber-500'
+                      : 'bg-red-400';
+
+                return (
+                  <div key={quarter.label} className="group">
+                    {/* Quarter Summary - Main Focus */}
+                    <div className={`${achievementBg} rounded-lg p-4 mb-3`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-lg font-bold text-slate-900">{quarter.label}</h4>
+                        {quarter.hasTarget ? (
+                          <span className={`text-2xl font-bold ${achievementColor}`}>
+                            {quarter.achievementRate}%
+                          </span>
+                        ) : (
+                          <span className="text-sm text-amber-600 flex items-center gap-1 font-medium">
+                            <AlertTriangle className="h-4 w-4" />
+                            {t('noTargetSet')}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Progress Bar */}
+                      {quarter.hasTarget && (
+                        <div className="mb-3">
+                          <div className="h-2 bg-white/60 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full ${progressBarColor} transition-all duration-500 rounded-full`}
+                              style={{ width: `${Math.min(quarter.achievementRate || 0, 100)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Key Numbers */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm text-slate-600">{t('forecast')}: </span>
+                          <span className="text-base font-bold text-slate-900">{quarter.totalAmountFormatted}</span>
+                        </div>
+                        {quarter.hasTarget && (
+                          <div>
+                            <span className="text-sm text-slate-600">{t('target')}: </span>
+                            <span className="text-base font-semibold text-slate-700">{quarter.targetFormatted}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Monthly Breakdown - Compact */}
+                    <div className="grid grid-cols-3 gap-3">
+                      {quarter.months.map((month) => {
+                        const hasAmount = month.amount > 0;
+
+                        return (
+                          <div
+                            key={`${month.year}-${month.month}`}
+                            className={`text-center p-3 rounded-lg ${hasAmount ? 'bg-slate-50' : 'bg-slate-50/50'}`}
+                          >
+                            <div className="text-sm font-semibold text-slate-500 mb-1">{month.month}</div>
+                            <div className={`text-lg font-bold ${hasAmount ? 'text-slate-900' : 'text-slate-300'}`}>
+                              {month.amountFormatted}
+                            </div>
+                            <div className={`text-xs ${hasAmount ? 'text-slate-500' : 'text-slate-300'}`}>
+                              {month.dealCount} {t('deals')}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center text-xs text-slate-500 mb-2">
-                    <span className="font-semibold">{month.dealCount} deals closing</span>
-                    <span className="font-semibold">{month.percentOfTarget}% of target</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden shadow-inner">
-                    <div
-                      className={`h-full rounded-full transition-all duration-300 ${month.percentOfTarget >= 40 ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' : month.percentOfTarget >= 25 ? 'bg-gradient-to-r from-amber-500 to-amber-600' : 'bg-gradient-to-r from-red-500 to-red-600'}`}
-                      style={{ width: `${Math.min(month.percentOfTarget, 100)}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* Footer Badge */}
-        <div className="text-center py-8">
-          <div className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-slate-100 to-slate-200 rounded-full shadow-md border border-slate-300">
-            <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></div>
-            <span className="text-sm font-bold text-slate-700">Powered by HubSpot CRM</span>
+        <div className="text-center py-6">
+          <div className="inline-flex items-center gap-2 px-4 py-2 text-slate-400 text-sm">
+            <div className="h-1.5 w-1.5 bg-emerald-500 rounded-full"></div>
+            <span>{t('poweredBy')}</span>
           </div>
         </div>
       </div>
@@ -1003,18 +1586,18 @@ export default function DashboardPage() {
           <div className="absolute inset-y-0 right-0 max-w-2xl w-full bg-white shadow-2xl transform transition-transform">
             <div className="h-full flex flex-col">
               {/* Header */}
-              <div className="bg-gradient-to-r from-[#2D3E50] to-[#1a2736] px-8 py-6 border-b border-slate-700">
+              <div className="bg-slate-900 px-8 py-6 border-b border-slate-800">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-bold text-white">{slideoutTitle}</h2>
                   <button
                     onClick={closeSlideout}
-                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
                   >
-                    <XCircle className="h-6 w-6 text-white" />
+                    <XCircle className="h-6 w-6 text-slate-400 hover:text-white" />
                   </button>
                 </div>
-                <p className="text-blue-200 mt-2 text-sm font-medium">
-                  {slideoutDeals.length} {slideoutDeals.length === 1 ? 'deal' : 'deals'} • Total: {slideoutDeals.reduce((sum, d) => sum + d.amount, 0).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                <p className="text-slate-400 mt-2 text-sm font-medium">
+                  {slideoutDeals.length} {t('deals')} • {t('total')}: {slideoutDeals.reduce((sum, d) => sum + d.amount, 0).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </p>
               </div>
 
@@ -1035,11 +1618,11 @@ export default function DashboardPage() {
                       return (
                         <div
                           key={deal.id}
-                          className="bg-white border-2 border-slate-200 rounded-xl p-6 hover:border-orange-300 hover:shadow-lg transition-all duration-200"
+                          className="bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-300 hover:shadow-sm transition-all duration-200"
                         >
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex items-start gap-4 flex-1">
-                              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center text-white font-bold">
+                              <div className="flex-shrink-0 w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-600 font-bold">
                                 {idx + 1}
                               </div>
                               <div className="flex-1">
@@ -1058,32 +1641,38 @@ export default function DashboardPage() {
 
                           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
                             <div>
-                              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Stage</p>
+                              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">{t('dealStageLabel')}</p>
                               <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                                 {deal.stage}
                               </span>
                             </div>
                             <div>
-                              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Probability</p>
+                              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">{t('probabilityLabel')}</p>
                               <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-bold bg-blue-100 text-blue-700">
                                 {deal.probability}%
                               </span>
                             </div>
                             <div>
-                              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Close Date</p>
+                              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">{t('closeDate')}</p>
                               <p className="text-sm font-semibold text-slate-700">{new Date(deal.closeDate).toLocaleDateString()}</p>
                             </div>
                             <div>
-                              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Create Date</p>
+                              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">{t('createdDate')}</p>
                               <p className="text-sm font-semibold text-slate-700">{new Date(deal.createdAt).toLocaleDateString()}</p>
                             </div>
                             <div>
-                              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Last Updated</p>
+                              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">{t('lastUpdated')}</p>
                               <div className="flex items-center gap-2">
                                 <div className={`h-2.5 w-2.5 rounded-full bg-${status}-500`}></div>
-                                <span className="text-sm font-semibold text-slate-700">{deal.daysSinceUpdate}d ago</span>
+                                <span className="text-sm font-semibold text-slate-700">{deal.daysSinceUpdate}{t('daysAgo')}</span>
                               </div>
                             </div>
+                            {deal.deployTime && (
+                              <div>
+                                <p className="text-xs font-semibold text-slate-500 uppercase mb-1">{t('deployTime')}</p>
+                                <p className="text-sm font-semibold text-slate-700">{new Date(deal.deployTime).toLocaleDateString()}</p>
+                              </div>
+                            )}
                             {deal.distributor && (
                               <div>
                                 <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Distributor</p>
@@ -1103,14 +1692,14 @@ export default function DashboardPage() {
                                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                                   </svg>
-                                  Hide Details
+                                  {t('viewDetails')}
                                 </>
                               ) : (
                                 <>
                                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                   </svg>
-                                  View Details
+                                  {t('viewDetails')}
                                 </>
                               )}
                             </button>
@@ -1128,16 +1717,16 @@ export default function DashboardPage() {
                                 <>
                                   {/* Line Items */}
                                   {dealDetails.lineItems && dealDetails.lineItems.length > 0 && (
-                                    <div className="bg-blue-50 rounded-lg p-4">
-                                      <h4 className="text-xs font-bold text-blue-700 uppercase mb-3 flex items-center gap-2">
+                                    <div className="bg-slate-50 rounded-lg p-4">
+                                      <h4 className="text-xs font-bold text-slate-600 uppercase mb-3 flex items-center gap-2">
                                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                                         </svg>
-                                        Line Items ({dealDetails.lineItems.length} products)
+                                        {t('lineItems')} ({dealDetails.lineItems.length})
                                       </h4>
                                       <div className="space-y-2">
                                         {dealDetails.lineItems.map((item: any) => (
-                                          <div key={item.id} className="bg-white rounded-lg p-3 border border-blue-200">
+                                          <div key={item.id} className="bg-white rounded-lg p-3 border border-slate-200">
                                             <div className="flex items-start justify-between mb-1">
                                               <div className="flex-1">
                                                 <p className="font-semibold text-sm text-slate-900">{item.name}</p>
@@ -1157,9 +1746,9 @@ export default function DashboardPage() {
                                           </div>
                                         ))}
                                       </div>
-                                      <div className="mt-3 pt-3 border-t border-blue-200 flex justify-between items-center">
-                                        <span className="text-sm font-bold text-blue-900">Total:</span>
-                                        <span className="text-lg font-bold text-blue-900">
+                                      <div className="mt-3 pt-3 border-t border-slate-200 flex justify-between items-center">
+                                        <span className="text-sm font-bold text-slate-700">{t('total')}:</span>
+                                        <span className="text-lg font-bold text-slate-900">
                                           ${dealDetails.lineItems.reduce((sum: number, item: any) => sum + item.amount, 0).toLocaleString()}
                                         </span>
                                       </div>
@@ -1168,16 +1757,16 @@ export default function DashboardPage() {
 
                                   {/* Contacts */}
                                   {dealDetails.contacts && dealDetails.contacts.length > 0 && (
-                                    <div className="bg-green-50 rounded-lg p-4">
-                                      <h4 className="text-xs font-bold text-green-700 uppercase mb-3 flex items-center gap-2">
+                                    <div className="bg-slate-50 rounded-lg p-4">
+                                      <h4 className="text-xs font-bold text-slate-600 uppercase mb-3 flex items-center gap-2">
                                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                         </svg>
-                                        Contacts ({dealDetails.contacts.length})
+                                        {t('contacts')} ({dealDetails.contacts.length})
                                       </h4>
                                       <div className="space-y-2">
                                         {dealDetails.contacts.map((contact: any) => (
-                                          <div key={contact.id} className="bg-white rounded-lg p-3 border border-green-200">
+                                          <div key={contact.id} className="bg-white rounded-lg p-3 border border-slate-200">
                                             <p className="font-semibold text-sm text-slate-900">{contact.fullName}</p>
                                             {contact.jobTitle && (
                                               <p className="text-xs text-slate-600 mt-1">{contact.jobTitle}</p>
@@ -1206,9 +1795,9 @@ export default function DashboardPage() {
                                 href={deal.hubspotUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 text-sm font-semibold text-orange-600 hover:text-orange-700 transition-colors"
+                                className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors"
                               >
-                                Open in HubSpot
+                                {t('viewInHubSpot')}
                                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                 </svg>
@@ -1226,7 +1815,7 @@ export default function DashboardPage() {
               <div className="bg-slate-50 px-8 py-4 border-t border-slate-200">
                 <button
                   onClick={closeSlideout}
-                  className="w-full bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                  className="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
                 >
                   Close
                 </button>
@@ -1236,5 +1825,14 @@ export default function DashboardPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Export with Suspense wrapper for useSearchParams
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardLoading />}>
+      <DashboardContent />
+    </Suspense>
   );
 }
