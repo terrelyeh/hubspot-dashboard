@@ -575,7 +575,7 @@ function DashboardContent() {
 
       setSyncMessage({
         type: 'success',
-        text: t('syncSuccess').replace('{created}', result.created).replace('{updated}', result.updated)
+        text: t('syncSuccess').replace('{created}', result.summary?.created || 0).replace('{updated}', result.summary?.updated || 0)
       });
 
       // Refresh dashboard data after sync
