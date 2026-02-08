@@ -351,30 +351,31 @@ function DashboardContent() {
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [categoryTooltip, setCategoryTooltip] = useState<string | null>(null);
 
-  // Fetch dashboard data
-  const fetchDashboardData = async () => {
+  // Raw data from API (unfiltered) - used for client-side filtering
+  const [rawData, setRawData] = useState<DashboardData | null>(null);
+
+  // Fetch dashboard data - only fetches when region or time range changes
+  const fetchDashboardData = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       setError(null);
+
+      // Only include region and time range params - filters will be applied client-side
       const params = new URLSearchParams({
         region: selectedRegion,
         startYear: startYear.toString(),
         startQuarter: startQuarter.toString(),
         endYear: endYear.toString(),
         endQuarter: endQuarter.toString(),
-        topDealsLimit: topDealsLimit.toString(),
-        topDealsSortBy: topDealsSortBy,
+        topDealsLimit: '100', // Fetch more deals to allow client-side filtering and sorting
+        topDealsSortBy: 'amount',
       });
-
-      if (selectedOwner !== 'All') params.set('owner', selectedOwner);
-      if (selectedStages.length > 0) params.set('stage', selectedStages.join(','));
-      if (selectedCategories.length > 0) params.set('forecastCategory', selectedCategories.join(','));
 
       const response = await fetch(`/api/dashboard?${params}`);
       const result = await response.json();
 
       if (!result.success) throw new Error(result.message);
-      setData(result);
+      setRawData(result);
       setUsingMockData(result.usingMockData || false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -382,6 +383,178 @@ function DashboardContent() {
       setLoading(false);
     }
   };
+
+  // Client-side filtering function - applies filters to raw data without API call
+  const applyClientSideFilters = React.useCallback((rawData: DashboardData | null): DashboardData | null => {
+    if (!rawData) return null;
+
+    // Helper to filter deals
+    const filterDeals = (deals: Deal[]): Deal[] => {
+      return deals.filter(deal => {
+        // Owner filter
+        if (selectedOwner !== 'All' && deal.owner !== selectedOwner) return false;
+        // Stage filter
+        if (selectedStages.length > 0 && !selectedStages.includes(deal.stage)) return false;
+        // Forecast Category filter
+        if (selectedCategories.length > 0 && !selectedCategories.includes(deal.forecastCategory)) return false;
+        return true;
+      });
+    };
+
+    // Helper to recalculate amounts from filtered deals
+    const sumAmount = (deals: Deal[]) => deals.reduce((sum, d) => sum + d.amount, 0);
+
+    // Filter all deal arrays
+    const filteredTotalPipelineDeals = filterDeals(rawData.summary.totalPipelineDeals);
+    const filteredNewDealsList = filterDeals(rawData.summary.newDealsList);
+    const filteredOpenDealsList = filterDeals(rawData.summary.openDealsList);
+    const filteredCommitDealsList = filterDeals(rawData.summary.commitDealsList);
+    const filteredClosedWonDealsList = filterDeals(rawData.summary.closedWonDealsList);
+    const filteredTopDeals = filterDeals(rawData.topDeals);
+
+    // Sort and limit top deals based on current settings
+    const sortedTopDeals = [...filteredTopDeals].sort((a, b) => {
+      switch (topDealsSortBy) {
+        case 'closeDate':
+          return new Date(a.closeDate).getTime() - new Date(b.closeDate).getTime();
+        case 'deployTime':
+          if (!a.deployTime) return 1;
+          if (!b.deployTime) return -1;
+          return new Date(a.deployTime).getTime() - new Date(b.deployTime).getTime();
+        case 'updated':
+          return a.daysSinceUpdate - b.daysSinceUpdate;
+        case 'amount':
+        default:
+          return b.amount - a.amount;
+      }
+    }).slice(0, topDealsLimit);
+
+    // Filter activity KPIs
+    const filteredNewDeals = filterDeals(rawData.activityKpis.newDeals.deals);
+    const filteredClosedWon = filterDeals(rawData.activityKpis.closedWon.deals);
+    const filteredClosedLost = filterDeals(rawData.activityKpis.closedLost.deals);
+
+    // Filter forecast breakdown
+    const filteredCommit = filterDeals(rawData.forecastBreakdown.commit.deals);
+    const filteredBestCase = filterDeals(rawData.forecastBreakdown.bestCase.deals);
+    const filteredPipeline = filterDeals(rawData.forecastBreakdown.pipeline.deals);
+
+    // Filter alerts
+    const filteredStaleDeals = filterDeals(rawData.alerts.staleDeals.deals);
+    const filteredLargeDeals = filterDeals(rawData.alerts.largeDealsClosingSoon.deals);
+
+    // Calculate new totals
+    const totalPipeline = sumAmount(filteredTotalPipelineDeals);
+    const newDealAmount = sumAmount(filteredNewDealsList);
+    const openDealAmount = sumAmount(filteredOpenDealsList);
+    const commitRevenue = sumAmount(filteredCommitDealsList);
+    const closedWonAmount = sumAmount(filteredClosedWonDealsList);
+    const totalForecast = sumAmount(filteredCommit) + sumAmount(filteredBestCase) + sumAmount(filteredPipeline);
+
+    // Format currency helper
+    const formatCurrency = (amount: number): string => {
+      if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
+      if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
+      return `$${amount.toFixed(0)}`;
+    };
+
+    // Recalculate pipeline by stage
+    const filteredPipelineByStage = rawData.pipelineByStage.map(stage => {
+      const stageDeals = filteredTotalPipelineDeals.filter(d => d.stage === stage.stage);
+      const totalAmount = sumAmount(stageDeals);
+      const weightedAmount = stageDeals.reduce((sum, d) => sum + d.amount * (d.probability / 100), 0);
+      return {
+        ...stage,
+        dealCount: stageDeals.length,
+        totalAmountFormatted: formatCurrency(totalAmount),
+        weightedAmountFormatted: formatCurrency(weightedAmount),
+      };
+    }).filter(stage => stage.dealCount > 0);
+
+    return {
+      ...rawData,
+      summary: {
+        ...rawData.summary,
+        totalPipelineFormatted: formatCurrency(totalPipeline),
+        totalPipelineDeals: filteredTotalPipelineDeals,
+        newDealAmountFormatted: formatCurrency(newDealAmount),
+        newDealCount: filteredNewDealsList.length,
+        newDealsList: filteredNewDealsList,
+        openDealAmountFormatted: formatCurrency(openDealAmount),
+        openDealCount: filteredOpenDealsList.length,
+        openDealsList: filteredOpenDealsList,
+        commitRevenueFormatted: formatCurrency(commitRevenue),
+        commitDealCount: filteredCommitDealsList.length,
+        commitDealsList: filteredCommitDealsList,
+        closedWonAmountFormatted: formatCurrency(closedWonAmount),
+        closedWonCount: filteredClosedWonDealsList.length,
+        closedWonDealsList: filteredClosedWonDealsList,
+        totalForecastFormatted: formatCurrency(totalForecast),
+        dealCount: filteredTotalPipelineDeals.length,
+      },
+      activityKpis: {
+        ...rawData.activityKpis,
+        newDeals: {
+          ...rawData.activityKpis.newDeals,
+          count: filteredNewDeals.length,
+          amountFormatted: formatCurrency(sumAmount(filteredNewDeals)),
+          deals: filteredNewDeals,
+        },
+        closedWon: {
+          ...rawData.activityKpis.closedWon,
+          count: filteredClosedWon.length,
+          amountFormatted: formatCurrency(sumAmount(filteredClosedWon)),
+          deals: filteredClosedWon,
+        },
+        closedLost: {
+          ...rawData.activityKpis.closedLost,
+          count: filteredClosedLost.length,
+          amountFormatted: formatCurrency(sumAmount(filteredClosedLost)),
+          deals: filteredClosedLost,
+        },
+      },
+      forecastBreakdown: {
+        commit: {
+          ...rawData.forecastBreakdown.commit,
+          amountFormatted: formatCurrency(sumAmount(filteredCommit)),
+          deals: filteredCommit,
+        },
+        bestCase: {
+          ...rawData.forecastBreakdown.bestCase,
+          amountFormatted: formatCurrency(sumAmount(filteredBestCase)),
+          deals: filteredBestCase,
+        },
+        pipeline: {
+          ...rawData.forecastBreakdown.pipeline,
+          amountFormatted: formatCurrency(sumAmount(filteredPipeline)),
+          deals: filteredPipeline,
+        },
+      },
+      alerts: {
+        staleDeals: {
+          ...rawData.alerts.staleDeals,
+          count: filteredStaleDeals.length,
+          amountFormatted: formatCurrency(sumAmount(filteredStaleDeals)),
+          deals: filteredStaleDeals,
+        },
+        largeDealsClosingSoon: {
+          ...rawData.alerts.largeDealsClosingSoon,
+          count: filteredLargeDeals.length,
+          amountFormatted: formatCurrency(sumAmount(filteredLargeDeals)),
+          deals: filteredLargeDeals,
+        },
+      },
+      topDeals: sortedTopDeals,
+      pipelineByStage: filteredPipelineByStage,
+    };
+  }, [selectedOwner, selectedStages, selectedCategories, topDealsLimit, topDealsSortBy]);
+
+  // Apply client-side filters whenever raw data or filters change
+  React.useEffect(() => {
+    if (rawData) {
+      setData(applyClientSideFilters(rawData));
+    }
+  }, [rawData, applyClientSideFilters]);
 
   // Sync data from HubSpot
   const handleSync = async () => {
@@ -420,23 +593,10 @@ function DashboardContent() {
     }
   };
 
-  // Track previous dropdown states to detect when they close
-  const prevStageDropdownOpen = useRef(stageDropdownOpen);
-  const prevCategoryDropdownOpen = useRef(categoryDropdownOpen);
-
+  // Fetch data only when region or time range changes (not for filter changes)
   useEffect(() => {
-    // Fetch when dropdowns close (user finished selecting) or other filters change
-    const stageDropdownJustClosed = prevStageDropdownOpen.current && !stageDropdownOpen;
-    const categoryDropdownJustClosed = prevCategoryDropdownOpen.current && !categoryDropdownOpen;
-
-    prevStageDropdownOpen.current = stageDropdownOpen;
-    prevCategoryDropdownOpen.current = categoryDropdownOpen;
-
-    // Don't fetch while dropdowns are open
-    if (stageDropdownOpen || categoryDropdownOpen) return;
-
     fetchDashboardData();
-  }, [selectedRegion, startYear, startQuarter, endYear, endQuarter, selectedOwner, selectedStages, selectedCategories, topDealsLimit, topDealsSortBy, stageDropdownOpen, categoryDropdownOpen]);
+  }, [selectedRegion, startYear, startQuarter, endYear, endQuarter]);
 
   const openSlideout = (title: string, deals: Deal[]) => {
     setSlideoutTitle(title);
