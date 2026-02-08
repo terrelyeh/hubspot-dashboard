@@ -140,6 +140,7 @@ interface DashboardData {
       totalAmount: number;
       totalAmountFormatted: string;
       dealCount: number;
+      deals: Deal[];
     }>;
     totalProductsInPipeline: number;
     totalProductValue: number;
@@ -1779,11 +1780,15 @@ function DashboardContent() {
                 </thead>
                 <tbody>
                   {data.productSummary.topProducts.map((product, i) => (
-                    <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                      <td className="py-2.5 font-medium text-slate-800">{product.name}</td>
+                    <tr
+                      key={i}
+                      className="border-b border-slate-100 hover:bg-blue-50 transition-colors cursor-pointer group"
+                      onClick={() => openSlideout(`📦 ${product.name}`, product.deals)}
+                    >
+                      <td className="py-2.5 font-medium text-slate-800 group-hover:text-blue-600">{product.name}</td>
                       <td className="py-2.5 text-right text-slate-600">{product.totalQuantity.toLocaleString()}</td>
                       <td className="py-2.5 text-right font-semibold text-slate-900">{product.totalAmountFormatted}</td>
-                      <td className="py-2.5 text-right text-slate-600">{product.dealCount}</td>
+                      <td className="py-2.5 text-right text-blue-600 font-medium">{product.dealCount} →</td>
                     </tr>
                   ))}
                 </tbody>

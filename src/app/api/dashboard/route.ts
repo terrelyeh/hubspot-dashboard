@@ -733,6 +733,43 @@ export async function GET(request: Request) {
         })
       : [];
 
+    // For each top product, get the associated deals
+    const topProductsWithDeals = await Promise.all(
+      lineItemStats.map(async (item) => {
+        // Find all line items with this product name
+        const lineItemsForProduct = await prisma.lineItem.findMany({
+          where: {
+            name: item.name,
+            dealId: {
+              in: dealIds,
+            },
+          },
+          select: {
+            dealId: true,
+            quantity: true,
+            amount: true,
+          },
+        });
+
+        // Get unique deal IDs that have this product
+        const productDealIds = [...new Set(lineItemsForProduct.map(li => li.dealId))];
+
+        // Get the deals with this product
+        const productDeals = deals
+          .filter(d => productDealIds.includes(d.id))
+          .map(formatDeal);
+
+        return {
+          name: item.name,
+          totalQuantity: item._sum.quantity || 0,
+          totalAmount: item._sum.amount || 0,
+          totalAmountFormatted: formatCurrency(item._sum.amount || 0),
+          dealCount: productDealIds.length,
+          deals: productDeals,
+        };
+      })
+    );
+
     // Calculate product totals from all line items (not just top 10)
     const allLineItemTotals = dealIds.length > 0
       ? await prisma.lineItem.aggregate({
@@ -752,13 +789,7 @@ export async function GET(request: Request) {
       : { _sum: { quantity: 0, amount: 0 }, _count: { id: 0 } };
 
     const productSummary = {
-      topProducts: lineItemStats.map(item => ({
-        name: item.name,
-        totalQuantity: item._sum.quantity || 0,
-        totalAmount: item._sum.amount || 0,
-        totalAmountFormatted: formatCurrency(item._sum.amount || 0),
-        dealCount: item._count.id,
-      })),
+      topProducts: topProductsWithDeals,
       totalProductsInPipeline: allLineItemTotals._sum.quantity || 0,
       totalProductValue: allLineItemTotals._sum.amount || 0,
       totalProductValueFormatted: formatCurrency(allLineItemTotals._sum.amount || 0),
