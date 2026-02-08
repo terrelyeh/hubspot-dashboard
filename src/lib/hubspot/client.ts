@@ -74,9 +74,40 @@ interface HubSpotContact {
 export class HubSpotClient {
   private apiKey: string;
   private baseUrl = 'https://api.hubapi.com';
+  private timeout = 7000; // 7 seconds timeout for Vercel Hobby (10s limit)
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
+  }
+
+  /**
+   * Fetch with timeout to prevent hanging requests
+   */
+  private async fetchWithTimeout(
+    url: string,
+    options: RequestInit,
+    timeout?: number
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      timeout || this.timeout
+    );
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      return response;
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        throw new Error(`Request timeout after ${timeout || this.timeout}ms`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   /**
@@ -119,7 +150,7 @@ export class HubSpotClient {
       queryParams.set('associations', params.associations.join(','));
     }
 
-    const response = await fetch(
+    const response = await this.fetchWithTimeout(
       `${this.baseUrl}/crm/v3/objects/deals?${queryParams}`,
       {
         headers: {
@@ -242,7 +273,7 @@ export class HubSpotClient {
    * Fetch deal owners
    */
   async fetchOwners(): Promise<HubSpotOwner[]> {
-    const response = await fetch(`${this.baseUrl}/crm/v3/owners`, {
+    const response = await this.fetchWithTimeout(`${this.baseUrl}/crm/v3/owners`, {
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
@@ -262,7 +293,7 @@ export class HubSpotClient {
    * Fetch pipelines and their stages
    */
   async fetchPipelines(): Promise<HubSpotPipeline[]> {
-    const response = await fetch(
+    const response = await this.fetchWithTimeout(
       `${this.baseUrl}/crm/v3/pipelines/deals`,
       {
         headers: {

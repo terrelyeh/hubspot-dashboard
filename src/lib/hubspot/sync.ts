@@ -31,31 +31,27 @@ export async function syncDealsFromHubSpot(
   try {
     const client = new HubSpotClient(apiKey);
 
-    // Fetch all deals from HubSpot
-    console.log('Fetching deals from HubSpot...');
-    const hubspotDeals = await client.fetchDeals();
-    console.log(`Found ${hubspotDeals.length} deals in HubSpot`);
+    // Fetch deals, owners, and pipelines in parallel for better performance
+    console.log('Fetching data from HubSpot (parallel)...');
+    const [hubspotDeals, owners, pipelines] = await Promise.all([
+      client.fetchDeals(),
+      client.fetchOwners().catch((error) => {
+        console.warn('Failed to fetch owners:', error);
+        return [];
+      }),
+      client.fetchPipelines(),
+    ]);
+    console.log(`Found ${hubspotDeals.length} deals, ${owners.length} owners in HubSpot`);
 
-    // Fetch owners for mapping (optional - may fail if scope not granted)
-    let ownerMap = new Map<string, string>();
-    let ownerEmailMap = new Map<string, string>();
-    let owners: any[] = [];
-    try {
-      owners = await client.fetchOwners();
-      ownerMap = new Map(
-        owners.map(o => [o.id, `${o.firstName} ${o.lastName}`.trim() || o.email])
-      );
-      ownerEmailMap = new Map(
-        owners.map(o => [o.id, o.email])
-      );
-      console.log(`Fetched ${owners.length} owners`);
-    } catch (error) {
-      console.warn('Failed to fetch owners (crm.objects.owners.read scope may be missing):', error);
-      // Continue without owner mapping
-    }
+    // Build owner maps
+    const ownerMap = new Map<string, string>(
+      owners.map((o: any) => [o.id, `${o.firstName} ${o.lastName}`.trim() || o.email])
+    );
+    const ownerEmailMap = new Map<string, string>(
+      owners.map((o: any) => [o.id, o.email])
+    );
 
-    // Fetch pipelines for stage probability and label mapping
-    const pipelines = await client.fetchPipelines();
+    // Build stage maps from pipelines
     const stageMap = new Map<string, number>();
     const stageLabelMap = new Map<string, string>();
     pipelines.forEach(pipeline => {
