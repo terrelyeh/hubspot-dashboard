@@ -829,15 +829,6 @@ function DashboardContent() {
               {/* Language Switcher - Only show for JP region */}
               {selectedRegion === 'JP' && <LanguageSwitcherDropdown />}
 
-              {/* Settings Button */}
-              <Link
-                href="/settings/targets"
-                className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md border border-slate-700 transition-colors"
-                title={t('settings')}
-              >
-                <Settings className="h-4 w-4 text-slate-400" />
-              </Link>
-
               {/* User Menu */}
               <UserMenu />
             </div>
@@ -1880,54 +1871,58 @@ function DashboardContent() {
                               ) : dealDetails ? (
                                 <>
                                   {/* Line Items */}
-                                  {dealDetails.lineItems && dealDetails.lineItems.length > 0 && (
-                                    <div className="bg-slate-50 rounded-lg p-4">
-                                      <h4 className="text-xs font-bold text-slate-600 uppercase mb-3 flex items-center gap-2">
-                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                        </svg>
-                                        {t('lineItems')} ({dealDetails.lineItems.length})
-                                      </h4>
-                                      <div className="space-y-2">
-                                        {dealDetails.lineItems.map((item: any) => (
-                                          <div key={item.id} className="bg-white rounded-lg p-3 border border-slate-200">
-                                            <div className="flex items-start justify-between mb-1">
-                                              <div className="flex-1">
-                                                <p className="font-semibold text-sm text-slate-900">{item.name}</p>
-                                                {item.description && (
-                                                  <p className="text-xs text-slate-600 mt-1">{item.description}</p>
-                                                )}
+                                  <div className="bg-slate-50 rounded-lg p-4">
+                                    <h4 className="text-xs font-bold text-slate-600 uppercase mb-3 flex items-center gap-2">
+                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                      </svg>
+                                      {t('lineItems')} ({dealDetails.lineItems?.length || 0})
+                                    </h4>
+                                    {dealDetails.lineItems && dealDetails.lineItems.length > 0 ? (
+                                      <>
+                                        <div className="space-y-2">
+                                          {dealDetails.lineItems.map((item: any) => (
+                                            <div key={item.id} className="bg-white rounded-lg p-3 border border-slate-200">
+                                              <div className="flex items-start justify-between mb-1">
+                                                <div className="flex-1">
+                                                  <p className="font-semibold text-sm text-slate-900">{item.name}</p>
+                                                  {item.description && (
+                                                    <p className="text-xs text-slate-600 mt-1">{item.description}</p>
+                                                  )}
+                                                </div>
+                                                <p className="text-sm font-bold text-slate-900 ml-3">
+                                                  ${item.amount.toLocaleString()}
+                                                </p>
                                               </div>
-                                              <p className="text-sm font-bold text-slate-900 ml-3">
-                                                ${item.amount.toLocaleString()}
-                                              </p>
+                                              <div className="flex items-center gap-4 text-xs text-slate-600 mt-2">
+                                                <span>Qty: <strong className="text-slate-900">{item.quantity}</strong></span>
+                                                <span>×</span>
+                                                <span>Unit Price: <strong className="text-slate-900">${item.price.toLocaleString()}</strong></span>
+                                              </div>
                                             </div>
-                                            <div className="flex items-center gap-4 text-xs text-slate-600 mt-2">
-                                              <span>Qty: <strong className="text-slate-900">{item.quantity}</strong></span>
-                                              <span>×</span>
-                                              <span>Unit Price: <strong className="text-slate-900">${item.price.toLocaleString()}</strong></span>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                      <div className="mt-3 pt-3 border-t border-slate-200 flex justify-between items-center">
-                                        <span className="text-sm font-bold text-slate-700">{t('total')}:</span>
-                                        <span className="text-lg font-bold text-slate-900">
-                                          ${dealDetails.lineItems.reduce((sum: number, item: any) => sum + item.amount, 0).toLocaleString()}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
+                                          ))}
+                                        </div>
+                                        <div className="mt-3 pt-3 border-t border-slate-200 flex justify-between items-center">
+                                          <span className="text-sm font-bold text-slate-700">{t('total')}:</span>
+                                          <span className="text-lg font-bold text-slate-900">
+                                            ${dealDetails.lineItems.reduce((sum: number, item: any) => sum + item.amount, 0).toLocaleString()}
+                                          </span>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <p className="text-sm text-slate-500 italic">No line items recorded for this deal</p>
+                                    )}
+                                  </div>
 
                                   {/* Contacts */}
-                                  {dealDetails.contacts && dealDetails.contacts.length > 0 && (
-                                    <div className="bg-slate-50 rounded-lg p-4">
-                                      <h4 className="text-xs font-bold text-slate-600 uppercase mb-3 flex items-center gap-2">
-                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
-                                        {t('contacts')} ({dealDetails.contacts.length})
-                                      </h4>
+                                  <div className="bg-slate-50 rounded-lg p-4">
+                                    <h4 className="text-xs font-bold text-slate-600 uppercase mb-3 flex items-center gap-2">
+                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                      </svg>
+                                      {t('contacts')} ({dealDetails.contacts?.length || 0})
+                                    </h4>
+                                    {dealDetails.contacts && dealDetails.contacts.length > 0 ? (
                                       <div className="space-y-2">
                                         {dealDetails.contacts.map((contact: any) => (
                                           <div key={contact.id} className="bg-white rounded-lg p-3 border border-slate-200">
@@ -1944,8 +1939,10 @@ function DashboardContent() {
                                           </div>
                                         ))}
                                       </div>
-                                    </div>
-                                  )}
+                                    ) : (
+                                      <p className="text-sm text-slate-500 italic">No contacts associated with this deal</p>
+                                    )}
+                                  </div>
                                 </>
                               ) : (
                                 <p className="text-sm text-slate-500 text-center py-4">No additional details available</p>

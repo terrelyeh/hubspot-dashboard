@@ -43,9 +43,15 @@ export async function GET(
 
     // Fetch line items and contacts from HubSpot
     try {
-      const apiKey = process.env.HUBSPOT_API_KEY;
+      // Select the correct API key based on the deal's region
+      const regionCode = deal.region.code;
+      const apiKey = regionCode === 'JP'
+        ? process.env.HUBSPOT_API_KEY_JP
+        : process.env.HUBSPOT_API_KEY_APAC;
+
       if (!apiKey) {
-        throw new Error('HubSpot API key not configured');
+        console.error(`No API key found for region: ${regionCode}`);
+        throw new Error(`HubSpot API key not configured for region: ${regionCode}`);
       }
 
       const client = createHubSpotClient(apiKey);
