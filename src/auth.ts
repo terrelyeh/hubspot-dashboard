@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 export const { handlers, signIn, signOut, auth } = NextAuth({
   // Note: Don't use PrismaAdapter with Credentials provider + JWT strategy
   // The adapter is only needed for OAuth providers that need to store accounts
+  trustHost: true, // Required for Vercel deployment
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days

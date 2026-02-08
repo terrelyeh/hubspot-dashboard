@@ -21,22 +21,40 @@ function LoginForm() {
     setIsLoading(true);
 
     try {
-      const result = await signIn('credentials', {
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 15000);
+      });
+
+      const signInPromise = signIn('credentials', {
         email,
         password,
         redirect: false,
       });
 
+      const result = await Promise.race([signInPromise, timeoutPromise]) as any;
+
       if (result?.error) {
+        console.error('Sign in error:', result.error);
         setError('Invalid email or password');
         setIsLoading(false);
         return;
       }
 
-      router.push(callbackUrl);
-      router.refresh();
-    } catch (err) {
-      setError('An error occurred. Please try again.');
+      if (result?.ok) {
+        router.push(callbackUrl);
+        router.refresh();
+      } else {
+        setError('Login failed. Please try again.');
+        setIsLoading(false);
+      }
+    } catch (err: any) {
+      console.error('Login error:', err);
+      if (err.message === 'Request timeout') {
+        setError('Login request timed out. Please try again.');
+      } else {
+        setError('An error occurred. Please try again.');
+      }
       setIsLoading(false);
     }
   };
