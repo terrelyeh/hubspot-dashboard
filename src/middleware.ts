@@ -18,11 +18,20 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Get JWT token (lightweight, no Prisma needed)
+  // Get JWT token
+  // Note: In production (HTTPS), the cookie name is __Secure-authjs.session-token
+  // In development (HTTP), the cookie name is authjs.session-token
   const token = await getToken({
     req,
     secret: process.env.AUTH_SECRET,
+    secureCookie: process.env.NODE_ENV === "production",
   });
+
+  // Debug logging (remove in production)
+  if (!token) {
+    console.log("[Middleware] No token found for path:", pathname);
+    console.log("[Middleware] Cookies:", req.cookies.getAll().map(c => c.name));
+  }
 
   // Check if user is authenticated
   if (!token) {
