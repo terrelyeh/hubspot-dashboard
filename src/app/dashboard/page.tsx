@@ -24,6 +24,7 @@ import {
 import Link from 'next/link';
 import { useLanguage } from '@/lib/i18n';
 import { LanguageSwitcherDropdown } from '@/components/LanguageSwitcher';
+import { UserMenu } from '@/components/UserMenu';
 
 // Available regions configuration
 const REGIONS = [
@@ -676,6 +677,9 @@ function DashboardContent() {
               >
                 <Settings className="h-4 w-4 text-slate-400" />
               </Link>
+
+              {/* User Menu */}
+              <UserMenu />
             </div>
           </div>
 
@@ -959,7 +963,7 @@ function DashboardContent() {
             {/* 1. Pipeline Value */}
             <div
               onClick={() => openSlideout('All Pipeline Deals', data.summary.totalPipelineDeals)}
-              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
             >
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('pipelineValue')}</p>
@@ -972,7 +976,7 @@ function DashboardContent() {
             {/* 2. New Deal Amount */}
             <div
               onClick={() => openSlideout('New Deals Created This Quarter', data.summary.newDealsList)}
-              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
             >
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('newDealAmount')}</p>
@@ -985,7 +989,7 @@ function DashboardContent() {
             {/* 3. Open Deals */}
             <div
               onClick={() => openSlideout('Open Deals (Not Closed)', data.summary.openDealsList)}
-              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
             >
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('openDeals')}</p>
@@ -998,7 +1002,7 @@ function DashboardContent() {
             {/* 4. Commit Revenue */}
             <div
               onClick={() => openSlideout('Commit Deals (High Confidence)', data.summary.commitDealsList)}
-              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
             >
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('commitRevenue')}</p>
@@ -1014,7 +1018,7 @@ function DashboardContent() {
             {/* 5. Closed Won Amount */}
             <div
               onClick={() => openSlideout('Closed Won Deals', data.summary.closedWonDealsList)}
-              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
             >
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedWon')}</p>
@@ -1025,7 +1029,7 @@ function DashboardContent() {
             </div>
 
             {/* 6. Weighted Forecast */}
-            <div className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer">
+            <div className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('weightedForecast')}</p>
                 <BarChart3 className="h-4 w-4 text-slate-400" />
@@ -1097,7 +1101,7 @@ function DashboardContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div
               onClick={() => openSlideout('New Deals Created This Quarter', data.activityKpis.newDeals.deals)}
-              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
             >
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('newDeals')}</p>
@@ -1111,7 +1115,7 @@ function DashboardContent() {
 
             <div
               onClick={() => openSlideout(t('closedWonDeals'), data.activityKpis.closedWon.deals)}
-              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
             >
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedWon')}</p>
@@ -1125,7 +1129,7 @@ function DashboardContent() {
 
             <div
               onClick={() => openSlideout(t('closedLostDeals'), data.activityKpis.closedLost.deals)}
-              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
             >
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedLost')}</p>
@@ -1262,7 +1266,7 @@ function DashboardContent() {
               {data.alerts.staleDeals.count > 0 ? (
                 <div
                   onClick={() => openSlideout(t('staleDealsFull'), data.alerts.staleDeals.deals)}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 cursor-pointer hover:bg-amber-100 transition-colors group"
+                  className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 cursor-pointer hover:bg-amber-100 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 group"
                 >
                   <div className="p-2 bg-amber-500 rounded-lg group-hover:bg-amber-600 transition-colors">
                     <Clock className="h-4 w-4 text-white" />
@@ -1287,7 +1291,7 @@ function DashboardContent() {
               {data.alerts.largeDealsClosingSoon.count > 0 && (
                 <div
                   onClick={() => openSlideout(t('largeDealsFull'), data.alerts.largeDealsClosingSoon.deals)}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 cursor-pointer hover:bg-blue-100 transition-colors group"
+                  className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 cursor-pointer hover:bg-blue-100 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 group"
                 >
                   <div className="p-2 bg-blue-500 rounded-lg group-hover:bg-blue-600 transition-colors">
                     <Target className="h-4 w-4 text-white" />
