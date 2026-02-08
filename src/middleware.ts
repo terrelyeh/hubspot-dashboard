@@ -1,10 +1,11 @@
-import { auth } from "@/auth";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
 // Public paths that don't require authentication
 const publicPaths = ["/login", "/api/auth"];
 
-export default auth((req) => {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Check if path is public
@@ -17,8 +18,14 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
+  // Get JWT token (lightweight, no Prisma needed)
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+  });
+
   // Check if user is authenticated
-  if (!req.auth) {
+  if (!token) {
     // Redirect to login page
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
@@ -27,7 +34,7 @@ export default auth((req) => {
 
   // Check admin routes
   if (pathname.startsWith("/admin")) {
-    const userRole = req.auth.user?.role;
+    const userRole = token.role as string;
     if (userRole !== "ADMIN") {
       // Redirect to dashboard if not admin
       return NextResponse.redirect(new URL("/dashboard", req.url));
@@ -35,7 +42,7 @@ export default auth((req) => {
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [
