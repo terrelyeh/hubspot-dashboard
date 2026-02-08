@@ -181,6 +181,65 @@ export async function syncDealsFromHubSpot(
         } else {
           updated++;
         }
+
+        // Sync Line Items for this deal
+        try {
+          // Fetch line item associations for this deal
+          const lineItemIds = await client.fetchDealLineItemAssociations(deal.id);
+
+          if (lineItemIds.length > 0) {
+            // Batch fetch line items details
+            const lineItems = await client.fetchLineItems(lineItemIds);
+
+            // Delete line items that no longer exist in HubSpot
+            await prisma.lineItem.deleteMany({
+              where: {
+                dealId: result.id,
+                hubspotLineItemId: {
+                  notIn: lineItems.map(item => item.id),
+                },
+              },
+            });
+
+            // Upsert all line items
+            for (const item of lineItems) {
+              await prisma.lineItem.upsert({
+                where: {
+                  dealId_hubspotLineItemId: {
+                    dealId: result.id,
+                    hubspotLineItemId: item.id,
+                  },
+                },
+                update: {
+                  name: item.properties.name || 'Unknown Product',
+                  description: item.properties.description || null,
+                  quantity: parseFloat(item.properties.quantity || '1'),
+                  price: parseFloat(item.properties.price || '0'),
+                  amount: parseFloat(item.properties.amount || '0'),
+                  productId: item.properties.hs_product_id || null,
+                },
+                create: {
+                  dealId: result.id,
+                  hubspotLineItemId: item.id,
+                  name: item.properties.name || 'Unknown Product',
+                  description: item.properties.description || null,
+                  quantity: parseFloat(item.properties.quantity || '1'),
+                  price: parseFloat(item.properties.price || '0'),
+                  amount: parseFloat(item.properties.amount || '0'),
+                  productId: item.properties.hs_product_id || null,
+                },
+              });
+            }
+          } else {
+            // No line items - delete any existing ones for this deal
+            await prisma.lineItem.deleteMany({
+              where: { dealId: result.id },
+            });
+          }
+        } catch (lineItemError) {
+          console.warn(`Failed to sync line items for deal ${deal.id}:`, lineItemError);
+          // Don't let line item errors block deal sync
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         errors.push(`Error processing deal ${deal.id}: ${message}`);

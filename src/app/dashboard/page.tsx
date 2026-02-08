@@ -133,6 +133,19 @@ interface DashboardData {
     hasTarget: boolean;
     achievementRate: number | null;
   }>;
+  productSummary: {
+    topProducts: Array<{
+      name: string;
+      totalQuantity: number;
+      totalAmount: number;
+      totalAmountFormatted: string;
+      dealCount: number;
+    }>;
+    totalProductsInPipeline: number;
+    totalProductValue: number;
+    totalProductValueFormatted: string;
+    totalLineItems: number;
+  };
   filters: {
     availableOwners: string[];
     availableStages: string[];
@@ -1728,6 +1741,61 @@ function DashboardContent() {
             </div>
           </div>
         </div>
+
+        {/* Product Summary */}
+        {data.productSummary && data.productSummary.topProducts.length > 0 && (
+          <div className="bg-white rounded-xl p-5 border border-slate-200">
+            {/* Card Header */}
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">📦 {t('productSummary')}</h3>
+            </div>
+
+            {/* Summary Stats */}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-sm text-slate-600">{t('totalQuantity')}</p>
+                <p className="text-xl font-bold text-slate-900">
+                  {data.productSummary.totalProductsInPipeline.toLocaleString()}
+                </p>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-sm text-slate-600">{t('totalValue')}</p>
+                <p className="text-xl font-bold text-slate-900">
+                  {data.productSummary.totalProductValueFormatted}
+                </p>
+              </div>
+            </div>
+
+            {/* Top Products Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-slate-600 border-b border-slate-200">
+                    <th className="pb-2 font-semibold">{t('product')}</th>
+                    <th className="pb-2 text-right font-semibold">{t('qty')}</th>
+                    <th className="pb-2 text-right font-semibold">{t('amount')}</th>
+                    <th className="pb-2 text-right font-semibold">{t('deals')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.productSummary.topProducts.map((product, i) => (
+                    <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                      <td className="py-2.5 font-medium text-slate-800">{product.name}</td>
+                      <td className="py-2.5 text-right text-slate-600">{product.totalQuantity.toLocaleString()}</td>
+                      <td className="py-2.5 text-right font-semibold text-slate-900">{product.totalAmountFormatted}</td>
+                      <td className="py-2.5 text-right text-slate-600">{product.dealCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Total Line Items Info */}
+            <div className="mt-3 text-xs text-slate-500 text-right">
+              {t('showing')} Top 10 / {data.productSummary.totalLineItems} {t('lineItems')}
+            </div>
+          </div>
+        )}
 
         {/* Footer Badge */}
         <div className="text-center py-6">

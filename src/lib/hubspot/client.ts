@@ -419,6 +419,38 @@ export class HubSpotClient {
   }
 
   /**
+   * Fetch line item associations for a single deal
+   * Uses HubSpot Associations API v4
+   */
+  async fetchDealLineItemAssociations(dealId: string): Promise<string[]> {
+    try {
+      const response = await this.fetchWithTimeout(
+        `${this.baseUrl}/crm/v4/objects/deals/${dealId}/associations/line_items`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        // Don't log warning for 404 (no associations found)
+        if (response.status !== 404) {
+          console.warn(`Failed to fetch line item associations for deal ${dealId}: ${response.status}`);
+        }
+        return [];
+      }
+
+      const data = await response.json();
+      return data.results?.map((r: any) => r.toObjectId) || [];
+    } catch (error) {
+      console.warn(`Error fetching line item associations for deal ${dealId}:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Test API connection
    */
   async testConnection(): Promise<{ success: boolean; message: string }> {

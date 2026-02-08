@@ -704,6 +704,68 @@ export async function GET(request: Request) {
     // Get unique stages for filter dropdown
     const uniqueStages = [...new Set(deals.map(d => d.stage))].sort();
 
+    // ========== PRODUCT SUMMARY ==========
+    // Get deal IDs for line item aggregation
+    const dealIds = deals.map(d => d.id);
+
+    // Aggregate line items by product name
+    const lineItemStats = dealIds.length > 0
+      ? await prisma.lineItem.groupBy({
+          by: ['name'],
+          where: {
+            dealId: {
+              in: dealIds,
+            },
+          },
+          _sum: {
+            quantity: true,
+            amount: true,
+          },
+          _count: {
+            id: true,
+          },
+          orderBy: {
+            _sum: {
+              amount: 'desc',
+            },
+          },
+          take: 10, // Top 10 products
+        })
+      : [];
+
+    // Calculate product totals from all line items (not just top 10)
+    const allLineItemTotals = dealIds.length > 0
+      ? await prisma.lineItem.aggregate({
+          where: {
+            dealId: {
+              in: dealIds,
+            },
+          },
+          _sum: {
+            quantity: true,
+            amount: true,
+          },
+          _count: {
+            id: true,
+          },
+        })
+      : { _sum: { quantity: 0, amount: 0 }, _count: { id: 0 } };
+
+    const productSummary = {
+      topProducts: lineItemStats.map(item => ({
+        name: item.name,
+        totalQuantity: item._sum.quantity || 0,
+        totalAmount: item._sum.amount || 0,
+        totalAmountFormatted: formatCurrency(item._sum.amount || 0),
+        dealCount: item._count.id,
+      })),
+      totalProductsInPipeline: allLineItemTotals._sum.quantity || 0,
+      totalProductValue: allLineItemTotals._sum.amount || 0,
+      totalProductValueFormatted: formatCurrency(allLineItemTotals._sum.amount || 0),
+      totalLineItems: allLineItemTotals._count.id || 0,
+    };
+    // ========== END PRODUCT SUMMARY ==========
+
     // Return comprehensive data
     return NextResponse.json({
       success: true,
@@ -833,6 +895,7 @@ export async function GET(request: Request) {
       pipelineByStage,
       forecastByMonth,
       forecastByQuarter,
+      productSummary,
       filters: {
         availableOwners: uniqueOwners,
         availableStages: uniqueStages,

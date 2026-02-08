@@ -100,6 +100,14 @@ export const translations = {
     pipelineByStage: 'Pipeline by Stage',
     weighted: 'Weighted',
 
+    // Product Summary
+    productSummary: 'Product Summary',
+    totalQuantity: 'Total Quantity',
+    totalValue: 'Total Value',
+    product: 'Product',
+    qty: 'Qty',
+    showing: 'Showing',
+
     // Forecast by Month
     forecastByMonth: 'Forecast by Month',
     ofTarget: 'of target',
@@ -259,6 +267,14 @@ export const translations = {
     // Pipeline by Stage
     pipelineByStage: 'ステージ別パイプライン',
     weighted: '加重',
+
+    // Product Summary
+    productSummary: '製品サマリー',
+    totalQuantity: '総数量',
+    totalValue: '総金額',
+    product: '製品',
+    qty: '数量',
+    showing: '表示中',
 
     // Forecast by Month
     forecastByMonth: '月別予測',
