@@ -10,6 +10,9 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
 
+  // Always redirect to dashboard after login (unless specific callbackUrl is provided)
+  const redirectUrl = callbackUrl === '/' ? '/dashboard' : callbackUrl;
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -45,7 +48,7 @@ function LoginForm() {
 
       if (result?.ok) {
         // Use window.location for more reliable redirect after login
-        window.location.href = callbackUrl;
+        window.location.href = redirectUrl;
         return;
       } else {
         setError('Login failed. Please try again.');
