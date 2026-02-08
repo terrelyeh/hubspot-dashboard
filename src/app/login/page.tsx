@@ -34,6 +34,8 @@ function LoginForm() {
 
       const result = await Promise.race([signInPromise, timeoutPromise]) as any;
 
+      console.log('Sign in result:', result);
+
       if (result?.error) {
         console.error('Sign in error:', result.error);
         setError('Invalid email or password');
@@ -42,8 +44,9 @@ function LoginForm() {
       }
 
       if (result?.ok) {
-        router.push(callbackUrl);
-        router.refresh();
+        // Use window.location for more reliable redirect after login
+        window.location.href = callbackUrl;
+        return;
       } else {
         setError('Login failed. Please try again.');
         setIsLoading(false);
