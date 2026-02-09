@@ -267,9 +267,12 @@ function DashboardContent() {
   });
 
   // Derive loading, error, data states from SWR
-  const loading = swrLoading;
+  // Only show loading spinner on first load (no cached data yet)
+  // When switching filters with existing data, show old data while fetching new
+  const loading = swrLoading && !swrData;
   const error = swrError?.message || (swrData && !swrData.success ? 'Failed to load data' : null);
   const usingMockData = swrData?.usingMockData || false;
+  // isValidating indicates background refresh (can be used to show subtle loading indicator)
 
   // For backwards compatibility
   const selectedYear = startYear;
@@ -837,6 +840,13 @@ function DashboardContent() {
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-xl font-semibold text-white">Pipeline Dashboard</h1>
+                  {/* Background refresh indicator */}
+                  {isValidating && !loading && (
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-800 rounded-md">
+                      <RefreshCw className="h-3 w-3 text-slate-400 animate-spin" />
+                      <span className="text-xs text-slate-400">Updating...</span>
+                    </div>
+                  )}
                   {/* Region Switcher */}
                   <div className="relative" ref={regionDropdownRef}>
                     <button
