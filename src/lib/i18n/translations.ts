@@ -107,6 +107,8 @@ export const translations = {
     product: 'Product',
     qty: 'Qty',
     showing: 'Showing',
+    commitQty: 'Commit',
+    bestCaseQty: 'Best Case',
 
     // Forecast by Month
     forecastByMonth: 'Forecast by Month',
@@ -275,6 +277,8 @@ export const translations = {
     product: '製品',
     qty: '数量',
     showing: '表示中',
+    commitQty: 'コミット',
+    bestCaseQty: 'ベストケース',
 
     // Forecast by Month
     forecastByMonth: '月別予測',

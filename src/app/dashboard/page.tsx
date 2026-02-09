@@ -140,6 +140,8 @@ interface DashboardData {
       totalAmount: number;
       totalAmountFormatted: string;
       dealCount: number;
+      commitQty: number;
+      bestCaseQty: number;
       deals: Deal[];
     }>;
     totalProductsInPipeline: number;
@@ -560,6 +562,63 @@ function DashboardContent() {
       },
       topDeals: sortedTopDeals,
       pipelineByStage: filteredPipelineByStage,
+      // Filter Product Summary
+      productSummary: {
+        ...rawData.productSummary,
+        topProducts: rawData.productSummary.topProducts.map(product => {
+          // Filter deals for this product
+          const filteredProductDeals = filterDeals(product.deals);
+
+          // Recalculate commitQty and bestCaseQty based on filtered deals
+          let filteredCommitQty = 0;
+          let filteredBestCaseQty = 0;
+          let filteredTotalQty = 0;
+          let filteredTotalAmount = 0;
+
+          // For each filtered deal, we need to estimate the quantity contribution
+          // Since we don't have per-deal quantity info, we'll proportionally distribute
+          const originalDealCount = product.deals.length;
+          if (originalDealCount > 0) {
+            filteredProductDeals.forEach(deal => {
+              const category = (deal.forecastCategory || 'Pipeline').toLowerCase();
+              // Estimate quantity per deal (average)
+              const avgQtyPerDeal = product.totalQuantity / originalDealCount;
+              const avgAmountPerDeal = product.totalAmount / originalDealCount;
+
+              filteredTotalQty += avgQtyPerDeal;
+              filteredTotalAmount += avgAmountPerDeal;
+
+              if (category === 'commit') {
+                filteredCommitQty += avgQtyPerDeal;
+              } else if (category === 'best case' || category === 'bestcase') {
+                filteredBestCaseQty += avgQtyPerDeal;
+              }
+            });
+          }
+
+          return {
+            ...product,
+            deals: filteredProductDeals,
+            dealCount: filteredProductDeals.length,
+            totalQuantity: Math.round(filteredTotalQty),
+            totalAmount: filteredTotalAmount,
+            totalAmountFormatted: formatCurrency(filteredTotalAmount),
+            commitQty: Math.round(filteredCommitQty),
+            bestCaseQty: Math.round(filteredBestCaseQty),
+          };
+        }).filter(product => product.dealCount > 0),
+        // Recalculate totals
+        get totalProductsInPipeline() {
+          return this.topProducts.reduce((sum, p) => sum + p.totalQuantity, 0);
+        },
+        get totalProductValue() {
+          return this.topProducts.reduce((sum, p) => sum + p.totalAmount, 0);
+        },
+        get totalProductValueFormatted() {
+          return formatCurrency(this.topProducts.reduce((sum, p) => sum + p.totalAmount, 0));
+        },
+        totalLineItems: rawData.productSummary.totalLineItems,
+      },
     };
   }, [selectedOwner, selectedStages, selectedCategories, topDealsLimit, topDealsSortBy]);
 
@@ -1776,6 +1835,8 @@ function DashboardContent() {
                     <th className="pb-2 text-right font-semibold">{t('qty')}</th>
                     <th className="pb-2 text-right font-semibold">{t('amount')}</th>
                     <th className="pb-2 text-right font-semibold">{t('deals')}</th>
+                    <th className="pb-2 text-right font-semibold text-emerald-600">{t('commitQty')}</th>
+                    <th className="pb-2 text-right font-semibold text-cyan-600">{t('bestCaseQty')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1789,6 +1850,8 @@ function DashboardContent() {
                       <td className="py-2.5 text-right text-slate-600">{product.totalQuantity.toLocaleString()}</td>
                       <td className="py-2.5 text-right font-semibold text-slate-900">{product.totalAmountFormatted}</td>
                       <td className="py-2.5 text-right text-blue-600 font-medium">{product.dealCount} →</td>
+                      <td className="py-2.5 text-right text-emerald-600 font-medium">{product.commitQty.toLocaleString()}</td>
+                      <td className="py-2.5 text-right text-cyan-600 font-medium">{product.bestCaseQty.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>

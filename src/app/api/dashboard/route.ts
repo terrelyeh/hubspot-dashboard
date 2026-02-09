@@ -755,9 +755,23 @@ export async function GET(request: Request) {
         const productDealIds = [...new Set(lineItemsForProduct.map(li => li.dealId))];
 
         // Get the deals with this product
-        const productDeals = deals
-          .filter(d => productDealIds.includes(d.id))
-          .map(formatDeal);
+        const productDeals = deals.filter(d => productDealIds.includes(d.id));
+
+        // Calculate quantity by Forecast Category
+        let commitQty = 0;
+        let bestCaseQty = 0;
+
+        lineItemsForProduct.forEach(li => {
+          const deal = deals.find(d => d.id === li.dealId);
+          if (deal) {
+            const category = (deal.forecastCategory || 'Pipeline').toLowerCase();
+            if (category === 'commit') {
+              commitQty += li.quantity;
+            } else if (category === 'best case' || category === 'bestcase') {
+              bestCaseQty += li.quantity;
+            }
+          }
+        });
 
         return {
           name: item.name,
@@ -765,7 +779,9 @@ export async function GET(request: Request) {
           totalAmount: item._sum.amount || 0,
           totalAmountFormatted: formatCurrency(item._sum.amount || 0),
           dealCount: productDealIds.length,
-          deals: productDeals,
+          commitQty,
+          bestCaseQty,
+          deals: productDeals.map(formatDeal),
         };
       })
     );
