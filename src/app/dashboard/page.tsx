@@ -806,10 +806,135 @@ function DashboardContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-orange-500 border-r-transparent"></div>
-          <p className="mt-4 text-slate-600 font-medium">Loading Dashboard...</p>
+      <div className="min-h-screen bg-slate-50">
+        {/* Skeleton Header */}
+        <div className="bg-slate-900 border-b border-slate-800">
+          <div className="max-w-7xl mx-auto px-6 sm:px-8 py-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="bg-orange-500 p-2.5 rounded-lg">
+                  <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 5H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3C9.5 5.22 9.28 5 9 5zm9.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 10H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3c0-.28-.22-.5-.5-.5zm9.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 15H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3c0-.28-.22-.5-.5-.5z"/>
+                  </svg>
+                </div>
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-xl font-semibold text-white">Pipeline Dashboard</h1>
+                    <div className="h-8 w-32 bg-slate-700 rounded-lg animate-pulse"></div>
+                  </div>
+                  <div className="h-4 w-20 bg-slate-700 rounded mt-1 animate-pulse"></div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-20 bg-slate-700 rounded-lg animate-pulse"></div>
+                <div className="h-8 w-8 bg-slate-700 rounded-lg animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Skeleton Content */}
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 py-6 space-y-6">
+          {/* Skeleton Filter Bar */}
+          <div className="bg-slate-900 rounded-xl p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className="h-8 w-16 bg-slate-700 rounded-lg animate-pulse"></div>
+                ))}
+              </div>
+              <div className="h-6 w-px bg-slate-700"></div>
+              <div className="flex gap-2">
+                <div className="h-8 w-28 bg-slate-700 rounded-lg animate-pulse"></div>
+                <div className="h-8 w-28 bg-slate-700 rounded-lg animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Skeleton Performance Overview - 2 columns */}
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Left: 6 metric cards (3x2) */}
+            <div className="flex-1">
+              <div className="h-6 w-48 bg-slate-200 rounded mb-4 animate-pulse"></div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className="bg-white rounded-xl p-5 border border-slate-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="h-3 w-20 bg-slate-200 rounded animate-pulse"></div>
+                      <div className="h-4 w-4 bg-slate-200 rounded animate-pulse"></div>
+                    </div>
+                    <div className="h-8 w-24 bg-slate-200 rounded animate-pulse mb-2"></div>
+                    <div className="h-3 w-16 bg-slate-100 rounded animate-pulse"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Right: 2 cards */}
+            <div className="lg:w-80">
+              <div className="h-6 w-32 bg-slate-200 rounded mb-4 animate-pulse"></div>
+              <div className="space-y-4">
+                {[1, 2].map(i => (
+                  <div key={i} className="bg-blue-50 rounded-xl p-5 border border-blue-100">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="h-3 w-20 bg-blue-200 rounded animate-pulse"></div>
+                      <div className="h-4 w-4 bg-blue-200 rounded animate-pulse"></div>
+                    </div>
+                    <div className="h-8 w-24 bg-blue-200 rounded animate-pulse"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Skeleton Activity Metrics - 4 cards */}
+          <div>
+            <div className="h-6 w-40 bg-slate-200 rounded mb-4 animate-pulse"></div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="bg-white rounded-xl p-5 border border-slate-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="h-3 w-20 bg-slate-200 rounded animate-pulse"></div>
+                    <div className="h-4 w-4 bg-slate-200 rounded animate-pulse"></div>
+                  </div>
+                  <div className="h-10 w-16 bg-slate-200 rounded animate-pulse"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Skeleton Forecast + Alerts - 2 columns */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {[1, 2].map(i => (
+              <div key={i} className="bg-white rounded-xl p-5 border border-slate-200">
+                <div className="h-5 w-40 bg-slate-200 rounded mb-4 animate-pulse"></div>
+                <div className="space-y-3">
+                  {[1, 2, 3].map(j => (
+                    <div key={j} className="flex items-center gap-3">
+                      <div className="h-4 w-4 bg-slate-200 rounded animate-pulse"></div>
+                      <div className="flex-1 h-4 bg-slate-100 rounded animate-pulse"></div>
+                      <div className="h-4 w-16 bg-slate-200 rounded animate-pulse"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Skeleton Top Deals Table */}
+          <div className="bg-white rounded-xl p-5 border border-slate-200">
+            <div className="h-6 w-32 bg-slate-200 rounded mb-4 animate-pulse"></div>
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="flex items-center gap-4 py-3 border-b border-slate-100">
+                  <div className="h-5 w-48 bg-slate-200 rounded animate-pulse"></div>
+                  <div className="flex-1"></div>
+                  <div className="h-5 w-20 bg-slate-200 rounded animate-pulse"></div>
+                  <div className="h-5 w-24 bg-slate-100 rounded animate-pulse"></div>
+                  <div className="h-5 w-16 bg-slate-200 rounded animate-pulse"></div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
