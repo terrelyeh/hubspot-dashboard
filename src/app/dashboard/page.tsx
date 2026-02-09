@@ -502,11 +502,73 @@ function DashboardContent() {
       return quarterValue >= startValue && quarterValue <= endValue;
     });
 
+    // Recalculate targetCoverage for the selected date range only
+    const recalculateTargetCoverage = () => {
+      const originalCoverage = rawData.summary.targetCoverage;
+      const quartersWithTargets: { year: number; quarter: number; amount: number }[] = [];
+      const quartersMissingTargets: { year: number; quarter: number }[] = [];
+
+      // Generate all quarters in the selected range
+      let currentYear = startYear;
+      let currentQuarter = startQuarter;
+
+      while (currentYear < endYear || (currentYear === endYear && currentQuarter <= endQuarter)) {
+        // Check if this quarter has a target in the original data
+        const existingTarget = originalCoverage.quartersWithTargets.find(
+          t => t.year === currentYear && t.quarter === currentQuarter
+        );
+
+        if (existingTarget) {
+          quartersWithTargets.push(existingTarget);
+        } else {
+          quartersMissingTargets.push({ year: currentYear, quarter: currentQuarter });
+        }
+
+        // Move to next quarter
+        currentQuarter++;
+        if (currentQuarter > 4) {
+          currentQuarter = 1;
+          currentYear++;
+        }
+      }
+
+      const coveredQuarters = quartersWithTargets.length;
+      const totalQuarters = coveredQuarters + quartersMissingTargets.length;
+
+      return {
+        quartersWithTargets,
+        quartersMissingTargets,
+        isComplete: quartersMissingTargets.length === 0,
+        coveredQuarters,
+        totalQuarters,
+      };
+    };
+
+    const filteredTargetCoverage = recalculateTargetCoverage();
+
+    // Recalculate totalTarget based on filtered quarters
+    const filteredTotalTarget = filteredTargetCoverage.quartersWithTargets.reduce(
+      (sum, t) => sum + t.amount, 0
+    );
+
+    // Recalculate achievement rate
+    const filteredAchievementRate = filteredTotalTarget > 0
+      ? (closedWonAmount / filteredTotalTarget) * 100
+      : 0;
+
+    // Recalculate gap
+    const filteredGap = filteredTotalTarget - closedWonAmount;
+
     return {
       ...rawData,
       forecastByQuarter: filteredForecastByQuarter,
       summary: {
         ...rawData.summary,
+        targetCoverage: filteredTargetCoverage,
+        totalTargetFormatted: formatCurrency(filteredTotalTarget),
+        achievementRate: filteredAchievementRate,
+        gap: filteredGap,
+        gapFormatted: formatCurrency(Math.abs(filteredGap)),
         totalPipelineFormatted: formatCurrency(totalPipeline),
         totalPipelineDeals: filteredTotalPipelineDeals,
         newDealAmountFormatted: formatCurrency(newDealAmount),
