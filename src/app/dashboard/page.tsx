@@ -1548,7 +1548,7 @@ function DashboardContent() {
               <h2 className="text-lg font-semibold text-slate-900">{t('forecastConfidence')}</h2>
             </div>
 
-            {/* Stacked Bar */}
+            {/* Stacked Bar - Order: Pipeline (low) → Best Case (medium) → Commit (high) */}
             <div className="mb-4">
               <div className="flex h-7 rounded-md overflow-hidden bg-slate-100">
                 {(() => {
@@ -1558,14 +1558,14 @@ function DashboardContent() {
                   const total = commit.percentage + bestCase.percentage + pipeline.percentage;
                   return (
                     <>
-                      {commit.percentage > 0 && (
+                      {pipeline.percentage > 0 && (
                         <div
-                          onClick={() => openSlideout('Commit Deals (High Confidence)', commit.deals)}
-                          className="bg-emerald-500 cursor-pointer hover:bg-emerald-600 transition-colors flex items-center justify-center"
-                          style={{ width: `${(commit.percentage / total) * 100}%` }}
-                          title={`Commit: ${commit.amountFormatted}`}
+                          onClick={() => openSlideout('Pipeline Deals (Negotiating)', pipeline.deals)}
+                          className="bg-blue-500 cursor-pointer hover:bg-blue-600 transition-colors flex items-center justify-center"
+                          style={{ width: `${(pipeline.percentage / total) * 100}%` }}
+                          title={`Pipeline: ${pipeline.amountFormatted}`}
                         >
-                          {commit.percentage > 15 && <span className="text-xs font-semibold text-white">{commit.percentage}%</span>}
+                          {pipeline.percentage > 15 && <span className="text-xs font-semibold text-white">{pipeline.percentage}%</span>}
                         </div>
                       )}
                       {bestCase.percentage > 0 && (
@@ -1578,14 +1578,14 @@ function DashboardContent() {
                           {bestCase.percentage > 15 && <span className="text-xs font-semibold text-white">{bestCase.percentage}%</span>}
                         </div>
                       )}
-                      {pipeline.percentage > 0 && (
+                      {commit.percentage > 0 && (
                         <div
-                          onClick={() => openSlideout('Pipeline Deals (Negotiating)', pipeline.deals)}
-                          className="bg-blue-500 cursor-pointer hover:bg-blue-600 transition-colors flex items-center justify-center"
-                          style={{ width: `${(pipeline.percentage / total) * 100}%` }}
-                          title={`Pipeline: ${pipeline.amountFormatted}`}
+                          onClick={() => openSlideout('Commit Deals (High Confidence)', commit.deals)}
+                          className="bg-emerald-500 cursor-pointer hover:bg-emerald-600 transition-colors flex items-center justify-center"
+                          style={{ width: `${(commit.percentage / total) * 100}%` }}
+                          title={`Commit: ${commit.amountFormatted}`}
                         >
-                          {pipeline.percentage > 15 && <span className="text-xs font-semibold text-white">{pipeline.percentage}%</span>}
+                          {commit.percentage > 15 && <span className="text-xs font-semibold text-white">{commit.percentage}%</span>}
                         </div>
                       )}
                     </>
@@ -1594,12 +1594,12 @@ function DashboardContent() {
               </div>
             </div>
 
-            {/* Legend Grid */}
+            {/* Legend Grid - Order: Pipeline (low) → Best Case (medium) → Commit (high) */}
             <div className="grid grid-cols-3 gap-3">
               {[
-                { key: 'commit', label: 'Commit', bgColor: 'bg-emerald-50', textColor: 'text-emerald-700', dotColor: 'bg-emerald-500', title: 'Commit Deals (High Confidence)' },
+                { key: 'pipeline', label: 'Pipeline', bgColor: 'bg-blue-50', textColor: 'text-blue-700', dotColor: 'bg-blue-500', title: 'Pipeline Deals (Negotiating)' },
                 { key: 'bestCase', label: 'Best Case', bgColor: 'bg-amber-50', textColor: 'text-amber-700', dotColor: 'bg-amber-500', title: 'Best Case Deals (Potential)' },
-                { key: 'pipeline', label: 'Pipeline', bgColor: 'bg-blue-50', textColor: 'text-blue-700', dotColor: 'bg-blue-500', title: 'Pipeline Deals (Negotiating)' }
+                { key: 'commit', label: 'Commit', bgColor: 'bg-emerald-50', textColor: 'text-emerald-700', dotColor: 'bg-emerald-500', title: 'Commit Deals (High Confidence)' }
               ].map(({ key, label, bgColor, textColor, dotColor, title }) => {
                 const item = data.forecastBreakdown[key as keyof typeof data.forecastBreakdown];
                 return (
