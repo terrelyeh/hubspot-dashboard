@@ -1379,10 +1379,7 @@ function DashboardContent() {
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('newDeals')}</p>
                 <Users className="h-4 w-4 text-slate-400" />
               </div>
-              <p className="text-3xl font-bold text-slate-900 mb-1">{data.activityKpis.newDeals.count}</p>
-              <p className={`text-sm flex items-center gap-1 ${data.activityKpis.newDeals.trend.startsWith('-') ? 'text-red-600' : data.activityKpis.newDeals.trend === '0%' ? 'text-slate-500' : 'text-emerald-600'}`}>
-                {data.activityKpis.newDeals.trend.startsWith('-') ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />} {data.activityKpis.newDeals.trend} {t('vsLastQuarter')}
-              </p>
+              <p className="text-3xl font-bold text-slate-900">{data.activityKpis.newDeals.count}</p>
             </div>
 
             <div
@@ -1393,10 +1390,7 @@ function DashboardContent() {
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedWon')}</p>
                 <Award className="h-4 w-4 text-emerald-500" />
               </div>
-              <p className="text-3xl font-bold text-emerald-600 mb-1">{data.activityKpis.closedWon.count}</p>
-              <p className={`text-sm flex items-center gap-1 ${data.activityKpis.closedWon.trend.startsWith('-') ? 'text-red-600' : data.activityKpis.closedWon.trend === '0%' ? 'text-slate-500' : 'text-emerald-600'}`}>
-                {data.activityKpis.closedWon.trend.startsWith('-') ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />} {data.activityKpis.closedWon.trend} {t('vsLastQuarter')}
-              </p>
+              <p className="text-3xl font-bold text-emerald-600">{data.activityKpis.closedWon.count}</p>
             </div>
 
             <div
@@ -1407,10 +1401,7 @@ function DashboardContent() {
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedLost')}</p>
                 <XCircle className="h-4 w-4 text-red-500" />
               </div>
-              <p className="text-3xl font-bold text-red-600 mb-1">{data.activityKpis.closedLost.count}</p>
-              <p className={`text-sm flex items-center gap-1 ${data.activityKpis.closedLost.trend.startsWith('-') ? 'text-emerald-600' : data.activityKpis.closedLost.trend === '0%' ? 'text-slate-500' : 'text-red-600'}`}>
-                {data.activityKpis.closedLost.trend.startsWith('-') ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />} {data.activityKpis.closedLost.trend} {t('vsLastQuarter')}
-              </p>
+              <p className="text-3xl font-bold text-red-600">{data.activityKpis.closedLost.count}</p>
             </div>
 
             <div className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all">
@@ -1418,10 +1409,7 @@ function DashboardContent() {
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('winRate')}</p>
                 <TrendingUp className="h-4 w-4 text-slate-400" />
               </div>
-              <p className="text-4xl font-bold text-purple-700 mb-2">{data.activityKpis.winRate.rate}%</p>
-              <p className={`text-sm font-semibold flex items-center gap-1.5 ${data.activityKpis.winRate.trend.startsWith('-') ? 'text-red-600' : data.activityKpis.winRate.trend === '0%' ? 'text-slate-500' : 'text-emerald-600'}`}>
-                {data.activityKpis.winRate.trend.startsWith('-') ? <TrendingDown className="h-4 w-4" /> : <TrendingUp className="h-4 w-4" />} {data.activityKpis.winRate.trend} {t('improvement')}
-              </p>
+              <p className="text-4xl font-bold text-purple-700">{data.activityKpis.winRate.rate}%</p>
             </div>
           </div>
         </div>
