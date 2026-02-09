@@ -150,6 +150,7 @@ model Deal {
   priority             String?
   description          String?
   distributor          String?
+  endUserLocation      String?
   numContacts          Int?       @default(0)
 
   hubspotUrl           String?

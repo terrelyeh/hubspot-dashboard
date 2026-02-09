@@ -175,6 +175,7 @@ export async function syncDealsFromHubSpot(
             ? ownerEmailMap.get(props.hubspot_owner_id) || null
             : null,
           distributor: props.distributor || null,
+          endUserLocation: props.end_user_location__dr_ || null,
           hubspotUrl: deal.url || `https://app.hubspot.com/contacts/deal/${deal.id}`,
         };
 

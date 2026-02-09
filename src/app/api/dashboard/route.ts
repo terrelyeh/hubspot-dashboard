@@ -525,6 +525,7 @@ export async function GET(request: Request) {
         daysSinceUpdate,
         owner: deal.ownerName || 'Unassigned',
         distributor: deal.distributor,
+        endUserLocation: deal.endUserLocation,
         priority: deal.priority,
         description: deal.description,
         numContacts: deal.numContacts || 0,

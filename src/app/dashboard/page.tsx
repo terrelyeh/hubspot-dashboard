@@ -51,6 +51,7 @@ interface Deal {
   daysSinceUpdate: number;
   owner: string;
   distributor?: string;
+  endUserLocation?: string | null;
   hubspotUrl?: string;
 }
 
@@ -1810,6 +1811,7 @@ function DashboardContent() {
                   <th className="text-left py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('deal')}</th>
                   <th className="text-right py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('amount')}</th>
                   <th className="text-left py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('owner')}</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('location')}</th>
                   <th className="text-left py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('category')}</th>
                   <th className="text-left py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('stage')}</th>
                   <th className="text-center py-4 px-4 text-xs font-bold text-slate-700 uppercase tracking-wider">{t('probability')}</th>
@@ -1837,6 +1839,7 @@ function DashboardContent() {
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-slate-900 text-sm">{deal.amountFormatted}</td>
                       <td className="py-3 px-4 text-sm font-medium text-slate-700">{deal.owner}</td>
+                      <td className="py-3 px-4 text-sm text-slate-600">{deal.endUserLocation || 'N/A'}</td>
                       <td className="py-3 px-4">{getForecastBadge(deal.forecastCategory)}</td>
                       <td className="py-3 px-4">
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
@@ -2256,6 +2259,10 @@ function DashboardContent() {
                                 <p className="text-sm font-semibold text-slate-700">{deal.distributor}</p>
                               </div>
                             )}
+                            <div>
+                              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">{t('location')}</p>
+                              <p className="text-sm font-semibold text-slate-700">{deal.endUserLocation || 'N/A'}</p>
+                            </div>
                           </div>
 
                           {/* View Details Button */}

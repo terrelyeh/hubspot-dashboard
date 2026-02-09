@@ -22,6 +22,7 @@ interface HubSpotDeal {
     distributor?: string;
     deploy_time?: string;
     expected_close_date?: string;
+    end_user_location__dr_?: string;
   };
   createdAt: string;
   updatedAt: string;
@@ -135,6 +136,7 @@ export class HubSpotClient {
       'distributor',
       'deploy_time',
       'expected_close_date',
+      'end_user_location__dr_',
     ];
 
     const queryParams = new URLSearchParams({

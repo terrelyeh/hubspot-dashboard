@@ -109,6 +109,7 @@ export async function GET(
           priority: deal.priority,
           description: deal.description,
           distributor: deal.distributor,
+          endUserLocation: deal.endUserLocation,
           numContacts: contacts.length,
           hubspotUrl: deal.hubspotUrl,
           region: {
