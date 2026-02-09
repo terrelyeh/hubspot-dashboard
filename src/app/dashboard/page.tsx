@@ -1832,16 +1832,16 @@ function DashboardContent() {
             </div>
 
             {/* Top Products Table */}
-            <div className="overflow-x-auto px-4">
-              <table className="w-full max-w-3xl mx-auto text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-slate-500 border-b border-slate-200 text-xs uppercase tracking-wider">
-                    <th className="pb-2 font-semibold w-[30%]">{t('product')}</th>
-                    <th className="pb-2 text-right font-semibold w-[12%]">{t('qty')}</th>
-                    <th className="pb-2 text-right font-semibold w-[15%]">{t('amount')}</th>
-                    <th className="pb-2 text-right font-semibold w-[12%]">{t('deals')}</th>
-                    <th className="pb-2 text-right font-semibold text-emerald-600 w-[15%]">{t('commitQty')}</th>
-                    <th className="pb-2 text-right font-semibold text-cyan-600 w-[16%]">{t('bestCaseQty')}</th>
+                    <th className="pb-2 font-semibold">{t('product')}</th>
+                    <th className="pb-2 text-right font-semibold">{t('qty')}</th>
+                    <th className="pb-2 text-right font-semibold">{t('amount')}</th>
+                    <th className="pb-2 text-right font-semibold">{t('deals')}</th>
+                    <th className="pb-2 text-right font-semibold text-emerald-600">{t('commitQty')}</th>
+                    <th className="pb-2 text-right font-semibold text-cyan-600">{t('bestCaseQty')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1853,12 +1853,12 @@ function DashboardContent() {
                       className="border-b border-slate-100 hover:bg-blue-50 transition-colors cursor-pointer group"
                       onClick={() => openSlideout(`📦 ${product.name}`, product.deals)}
                     >
-                      <td className="py-2 font-medium text-slate-800 group-hover:text-blue-600">{product.name}</td>
-                      <td className="py-2 text-right text-slate-600">{product.totalQuantity.toLocaleString()}</td>
-                      <td className="py-2 text-right font-semibold text-slate-900">{product.totalAmountFormatted}</td>
-                      <td className="py-2 text-right text-blue-600 font-medium">{product.dealCount} →</td>
-                      <td className="py-2 text-right text-emerald-600 font-medium">{product.commitQty.toLocaleString()}</td>
-                      <td className="py-2 text-right text-cyan-600 font-medium">{product.bestCaseQty.toLocaleString()}</td>
+                      <td className="py-2.5 font-medium text-slate-800 group-hover:text-blue-600">{product.name}</td>
+                      <td className="py-2.5 text-right text-slate-600">{product.totalQuantity.toLocaleString()}</td>
+                      <td className="py-2.5 text-right font-semibold text-slate-900">{product.totalAmountFormatted}</td>
+                      <td className="py-2.5 text-right text-blue-600 font-medium">{product.dealCount} →</td>
+                      <td className="py-2.5 text-right text-emerald-600 font-medium">{product.commitQty.toLocaleString()}</td>
+                      <td className="py-2.5 text-right text-cyan-600 font-medium">{product.bestCaseQty.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1873,7 +1873,7 @@ function DashboardContent() {
               const endItem = Math.min(productPage * productsPerPage, totalProducts);
 
               return (
-                <div className="mt-3 px-4 flex items-center justify-between max-w-3xl mx-auto">
+                <div className="mt-3 flex items-center justify-between">
                   {/* Page Info */}
                   <div className="text-xs text-slate-500">
                     {t('showing')} {startItem}-{endItem} {t('of')} {totalProducts} {t('products')}
