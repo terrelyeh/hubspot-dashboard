@@ -252,8 +252,10 @@ function DashboardContent() {
   const [endYear, setEndYear] = useState(currentYear);
   const [endQuarter, setEndQuarter] = useState(currentQuarter);
 
-  // SWR for dashboard data - automatic caching and deduplication
-  const swrKey = cacheKeys.dashboard(selectedRegion, startYear, startQuarter, endYear, endQuarter);
+  // SWR for dashboard data - cache per region only (not per date range)
+  // Date filtering will be done client-side for better UX
+  // We fetch a wide date range (2024-2026) and filter client-side
+  const swrKey = `/api/dashboard?region=${selectedRegion}&startYear=2024&startQuarter=1&endYear=2026&endQuarter=4&topDealsLimit=500&topDealsSortBy=amount`;
   const {
     data: swrData,
     error: swrError,
@@ -264,15 +266,17 @@ function DashboardContent() {
     onSuccess: () => {
       updateCacheMetadata();
     },
+    // Keep previous data when switching regions to avoid flash
+    keepPreviousData: false, // Don't keep - we want loading for region change
   });
 
   // Derive loading, error, data states from SWR
-  // Only show loading spinner on first load (no cached data yet)
-  // When switching filters with existing data, show old data while fetching new
-  const loading = swrLoading && !swrData;
+  // isLoading is true only on first load for this key (no cached data)
+  // swrData will be undefined when switching to a new region (new cache key)
+  const loading = swrLoading;
   const error = swrError?.message || (swrData && !swrData.success ? 'Failed to load data' : null);
   const usingMockData = swrData?.usingMockData || false;
-  // isValidating indicates background refresh (can be used to show subtle loading indicator)
+  // isValidating indicates background refresh (revalidation with existing data)
 
   // For backwards compatibility
   const selectedYear = startYear;
@@ -395,13 +399,20 @@ function DashboardContent() {
   // SWR automatically caches and deduplicates requests
   const rawData = swrData as DashboardData | null;
 
+  // Calculate date range boundaries for client-side filtering
+  const dateRangeStart = useMemo(() => new Date(startYear, (startQuarter - 1) * 3, 1), [startYear, startQuarter]);
+  const dateRangeEnd = useMemo(() => new Date(endYear, endQuarter * 3, 0, 23, 59, 59), [endYear, endQuarter]);
+
   // Client-side filtering function - applies filters to raw data without API call
   const applyClientSideFilters = React.useCallback((rawData: DashboardData | null): DashboardData | null => {
     if (!rawData) return null;
 
-    // Helper to filter deals
+    // Helper to filter deals by date range and other filters
     const filterDeals = (deals: Deal[]): Deal[] => {
       return deals.filter(deal => {
+        // Date range filter - filter by closeDate
+        const closeDate = new Date(deal.closeDate);
+        if (closeDate < dateRangeStart || closeDate > dateRangeEnd) return false;
         // Owner filter
         if (selectedOwner !== 'All' && deal.owner !== selectedOwner) return false;
         // Stage filter
@@ -615,7 +626,7 @@ function DashboardContent() {
         totalLineItems: rawData.productSummary.totalLineItems,
       },
     };
-  }, [selectedOwner, selectedStages, selectedCategories, topDealsLimit, topDealsSortBy]);
+  }, [selectedOwner, selectedStages, selectedCategories, topDealsLimit, topDealsSortBy, dateRangeStart, dateRangeEnd]);
 
   // Apply client-side filters whenever raw data or filters change
   const data = useMemo(() => {
