@@ -979,58 +979,50 @@ function DashboardContent() {
                 {/* Divider */}
                 <div className="h-6 w-px bg-slate-700 hidden sm:block"></div>
 
-                {/* Date Range Selectors */}
+                {/* Date Range Selectors - Combined Year+Quarter dropdowns */}
                 <div className="flex items-center gap-1.5">
+                  {/* Start Period: Combined Year + Quarter */}
                   <select
-                    value={startYear}
+                    value={`${startYear}-Q${startQuarter}`}
                     onChange={(e) => {
-                      setStartYear(Number(e.target.value));
+                      const [year, quarter] = e.target.value.split('-Q');
+                      setStartYear(Number(year));
+                      setStartQuarter(Number(quarter));
                       setPeriodPreset('custom');
                     }}
-                    className="w-20 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
+                    className="w-28 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
                   >
-                    {[2023, 2024, 2025, 2026].map(y => (
-                      <option key={y} value={y} className="bg-slate-800">{y}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={startQuarter}
-                    onChange={(e) => {
-                      setStartQuarter(Number(e.target.value));
-                      setPeriodPreset('custom');
-                    }}
-                    className="w-16 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
-                  >
-                    {[1, 2, 3, 4].map(q => (
-                      <option key={q} value={q} className="bg-slate-800">Q{q}</option>
-                    ))}
+                    {/* Generate options for last 3 years (current year + 2 previous) */}
+                    {[currentYear - 2, currentYear - 1, currentYear].flatMap(year =>
+                      [1, 2, 3, 4].map(q => (
+                        <option key={`${year}-Q${q}`} value={`${year}-Q${q}`} className="bg-slate-800">
+                          {year} Q{q}
+                        </option>
+                      ))
+                    )}
                   </select>
 
                   <span className="text-slate-300 text-sm font-medium">→</span>
 
+                  {/* End Period: Combined Year + Quarter */}
                   <select
-                    value={endYear}
+                    value={`${endYear}-Q${endQuarter}`}
                     onChange={(e) => {
-                      setEndYear(Number(e.target.value));
+                      const [year, quarter] = e.target.value.split('-Q');
+                      setEndYear(Number(year));
+                      setEndQuarter(Number(quarter));
                       setPeriodPreset('custom');
                     }}
-                    className="w-20 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
+                    className="w-28 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
                   >
-                    {[2023, 2024, 2025, 2026].map(y => (
-                      <option key={y} value={y} className="bg-slate-800">{y}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={endQuarter}
-                    onChange={(e) => {
-                      setEndQuarter(Number(e.target.value));
-                      setPeriodPreset('custom');
-                    }}
-                    className="w-16 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
-                  >
-                    {[1, 2, 3, 4].map(q => (
-                      <option key={q} value={q} className="bg-slate-800">Q{q}</option>
-                    ))}
+                    {/* Generate options for last 3 years (current year + 2 previous) */}
+                    {[currentYear - 2, currentYear - 1, currentYear].flatMap(year =>
+                      [1, 2, 3, 4].map(q => (
+                        <option key={`${year}-Q${q}`} value={`${year}-Q${q}`} className="bg-slate-800">
+                          {year} Q{q}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
               </div>
