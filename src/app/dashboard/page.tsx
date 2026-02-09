@@ -30,6 +30,7 @@ import { UserMenu } from '@/components/UserMenu';
 const REGIONS = [
   { code: 'JP', name: 'Japan', flag: '🇯🇵' },
   { code: 'APAC', name: 'Asia Pacific', flag: '🌏' },
+  { code: 'IN', name: 'India', flag: '🇮🇳' },
 ] as const;
 
 interface Deal {

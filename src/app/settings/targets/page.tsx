@@ -36,6 +36,7 @@ interface Region {
 const REGIONS = [
   { code: 'JP', name: 'Japan', flag: '🇯🇵', currency: 'JPY' },
   { code: 'APAC', name: 'Asia Pacific', flag: '🌏', currency: 'USD' },
+  { code: 'IN', name: 'India', flag: '🇮🇳', currency: 'INR' },
 ];
 
 export default function TargetsSettingsPage() {
