@@ -1195,11 +1195,11 @@ function DashboardContent() {
 
       <div className="max-w-7xl mx-auto px-6 sm:px-8 py-6 space-y-6">
         {/* Performance Summary - 左右分區 */}
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
           {/* 左邊：Performance Overview (3x2) */}
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('performanceOverview')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1">
               {/* 1. Pipeline Value */}
               <div
                 onClick={() => openSlideout('All Pipeline Deals', data.summary.totalPipelineDeals)}
@@ -1278,9 +1278,9 @@ function DashboardContent() {
           </div>
 
           {/* 右邊：Goal Progress (1x2) */}
-          <div className="w-full lg:w-72 flex-shrink-0">
+          <div className="w-full lg:w-72 flex-shrink-0 flex flex-col">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('goalProgress')}</h2>
-            <div className="bg-slate-50 rounded-xl p-4 space-y-4">
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-4 flex-1 flex flex-col justify-center">
               {/* Target */}
               <div className={`bg-white rounded-xl p-5 border ${!data.summary.targetCoverage.isComplete ? 'border-amber-300' : 'border-slate-200'} relative`}>
                 {!data.summary.targetCoverage.isComplete && (
