@@ -958,36 +958,34 @@ function DashboardContent() {
           </div>
 
           {/* Skeleton Performance Overview - 2 columns */}
-          <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
-            {/* Left: 6 metrics in single card (3x2) */}
+          <div className="flex flex-col lg:flex-row gap-4 lg:items-stretch">
+            {/* Left: 6 metric cards (3x2) */}
             <div className="flex-1 flex flex-col">
               <div className="h-6 w-48 bg-slate-200 rounded mb-4 animate-pulse"></div>
-              <div className="bg-white rounded-xl p-5 border border-slate-200 flex-1">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-5">
-                  {[1, 2, 3, 4, 5, 6].map(i => (
-                    <div key={i}>
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <div className="h-3.5 w-3.5 bg-slate-200 rounded animate-pulse"></div>
-                        <div className="h-3 w-16 bg-slate-200 rounded animate-pulse"></div>
-                      </div>
-                      <div className="h-6 w-20 bg-slate-200 rounded animate-pulse mb-1"></div>
-                      <div className="h-3 w-14 bg-slate-100 rounded animate-pulse"></div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 flex-1">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className="bg-white rounded-xl p-4 border border-slate-200">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <div className="h-3.5 w-3.5 bg-slate-200 rounded animate-pulse"></div>
+                      <div className="h-3 w-16 bg-slate-200 rounded animate-pulse"></div>
                     </div>
-                  ))}
-                </div>
+                    <div className="h-5 w-16 bg-slate-200 rounded animate-pulse mb-1"></div>
+                    <div className="h-3 w-14 bg-slate-100 rounded animate-pulse"></div>
+                  </div>
+                ))}
               </div>
             </div>
             {/* Right: Goal Progress */}
-            <div className="lg:w-72 flex-shrink-0 flex flex-col">
+            <div className="lg:w-64 flex-shrink-0 flex flex-col">
               <div className="h-6 w-32 bg-slate-200 rounded mb-4 animate-pulse"></div>
-              <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 flex-1 flex flex-col justify-center space-y-4">
+              <div className="bg-blue-50 rounded-xl p-3 border border-blue-100 flex-1 flex flex-col justify-center space-y-3">
                 {[1, 2].map(i => (
-                  <div key={i} className="bg-white rounded-xl p-5 border border-slate-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="h-3 w-16 bg-slate-200 rounded animate-pulse"></div>
+                  <div key={i} className="bg-white rounded-xl p-4 border border-slate-200">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="h-3 w-14 bg-slate-200 rounded animate-pulse"></div>
                       <div className="h-4 w-4 bg-slate-200 rounded animate-pulse"></div>
                     </div>
-                    <div className="h-7 w-24 bg-slate-200 rounded animate-pulse"></div>
+                    <div className="h-6 w-20 bg-slate-200 rounded animate-pulse"></div>
                   </div>
                 ))}
               </div>
@@ -1525,106 +1523,104 @@ function DashboardContent() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Performance Summary - 左右分區 */}
-        <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
-          {/* 左邊：Performance Overview (3x2) */}
+        <div className="flex flex-col lg:flex-row gap-4 lg:items-stretch">
+          {/* 左邊：Performance Overview (3x2 獨立卡片) */}
           <div className="flex-1 flex flex-col">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('performanceOverview')}</h2>
-            <div className="bg-white rounded-xl p-5 border border-slate-200 flex-1">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-5">
-                {/* 1. Pipeline Value */}
-                <div
-                  onClick={() => openSlideout('All Pipeline Deals', data.summary.totalPipelineDeals)}
-                  className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
-                >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <DollarSign className="h-3.5 w-3.5 text-slate-400" />
-                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('pipelineValue')}</p>
-                  </div>
-                  <p className="text-xl font-bold text-slate-900">{data.summary.totalPipelineFormatted}</p>
-                  <p className="text-xs text-slate-400">{t('totalOpportunityValue')}</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 flex-1">
+              {/* 1. Pipeline Value */}
+              <div
+                onClick={() => openSlideout('All Pipeline Deals', data.summary.totalPipelineDeals)}
+                className="bg-white rounded-xl p-4 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <DollarSign className="h-3.5 w-3.5 text-slate-400" />
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('pipelineValue')}</p>
                 </div>
+                <p className="text-lg font-bold text-slate-900">{data.summary.totalPipelineFormatted}</p>
+                <p className="text-xs text-slate-400">{t('totalOpportunityValue')}</p>
+              </div>
 
-                {/* 2. New Deal Amount */}
-                <div
-                  onClick={() => openSlideout('New Deals Created This Quarter', data.summary.newDealsList)}
-                  className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
-                >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <TrendingUp className="h-3.5 w-3.5 text-slate-400" />
-                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('newDealAmount')}</p>
-                  </div>
-                  <p className="text-xl font-bold text-slate-900">{data.summary.newDealAmountFormatted}</p>
-                  <p className="text-xs text-slate-400">{t('xNewDeals').replace('{count}', String(data.summary.newDealCount))}</p>
+              {/* 2. New Deal Amount */}
+              <div
+                onClick={() => openSlideout('New Deals Created This Quarter', data.summary.newDealsList)}
+                className="bg-white rounded-xl p-4 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <TrendingUp className="h-3.5 w-3.5 text-slate-400" />
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('newDealAmount')}</p>
                 </div>
+                <p className="text-lg font-bold text-slate-900">{data.summary.newDealAmountFormatted}</p>
+                <p className="text-xs text-slate-400">{t('xNewDeals').replace('{count}', String(data.summary.newDealCount))}</p>
+              </div>
 
-                {/* 3. Open Deals */}
-                <div
-                  onClick={() => openSlideout('Open Deals (Not Closed)', data.summary.openDealsList)}
-                  className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
-                >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Activity className="h-3.5 w-3.5 text-slate-400" />
-                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('openDeals')}</p>
-                  </div>
-                  <p className="text-xl font-bold text-slate-900">{data.summary.openDealAmountFormatted}</p>
-                  <p className="text-xs text-slate-400">{t('xActiveDeals').replace('{count}', String(data.summary.openDealCount))}</p>
+              {/* 3. Open Deals */}
+              <div
+                onClick={() => openSlideout('Open Deals (Not Closed)', data.summary.openDealsList)}
+                className="bg-white rounded-xl p-4 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Activity className="h-3.5 w-3.5 text-slate-400" />
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('openDeals')}</p>
                 </div>
+                <p className="text-lg font-bold text-slate-900">{data.summary.openDealAmountFormatted}</p>
+                <p className="text-xs text-slate-400">{t('xActiveDeals').replace('{count}', String(data.summary.openDealCount))}</p>
+              </div>
 
-                {/* 4. Commit Revenue */}
-                <div
-                  onClick={() => openSlideout('Commit Deals (High Confidence)', data.summary.commitDealsList)}
-                  className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
-                >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Award className="h-3.5 w-3.5 text-slate-400" />
-                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('commitRevenue')}</p>
-                  </div>
-                  <p className="text-xl font-bold text-slate-900">{data.summary.commitRevenueFormatted}</p>
-                  <p className="text-xs text-slate-400">{t('xHighConfidence').replace('{count}', String(data.summary.commitDealCount))}</p>
+              {/* 4. Commit Revenue */}
+              <div
+                onClick={() => openSlideout('Commit Deals (High Confidence)', data.summary.commitDealsList)}
+                className="bg-white rounded-xl p-4 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Award className="h-3.5 w-3.5 text-slate-400" />
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('commitRevenue')}</p>
                 </div>
+                <p className="text-lg font-bold text-slate-900">{data.summary.commitRevenueFormatted}</p>
+                <p className="text-xs text-slate-400">{t('xHighConfidence').replace('{count}', String(data.summary.commitDealCount))}</p>
+              </div>
 
-                {/* 5. Closed Won Amount */}
-                <div
-                  onClick={() => openSlideout('Closed Won Deals', data.summary.closedWonDealsList)}
-                  className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
-                >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Award className="h-3.5 w-3.5 text-emerald-500" />
-                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedWon')}</p>
-                  </div>
-                  <p className="text-xl font-bold text-emerald-600">{data.summary.closedWonAmountFormatted}</p>
-                  <p className="text-xs text-slate-400">{t('xDealsWon').replace('{count}', String(data.summary.closedWonCount))}</p>
+              {/* 5. Closed Won Amount */}
+              <div
+                onClick={() => openSlideout('Closed Won Deals', data.summary.closedWonDealsList)}
+                className="bg-white rounded-xl p-4 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Award className="h-3.5 w-3.5 text-emerald-500" />
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('closedWon')}</p>
                 </div>
+                <p className="text-lg font-bold text-emerald-600">{data.summary.closedWonAmountFormatted}</p>
+                <p className="text-xs text-slate-400">{t('xDealsWon').replace('{count}', String(data.summary.closedWonCount))}</p>
+              </div>
 
-                {/* 6. Weighted Forecast */}
-                <div className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <BarChart3 className="h-3.5 w-3.5 text-slate-400" />
-                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('weightedForecast')}</p>
-                  </div>
-                  <p className="text-xl font-bold text-slate-900">{data.summary.totalForecastFormatted}</p>
-                  <p className="text-xs text-slate-400">{t('weightedByProbability')}</p>
+              {/* 6. Weighted Forecast */}
+              <div className="bg-white rounded-xl p-4 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <BarChart3 className="h-3.5 w-3.5 text-slate-400" />
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('weightedForecast')}</p>
                 </div>
+                <p className="text-lg font-bold text-slate-900">{data.summary.totalForecastFormatted}</p>
+                <p className="text-xs text-slate-400">{t('weightedByProbability')}</p>
               </div>
             </div>
           </div>
 
-          {/* 右邊：Goal Progress (1x2) */}
-          <div className="w-full lg:w-72 flex-shrink-0 flex flex-col">
+          {/* 右邊：Goal Progress */}
+          <div className="w-full lg:w-64 flex-shrink-0 flex flex-col">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('goalProgress')}</h2>
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-4 flex-1 flex flex-col justify-center">
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 space-y-3 flex-1 flex flex-col justify-center">
               {/* Target */}
-              <div className={`bg-white rounded-xl p-5 border ${!data.summary.targetCoverage.isComplete ? 'border-amber-300' : 'border-slate-200'} relative`}>
+              <div className={`bg-white rounded-xl p-4 border ${!data.summary.targetCoverage.isComplete ? 'border-amber-300' : 'border-slate-200'} relative`}>
                 {!data.summary.targetCoverage.isComplete && (
                   <div className="absolute -top-1.5 -right-1.5 p-1 bg-amber-500 rounded-full" title={t('missingTargetsWarning')}>
                     <AlertTriangle className="h-3 w-3 text-white" />
                   </div>
                 )}
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('target')}</p>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('target')}</p>
                   <Target className="h-4 w-4 text-slate-400" />
                 </div>
-                <p className="text-2xl font-bold text-slate-900">{data.summary.totalTargetFormatted}</p>
+                <p className="text-lg font-bold text-slate-900">{data.summary.totalTargetFormatted}</p>
                 {data.summary.targetCoverage.totalQuarters === 1 ? (
                   <p className="text-xs text-slate-400 mt-1">{t('quarterGoal').replace('{quarter}', String(startQuarter)).replace('{year}', String(startYear))}</p>
                 ) : (
@@ -1643,7 +1639,7 @@ function DashboardContent() {
               </div>
 
               {/* Achievement - Shows both Closed Won % and Forecast Coverage % */}
-              <div className={`rounded-xl p-5 border ${
+              <div className={`rounded-xl p-4 border ${
                 achievementColor === 'emerald'
                   ? 'bg-emerald-50 border-emerald-200'
                   : achievementColor === 'orange'
@@ -1652,19 +1648,19 @@ function DashboardContent() {
                       ? 'bg-slate-50 border-slate-200'
                       : 'bg-red-50 border-red-200'
               }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <p className={`text-sm font-medium ${
-                    achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : achievementColor === 'slate' ? 'text-slate-600' : 'text-red-700'
+                <div className="flex items-center justify-between mb-1">
+                  <p className={`text-xs font-semibold uppercase tracking-wide ${
+                    achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : achievementColor === 'slate' ? 'text-slate-500' : 'text-red-700'
                   }`}>{t('achievement')}</p>
                   <BarChart3 className={`h-4 w-4 ${
                     achievementColor === 'emerald' ? 'text-emerald-500' : achievementColor === 'orange' ? 'text-amber-500' : achievementColor === 'slate' ? 'text-slate-400' : 'text-red-500'
                   }`} />
                 </div>
                 {hasCompleteTargets ? (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {/* Closed Won Achievement */}
                     <div>
-                      <p className={`text-2xl font-bold ${
+                      <p className={`text-lg font-bold ${
                         achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : 'text-red-700'
                       }`}>{Math.round(data.summary.achievementRate)}%</p>
                       <p className={`text-xs ${
@@ -1674,9 +1670,9 @@ function DashboardContent() {
                       </p>
                     </div>
                     {/* Forecast Coverage - shows expected achievement if forecast closes */}
-                    <div className="pt-2 border-t border-slate-200/50">
+                    <div className="pt-1.5 border-t border-slate-200/50">
                       <div className="flex items-baseline gap-1">
-                        <span className="text-lg font-semibold text-blue-600">{Math.round(data.summary.forecastCoverage)}%</span>
+                        <span className="text-base font-semibold text-blue-600">{Math.round(data.summary.forecastCoverage)}%</span>
                         <span className="text-xs text-slate-500">{t('forecastCoverageLabel')}</span>
                       </div>
                       <p className="text-xs text-slate-400">{t('expectedIfForecastCloses')}</p>
@@ -1684,7 +1680,7 @@ function DashboardContent() {
                   </div>
                 ) : (
                   <>
-                    <p className="text-3xl font-bold text-slate-400">--</p>
+                    <p className="text-2xl font-bold text-slate-400">--</p>
                     <p className="text-xs mt-1 text-slate-500">
                       {t('setTargetsToTrack') || 'Set targets to track'}
                     </p>
