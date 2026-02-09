@@ -992,28 +992,30 @@ function DashboardContent() {
             </div>
           </div>
 
-          {/* Skeleton Activity Metrics + Forecast Confidence - Side by Side */}
-          <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
-            {/* Skeleton Activity Metrics (3 cards) */}
-            <div className="flex-1 lg:flex-[3]">
+          {/* Skeleton Activity Metrics + Forecast Confidence - Side by Side (50/50) */}
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Skeleton Activity Metrics */}
+            <div className="flex-1">
               <div className="h-6 w-40 bg-slate-200 rounded mb-4 animate-pulse"></div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100%-2rem)]">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="bg-white rounded-xl p-5 border border-slate-200 flex flex-col justify-center">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="h-3 w-20 bg-slate-200 rounded animate-pulse"></div>
-                      <div className="h-4 w-4 bg-slate-200 rounded animate-pulse"></div>
+              <div className="bg-white rounded-xl p-5 border border-slate-200">
+                <div className="grid grid-cols-3 gap-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="h-3 w-16 bg-slate-200 rounded animate-pulse"></div>
+                        <div className="h-4 w-4 bg-slate-200 rounded animate-pulse"></div>
+                      </div>
+                      <div className="h-7 w-10 bg-slate-200 rounded animate-pulse"></div>
                     </div>
-                    <div className="h-10 w-16 bg-slate-200 rounded animate-pulse"></div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Skeleton Forecast Confidence */}
-            <div className="flex-1 lg:flex-[2] flex flex-col">
+            <div className="flex-1">
               <div className="h-6 w-40 bg-slate-200 rounded mb-4 animate-pulse"></div>
-              <div className="bg-white rounded-xl p-5 border border-slate-200 flex-1 flex flex-col justify-center">
+              <div className="bg-white rounded-xl p-5 border border-slate-200">
                 <div className="grid grid-cols-3 gap-3">
                   {[1, 2, 3].map(j => (
                     <div key={j} className="p-3 bg-slate-50 rounded-lg">
@@ -1689,51 +1691,53 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* Activity Metrics + Forecast Confidence - Side by Side */}
-        <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
-          {/* 左側: Activity Metrics (約 60%) */}
-          <div className="flex-1 lg:flex-[3]">
+        {/* Activity Metrics + Forecast Confidence - Side by Side (50/50) */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* 左側: Activity Metrics (50%) */}
+          <div className="flex-1">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('activityMetrics')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100%-2rem)]">
-              <div
-                onClick={() => openSlideout('New Deals Created This Quarter', data.activityKpis.newDeals.deals)}
-                className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-center"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('newDeals')}</p>
-                  <Users className="h-4 w-4 text-slate-400" />
+            <div className="bg-white rounded-xl p-5 border border-slate-200">
+              <div className="grid grid-cols-3 gap-4">
+                <div
+                  onClick={() => openSlideout('New Deals Created This Quarter', data.activityKpis.newDeals.deals)}
+                  className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('newDeals')}</p>
+                    <Users className="h-4 w-4 text-slate-400" />
+                  </div>
+                  <p className="text-2xl font-bold text-slate-900">{data.activityKpis.newDeals.count}</p>
                 </div>
-                <p className="text-3xl font-bold text-slate-900">{data.activityKpis.newDeals.count}</p>
-              </div>
 
-              <div
-                onClick={() => openSlideout(t('closedWonDeals'), data.activityKpis.closedWon.deals)}
-                className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-center"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedWon')}</p>
-                  <Award className="h-4 w-4 text-emerald-500" />
+                <div
+                  onClick={() => openSlideout(t('closedWonDeals'), data.activityKpis.closedWon.deals)}
+                  className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedWon')}</p>
+                    <Award className="h-4 w-4 text-emerald-500" />
+                  </div>
+                  <p className="text-2xl font-bold text-emerald-600">{data.activityKpis.closedWon.count}</p>
                 </div>
-                <p className="text-3xl font-bold text-emerald-600">{data.activityKpis.closedWon.count}</p>
-              </div>
 
-              <div
-                onClick={() => openSlideout(t('closedLostDeals'), data.activityKpis.closedLost.deals)}
-                className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-center"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedLost')}</p>
-                  <XCircle className="h-4 w-4 text-red-500" />
+                <div
+                  onClick={() => openSlideout(t('closedLostDeals'), data.activityKpis.closedLost.deals)}
+                  className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedLost')}</p>
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  </div>
+                  <p className="text-2xl font-bold text-red-600">{data.activityKpis.closedLost.count}</p>
                 </div>
-                <p className="text-3xl font-bold text-red-600">{data.activityKpis.closedLost.count}</p>
               </div>
             </div>
           </div>
 
-          {/* 右側: Forecast Confidence (約 40%) */}
-          <div className="flex-1 lg:flex-[2] flex flex-col">
+          {/* 右側: Forecast Confidence (50%) */}
+          <div className="flex-1">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('forecastConfidence')}</h2>
-            <div className="bg-white rounded-xl p-5 border border-slate-200 flex-1 flex flex-col justify-center">
+            <div className="bg-white rounded-xl p-5 border border-slate-200">
               {/* Legend Grid - Order: Pipeline (low) → Best Case (medium) → Commit (high) */}
               <div className="grid grid-cols-3 gap-3">
                 {[
