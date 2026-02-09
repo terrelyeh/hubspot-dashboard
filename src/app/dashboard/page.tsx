@@ -922,11 +922,9 @@ function DashboardContent() {
                 <div className="h-7 sm:h-8 w-7 sm:w-8 bg-slate-700 rounded-lg animate-pulse"></div>
               </div>
             </div>
-            {/* Row 2: Region (Mobile) + Period */}
-            <div className="mt-3 flex items-center gap-3">
-              {/* Mobile Region */}
-              <div className="sm:hidden h-8 w-28 bg-slate-700 rounded-lg animate-pulse"></div>
-              <div className="h-3 sm:h-4 w-20 sm:w-24 bg-slate-700 rounded animate-pulse"></div>
+            {/* Row 2: Region (Mobile only) */}
+            <div className="mt-3 sm:hidden">
+              <div className="h-8 w-28 bg-slate-700 rounded-lg animate-pulse"></div>
             </div>
           </div>
         </div>
@@ -1185,10 +1183,10 @@ function DashboardContent() {
             </div>
           </div>
 
-          {/* Row 2: Region (Mobile) + Period */}
-          <div className="mt-3 flex items-center gap-3">
+          {/* Row 2: Region (Mobile only) */}
+          <div className="mt-3 sm:hidden">
             {/* Region Switcher - Mobile only */}
-            <div className="relative sm:hidden" ref={regionDropdownRef}>
+            <div className="relative" ref={regionDropdownRef}>
               <button
                 onClick={() => setRegionDropdownOpen(!regionDropdownOpen)}
                 className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-600 transition-colors"
@@ -1217,14 +1215,6 @@ function DashboardContent() {
                 </div>
               )}
             </div>
-
-            {/* Period display */}
-            <p className="text-slate-400 text-xs sm:text-sm">
-              {startYear === endYear && startQuarter === endQuarter
-                ? `Q${startQuarter} ${startYear}`
-                : `Q${startQuarter} ${startYear} → Q${endQuarter} ${endYear}`
-              }
-            </p>
 
             {/* Mobile: Show sync message here if exists */}
             {syncMessage && (
