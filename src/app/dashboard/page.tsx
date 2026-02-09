@@ -1032,7 +1032,12 @@ function DashboardContent() {
                     )}
                   </div>
                 </div>
-                <p className="text-slate-400 text-sm mt-0.5">Q{data.period.quarter} {data.period.year}</p>
+                <p className="text-slate-400 text-sm mt-0.5">
+                  {startYear === endYear && startQuarter === endQuarter
+                    ? `Q${startQuarter} ${startYear}`
+                    : `Q${startQuarter} ${startYear} → Q${endQuarter} ${endYear}`
+                  }
+                </p>
               </div>
             </div>
 
@@ -1455,7 +1460,7 @@ function DashboardContent() {
                 </div>
                 <p className="text-2xl font-bold text-slate-900">{data.summary.totalTargetFormatted}</p>
                 {data.summary.targetCoverage.totalQuarters === 1 ? (
-                  <p className="text-xs text-slate-400 mt-1">{t('quarterGoal').replace('{quarter}', String(data.period.quarter)).replace('{year}', String(data.period.year))}</p>
+                  <p className="text-xs text-slate-400 mt-1">{t('quarterGoal').replace('{quarter}', String(startQuarter)).replace('{year}', String(startYear))}</p>
                 ) : (
                   <div className="mt-1">
                     {data.summary.targetCoverage.isComplete ? (
