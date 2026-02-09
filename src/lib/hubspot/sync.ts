@@ -177,6 +177,7 @@ export async function syncDealsFromHubSpot(
           distributor: props.distributor || null,
           endUserLocation: props.end_user_location__dr_ || null,
           hubspotUrl: deal.url || `https://app.hubspot.com/contacts/deal/${deal.id}`,
+          rawData: deal.properties, // Store raw HubSpot data for debugging
         };
 
         // Upsert deal (update if exists, create if not)
