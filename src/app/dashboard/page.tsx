@@ -986,9 +986,18 @@ function DashboardContent() {
                     value={`${startYear}-Q${startQuarter}`}
                     onChange={(e) => {
                       const [year, quarter] = e.target.value.split('-Q');
-                      setStartYear(Number(year));
-                      setStartQuarter(Number(quarter));
+                      const newStartYear = Number(year);
+                      const newStartQuarter = Number(quarter);
+                      setStartYear(newStartYear);
+                      setStartQuarter(newStartQuarter);
                       setPeriodPreset('custom');
+                      // Auto-adjust end date if it's before start date
+                      const startValue = newStartYear * 10 + newStartQuarter;
+                      const endValue = endYear * 10 + endQuarter;
+                      if (endValue < startValue) {
+                        setEndYear(newStartYear);
+                        setEndQuarter(newStartQuarter);
+                      }
                     }}
                     className="w-28 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
                   >
@@ -1004,7 +1013,7 @@ function DashboardContent() {
 
                   <span className="text-slate-300 text-sm font-medium">→</span>
 
-                  {/* End Period: Combined Year + Quarter */}
+                  {/* End Period: Combined Year + Quarter - Only show options >= start date */}
                   <select
                     value={`${endYear}-Q${endQuarter}`}
                     onChange={(e) => {
@@ -1015,14 +1024,20 @@ function DashboardContent() {
                     }}
                     className="w-28 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
                   >
-                    {/* Generate options for last 3 years (current year + 2 previous) */}
+                    {/* Only show options that are >= start date */}
                     {[currentYear - 2, currentYear - 1, currentYear].flatMap(year =>
-                      [1, 2, 3, 4].map(q => (
-                        <option key={`${year}-Q${q}`} value={`${year}-Q${q}`} className="bg-slate-800">
-                          {year} Q{q}
-                        </option>
-                      ))
-                    )}
+                      [1, 2, 3, 4].map(q => {
+                        const optionValue = year * 10 + q;
+                        const startValue = startYear * 10 + startQuarter;
+                        // Only show options >= start date
+                        if (optionValue < startValue) return null;
+                        return (
+                          <option key={`${year}-Q${q}`} value={`${year}-Q${q}`} className="bg-slate-800">
+                            {year} Q{q}
+                          </option>
+                        );
+                      })
+                    ).filter(Boolean)}
                   </select>
                 </div>
               </div>
