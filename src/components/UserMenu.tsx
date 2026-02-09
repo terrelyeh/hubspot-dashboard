@@ -3,11 +3,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
-import { User, LogOut, Settings, Shield, ChevronDown } from 'lucide-react';
+import { User, LogOut, Settings, Shield, ChevronDown, Trash2, CheckCircle } from 'lucide-react';
+import { clearAllCaches } from '@/hooks/useDashboardData';
 
 export function UserMenu() {
   const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
+  const [cacheCleared, setCacheCleared] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
@@ -30,6 +33,22 @@ export function UserMenu() {
 
   const handleSignOut = () => {
     signOut({ callbackUrl: '/login' });
+  };
+
+  const handleClearCache = async () => {
+    setClearingCache(true);
+    try {
+      await clearAllCaches();
+      setCacheCleared(true);
+      // Reset the success message after 2 seconds
+      setTimeout(() => {
+        setCacheCleared(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Error clearing cache:', error);
+    } finally {
+      setClearingCache(false);
+    }
   };
 
   return (
@@ -91,6 +110,25 @@ export function UserMenu() {
                 Target Settings
               </Link>
             )}
+
+            {/* Clear Cache */}
+            <button
+              onClick={handleClearCache}
+              disabled={clearingCache}
+              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              {cacheCleared ? (
+                <>
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="text-green-600">Cache Cleared!</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className={`h-4 w-4 text-slate-400 ${clearingCache ? 'animate-spin' : ''}`} />
+                  {clearingCache ? 'Clearing...' : 'Clear Cache'}
+                </>
+              )}
+            </button>
           </div>
 
           {/* Sign Out */}

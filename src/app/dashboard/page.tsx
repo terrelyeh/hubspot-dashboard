@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useRef, Suspense } from 'react';
+import React, { useEffect, useState, useRef, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import useSWR from 'swr';
 import {
   TrendingUp,
   Target,
@@ -25,6 +26,7 @@ import Link from 'next/link';
 import { useLanguage } from '@/lib/i18n';
 import { LanguageSwitcherDropdown } from '@/components/LanguageSwitcher';
 import { UserMenu } from '@/components/UserMenu';
+import { cacheKeys, updateCacheMetadata } from '@/lib/swr-config';
 
 // Available regions configuration
 const REGIONS = [
@@ -241,12 +243,7 @@ function DashboardContent() {
 
   const currentRegion = REGIONS.find(r => r.code === selectedRegion) || REGIONS[0];
 
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [usingMockData, setUsingMockData] = useState(true);
-
-  // Filters - Date Range
+  // Filters - Date Range (moved up for SWR key generation)
   const currentYear = new Date().getFullYear();
   const currentQuarter = Math.floor(new Date().getMonth() / 3) + 1;
 
@@ -254,6 +251,25 @@ function DashboardContent() {
   const [startQuarter, setStartQuarter] = useState(currentQuarter);
   const [endYear, setEndYear] = useState(currentYear);
   const [endQuarter, setEndQuarter] = useState(currentQuarter);
+
+  // SWR for dashboard data - automatic caching and deduplication
+  const swrKey = cacheKeys.dashboard(selectedRegion, startYear, startQuarter, endYear, endQuarter);
+  const {
+    data: swrData,
+    error: swrError,
+    isLoading: swrLoading,
+    isValidating,
+    mutate: refreshData,
+  } = useSWR<DashboardData & { success: boolean; usingMockData?: boolean }>(swrKey, {
+    onSuccess: () => {
+      updateCacheMetadata();
+    },
+  });
+
+  // Derive loading, error, data states from SWR
+  const loading = swrLoading;
+  const error = swrError?.message || (swrData && !swrData.success ? 'Failed to load data' : null);
+  const usingMockData = swrData?.usingMockData || false;
 
   // For backwards compatibility
   const selectedYear = startYear;
@@ -372,38 +388,9 @@ function DashboardContent() {
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [categoryTooltip, setCategoryTooltip] = useState<string | null>(null);
 
-  // Raw data from API (unfiltered) - used for client-side filtering
-  const [rawData, setRawData] = useState<DashboardData | null>(null);
-
-  // Fetch dashboard data - only fetches when region or time range changes
-  const fetchDashboardData = async (showLoading = true) => {
-    try {
-      if (showLoading) setLoading(true);
-      setError(null);
-
-      // Only include region and time range params - filters will be applied client-side
-      const params = new URLSearchParams({
-        region: selectedRegion,
-        startYear: startYear.toString(),
-        startQuarter: startQuarter.toString(),
-        endYear: endYear.toString(),
-        endQuarter: endQuarter.toString(),
-        topDealsLimit: '100', // Fetch more deals to allow client-side filtering and sorting
-        topDealsSortBy: 'amount',
-      });
-
-      const response = await fetch(`/api/dashboard?${params}`);
-      const result = await response.json();
-
-      if (!result.success) throw new Error(result.message);
-      setRawData(result);
-      setUsingMockData(result.usingMockData || false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Raw data from SWR (unfiltered) - used for client-side filtering
+  // SWR automatically caches and deduplicates requests
+  const rawData = swrData as DashboardData | null;
 
   // Client-side filtering function - applies filters to raw data without API call
   const applyClientSideFilters = React.useCallback((rawData: DashboardData | null): DashboardData | null => {
@@ -628,12 +615,17 @@ function DashboardContent() {
   }, [selectedOwner, selectedStages, selectedCategories, topDealsLimit, topDealsSortBy]);
 
   // Apply client-side filters whenever raw data or filters change
-  React.useEffect(() => {
+  const data = useMemo(() => {
     if (rawData) {
-      setData(applyClientSideFilters(rawData));
-      setProductPage(1); // Reset to first page when filters change
+      return applyClientSideFilters(rawData);
     }
+    return null;
   }, [rawData, applyClientSideFilters]);
+
+  // Reset product page when filters change
+  useEffect(() => {
+    setProductPage(1);
+  }, [selectedOwner, selectedStages, selectedCategories]);
 
   // Sync data from HubSpot
   const handleSync = async () => {
@@ -667,8 +659,8 @@ function DashboardContent() {
         text: t('syncSuccess').replace('{created}', result.summary?.created || 0).replace('{updated}', result.summary?.updated || 0)
       });
 
-      // Refresh dashboard data after sync
-      await fetchDashboardData();
+      // Refresh dashboard data after sync - SWR will invalidate cache and refetch
+      await refreshData();
 
       // Clear success message after 5 seconds
       setTimeout(() => setSyncMessage(null), 5000);
@@ -682,10 +674,7 @@ function DashboardContent() {
     }
   };
 
-  // Fetch data only when region or time range changes (not for filter changes)
-  useEffect(() => {
-    fetchDashboardData();
-  }, [selectedRegion, startYear, startQuarter, endYear, endQuarter]);
+  // SWR automatically fetches when key (region/date range) changes - no manual useEffect needed
 
   const openSlideout = (title: string, deals: Deal[]) => {
     setSlideoutTitle(title);
