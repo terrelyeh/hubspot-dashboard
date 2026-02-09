@@ -931,9 +931,12 @@ function DashboardContent() {
 
         {/* Loading Message */}
         <div className="flex items-center justify-center py-8">
-          <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-lg shadow-sm border border-slate-200">
-            <RefreshCw className="h-4 w-4 text-orange-500 animate-spin" />
-            <span className="text-sm text-slate-600 font-medium">Loading dashboard...</span>
+          <div className="flex flex-col items-center gap-2 px-6 py-4 bg-white rounded-lg shadow-sm border border-slate-200">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="h-5 w-5 text-orange-500 animate-spin" />
+              <span className="text-base text-slate-700 font-medium">{t('loadingDashboard')}</span>
+            </div>
+            <p className="text-sm text-slate-500">{t('firstLoadMessage')}</p>
           </div>
         </div>
 

@@ -43,6 +43,10 @@ export const translations = {
     behindTarget: '↘ Behind Target',
     setTargetsToTrack: 'Set targets to track',
 
+    // Loading
+    loadingDashboard: 'Loading Dashboard...',
+    firstLoadMessage: 'Fetching data from HubSpot API. First load may take 10-15 seconds.',
+
     // Activity Metrics
     activityMetrics: 'Activity Metrics',
     totalDeals: 'Total Deals',
@@ -221,6 +225,10 @@ export const translations = {
     onTrack: '↗ 順調',
     behindTarget: '↘ 目標未達',
     setTargetsToTrack: '目標を設定して追跡',
+
+    // Loading
+    loadingDashboard: 'ダッシュボードを読み込み中...',
+    firstLoadMessage: 'HubSpot APIからデータを取得しています。初回読み込みには10〜15秒かかる場合があります。',
 
     // Activity Metrics
     activityMetrics: 'アクティビティ指標',
