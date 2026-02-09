@@ -966,9 +966,9 @@ function DashboardContent() {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-5">
                   {[1, 2, 3, 4, 5, 6].map(i => (
                     <div key={i}>
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <div className="h-3.5 w-3.5 bg-slate-200 rounded animate-pulse"></div>
                         <div className="h-3 w-16 bg-slate-200 rounded animate-pulse"></div>
-                        <div className="h-4 w-4 bg-slate-200 rounded animate-pulse"></div>
                       </div>
                       <div className="h-6 w-20 bg-slate-200 rounded animate-pulse mb-1"></div>
                       <div className="h-3 w-14 bg-slate-100 rounded animate-pulse"></div>
@@ -1003,9 +1003,9 @@ function DashboardContent() {
                 <div className="grid grid-cols-3 gap-4">
                   {[1, 2, 3].map(i => (
                     <div key={i}>
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <div className="h-3.5 w-3.5 bg-slate-200 rounded animate-pulse"></div>
                         <div className="h-3 w-16 bg-slate-200 rounded animate-pulse"></div>
-                        <div className="h-4 w-4 bg-slate-200 rounded animate-pulse"></div>
                       </div>
                       <div className="h-7 w-10 bg-slate-200 rounded animate-pulse"></div>
                     </div>
@@ -1536,9 +1536,9 @@ function DashboardContent() {
                   onClick={() => openSlideout('All Pipeline Deals', data.summary.totalPipelineDeals)}
                   className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <DollarSign className="h-3.5 w-3.5 text-slate-400" />
                     <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('pipelineValue')}</p>
-                    <DollarSign className="h-4 w-4 text-slate-400" />
                   </div>
                   <p className="text-xl font-bold text-slate-900">{data.summary.totalPipelineFormatted}</p>
                   <p className="text-xs text-slate-400">{t('totalOpportunityValue')}</p>
@@ -1549,9 +1549,9 @@ function DashboardContent() {
                   onClick={() => openSlideout('New Deals Created This Quarter', data.summary.newDealsList)}
                   className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <TrendingUp className="h-3.5 w-3.5 text-slate-400" />
                     <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('newDealAmount')}</p>
-                    <TrendingUp className="h-4 w-4 text-slate-400" />
                   </div>
                   <p className="text-xl font-bold text-slate-900">{data.summary.newDealAmountFormatted}</p>
                   <p className="text-xs text-slate-400">{t('xNewDeals').replace('{count}', String(data.summary.newDealCount))}</p>
@@ -1562,9 +1562,9 @@ function DashboardContent() {
                   onClick={() => openSlideout('Open Deals (Not Closed)', data.summary.openDealsList)}
                   className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Activity className="h-3.5 w-3.5 text-slate-400" />
                     <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('openDeals')}</p>
-                    <Activity className="h-4 w-4 text-slate-400" />
                   </div>
                   <p className="text-xl font-bold text-slate-900">{data.summary.openDealAmountFormatted}</p>
                   <p className="text-xs text-slate-400">{t('xActiveDeals').replace('{count}', String(data.summary.openDealCount))}</p>
@@ -1575,9 +1575,9 @@ function DashboardContent() {
                   onClick={() => openSlideout('Commit Deals (High Confidence)', data.summary.commitDealsList)}
                   className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Award className="h-3.5 w-3.5 text-slate-400" />
                     <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('commitRevenue')}</p>
-                    <Award className="h-4 w-4 text-slate-400" />
                   </div>
                   <p className="text-xl font-bold text-slate-900">{data.summary.commitRevenueFormatted}</p>
                   <p className="text-xs text-slate-400">{t('xHighConfidence').replace('{count}', String(data.summary.commitDealCount))}</p>
@@ -1588,9 +1588,9 @@ function DashboardContent() {
                   onClick={() => openSlideout('Closed Won Deals', data.summary.closedWonDealsList)}
                   className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Award className="h-3.5 w-3.5 text-emerald-500" />
                     <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedWon')}</p>
-                    <Award className="h-4 w-4 text-emerald-500" />
                   </div>
                   <p className="text-xl font-bold text-emerald-600">{data.summary.closedWonAmountFormatted}</p>
                   <p className="text-xs text-slate-400">{t('xDealsWon').replace('{count}', String(data.summary.closedWonCount))}</p>
@@ -1598,9 +1598,9 @@ function DashboardContent() {
 
                 {/* 6. Weighted Forecast */}
                 <div className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors">
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <BarChart3 className="h-3.5 w-3.5 text-slate-400" />
                     <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('weightedForecast')}</p>
-                    <BarChart3 className="h-4 w-4 text-slate-400" />
                   </div>
                   <p className="text-xl font-bold text-slate-900">{data.summary.totalForecastFormatted}</p>
                   <p className="text-xs text-slate-400">{t('weightedByProbability')}</p>
@@ -1706,9 +1706,9 @@ function DashboardContent() {
                   onClick={() => openSlideout('New Deals Created This Quarter', data.activityKpis.newDeals.deals)}
                   className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
                 >
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Users className="h-3.5 w-3.5 text-slate-400" />
                     <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('newDeals')}</p>
-                    <Users className="h-4 w-4 text-slate-400" />
                   </div>
                   <p className="text-2xl font-bold text-slate-900">{data.activityKpis.newDeals.count}</p>
                 </div>
@@ -1717,9 +1717,9 @@ function DashboardContent() {
                   onClick={() => openSlideout(t('closedWonDeals'), data.activityKpis.closedWon.deals)}
                   className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
                 >
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Award className="h-3.5 w-3.5 text-emerald-500" />
                     <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedWon')}</p>
-                    <Award className="h-4 w-4 text-emerald-500" />
                   </div>
                   <p className="text-2xl font-bold text-emerald-600">{data.activityKpis.closedWon.count}</p>
                 </div>
@@ -1728,9 +1728,9 @@ function DashboardContent() {
                   onClick={() => openSlideout(t('closedLostDeals'), data.activityKpis.closedLost.deals)}
                   className="cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
                 >
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <XCircle className="h-3.5 w-3.5 text-red-500" />
                     <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedLost')}</p>
-                    <XCircle className="h-4 w-4 text-red-500" />
                   </div>
                   <p className="text-2xl font-bold text-red-600">{data.activityKpis.closedLost.count}</p>
                 </div>
