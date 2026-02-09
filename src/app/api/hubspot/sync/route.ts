@@ -20,7 +20,7 @@ import { prisma } from '@/lib/db';
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { regionCode, force, startDate: startDateStr, endDate: endDateStr } = body;
+    const { regionCode, force, startDate: startDateStr, endDate: endDateStr, maxDeals, skipLineItems } = body;
 
     // Calculate date range - default to YTD if not provided
     const now = new Date();
@@ -81,7 +81,12 @@ export async function POST(request: Request) {
         );
       }
 
-      const result = await syncDealsFromHubSpot(apiKey, region.id, { startDate, endDate });
+      const result = await syncDealsFromHubSpot(apiKey, region.id, {
+        startDate,
+        endDate,
+        maxDeals: maxDeals ?? 50,  // Default 50 deals per batch for Vercel timeout
+        skipLineItems: skipLineItems ?? true,  // Skip line items by default for faster sync
+      });
       results = { [regionCode]: result };
     } else {
       // For single organization setup, sync to default region (JP - Japan) only
@@ -115,7 +120,12 @@ export async function POST(request: Request) {
         );
       }
 
-      const result = await syncDealsFromHubSpot(apiKey, defaultRegion.id, { startDate, endDate });
+      const result = await syncDealsFromHubSpot(apiKey, defaultRegion.id, {
+        startDate,
+        endDate,
+        maxDeals: maxDeals ?? 50,
+        skipLineItems: skipLineItems ?? true,
+      });
       results = { [defaultRegionCode]: result };
     }
 
@@ -127,6 +137,19 @@ export async function POST(request: Request) {
       (sum, r) => sum + r.errors.length,
       0
     );
+    const totalRemaining = Object.values(results).reduce(
+      (sum, r) => sum + (r.remainingDeals || 0),
+      0
+    );
+
+    // Build message based on remaining deals
+    let message = allSuccessful
+      ? 'Sync completed successfully'
+      : 'Sync completed with errors';
+
+    if (totalRemaining > 0) {
+      message += `. ${totalRemaining} deals remaining - click Sync again to continue.`;
+    }
 
     return NextResponse.json({
       success: allSuccessful,
@@ -136,10 +159,9 @@ export async function POST(request: Request) {
         created: totalCreated,
         updated: totalUpdated,
         errors: totalErrors,
+        remaining: totalRemaining,
       },
-      message: allSuccessful
-        ? 'Sync completed successfully'
-        : 'Sync completed with errors',
+      message,
     });
   } catch (error) {
     console.error('Error syncing from HubSpot:', error);

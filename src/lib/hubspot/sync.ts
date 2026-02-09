@@ -14,6 +14,9 @@ interface SyncResult {
   updated: number;
   errors: string[];
   duration: number;
+  totalDeals: number;
+  processedDeals: number;
+  remainingDeals: number;
 }
 
 /**
@@ -24,6 +27,8 @@ interface SyncResult {
  * @param options - Optional sync options
  * @param options.startDate - Start of date range for closeDate filter
  * @param options.endDate - End of date range for closeDate filter
+ * @param options.maxDeals - Maximum number of deals to sync (default: 50 for Vercel timeout)
+ * @param options.skipLineItems - Skip line items sync for faster processing (default: false)
  */
 export async function syncDealsFromHubSpot(
   apiKey: string,
@@ -31,6 +36,8 @@ export async function syncDealsFromHubSpot(
   options?: {
     startDate?: Date;
     endDate?: Date;
+    maxDeals?: number;
+    skipLineItems?: boolean;
   }
 ): Promise<SyncResult> {
   const startTime = Date.now();
@@ -68,6 +75,16 @@ export async function syncDealsFromHubSpot(
     ]);
     console.log(`Found ${hubspotDeals.length} deals, ${owners.length} owners in HubSpot`);
 
+    // Limit deals to process (for Vercel timeout - default 50 deals)
+    const maxDeals = options?.maxDeals ?? 50;
+    const skipLineItems = options?.skipLineItems ?? false;
+    const dealsToProcess = hubspotDeals.slice(0, maxDeals);
+
+    if (hubspotDeals.length > maxDeals) {
+      console.log(`⚠️ Limiting sync to ${maxDeals} deals (${hubspotDeals.length - maxDeals} remaining)`);
+      console.log(`   Run sync again to process more deals.`);
+    }
+
     // Build owner maps
     const ownerMap = new Map<string, string>(
       owners.map((o: any) => [o.id, `${o.firstName} ${o.lastName}`.trim() || o.email])
@@ -89,8 +106,8 @@ export async function syncDealsFromHubSpot(
       });
     });
 
-    // Process each deal
-    for (const deal of hubspotDeals) {
+    // Process each deal (limited batch)
+    for (const deal of dealsToProcess) {
       try {
         const props = deal.properties;
 
@@ -182,63 +199,65 @@ export async function syncDealsFromHubSpot(
           updated++;
         }
 
-        // Sync Line Items for this deal
-        try {
-          // Fetch line item associations for this deal
-          const lineItemIds = await client.fetchDealLineItemAssociations(deal.id);
+        // Sync Line Items for this deal (skip if option is set for faster sync)
+        if (!skipLineItems) {
+          try {
+            // Fetch line item associations for this deal
+            const lineItemIds = await client.fetchDealLineItemAssociations(deal.id);
 
-          if (lineItemIds.length > 0) {
-            // Batch fetch line items details
-            const lineItems = await client.fetchLineItems(lineItemIds);
+            if (lineItemIds.length > 0) {
+              // Batch fetch line items details
+              const lineItems = await client.fetchLineItems(lineItemIds);
 
-            // Delete line items that no longer exist in HubSpot
-            await prisma.lineItem.deleteMany({
-              where: {
-                dealId: result.id,
-                hubspotLineItemId: {
-                  notIn: lineItems.map(item => item.id),
-                },
-              },
-            });
-
-            // Upsert all line items
-            for (const item of lineItems) {
-              await prisma.lineItem.upsert({
+              // Delete line items that no longer exist in HubSpot
+              await prisma.lineItem.deleteMany({
                 where: {
-                  dealId_hubspotLineItemId: {
-                    dealId: result.id,
-                    hubspotLineItemId: item.id,
+                  dealId: result.id,
+                  hubspotLineItemId: {
+                    notIn: lineItems.map(item => item.id),
                   },
                 },
-                update: {
-                  name: item.properties.name || 'Unknown Product',
-                  description: item.properties.description || null,
-                  quantity: parseFloat(item.properties.quantity || '1'),
-                  price: parseFloat(item.properties.price || '0'),
-                  amount: parseFloat(item.properties.amount || '0'),
-                  productId: item.properties.hs_product_id || null,
-                },
-                create: {
-                  dealId: result.id,
-                  hubspotLineItemId: item.id,
-                  name: item.properties.name || 'Unknown Product',
-                  description: item.properties.description || null,
-                  quantity: parseFloat(item.properties.quantity || '1'),
-                  price: parseFloat(item.properties.price || '0'),
-                  amount: parseFloat(item.properties.amount || '0'),
-                  productId: item.properties.hs_product_id || null,
-                },
+              });
+
+              // Upsert all line items
+              for (const item of lineItems) {
+                await prisma.lineItem.upsert({
+                  where: {
+                    dealId_hubspotLineItemId: {
+                      dealId: result.id,
+                      hubspotLineItemId: item.id,
+                    },
+                  },
+                  update: {
+                    name: item.properties.name || 'Unknown Product',
+                    description: item.properties.description || null,
+                    quantity: parseFloat(item.properties.quantity || '1'),
+                    price: parseFloat(item.properties.price || '0'),
+                    amount: parseFloat(item.properties.amount || '0'),
+                    productId: item.properties.hs_product_id || null,
+                  },
+                  create: {
+                    dealId: result.id,
+                    hubspotLineItemId: item.id,
+                    name: item.properties.name || 'Unknown Product',
+                    description: item.properties.description || null,
+                    quantity: parseFloat(item.properties.quantity || '1'),
+                    price: parseFloat(item.properties.price || '0'),
+                    amount: parseFloat(item.properties.amount || '0'),
+                    productId: item.properties.hs_product_id || null,
+                  },
+                });
+              }
+            } else {
+              // No line items - delete any existing ones for this deal
+              await prisma.lineItem.deleteMany({
+                where: { dealId: result.id },
               });
             }
-          } else {
-            // No line items - delete any existing ones for this deal
-            await prisma.lineItem.deleteMany({
-              where: { dealId: result.id },
-            });
+          } catch (lineItemError) {
+            console.warn(`Failed to sync line items for deal ${deal.id}:`, lineItemError);
+            // Don't let line item errors block deal sync
           }
-        } catch (lineItemError) {
-          console.warn(`Failed to sync line items for deal ${deal.id}:`, lineItemError);
-          // Don't let line item errors block deal sync
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
@@ -246,12 +265,15 @@ export async function syncDealsFromHubSpot(
       }
     }
 
+    // Calculate remaining deals
+    const remainingDeals = Math.max(0, hubspotDeals.length - dealsToProcess.length);
+
     // Log sync result
     await prisma.syncLog.create({
       data: {
         regionId: regionId,
         status: errors.length > 0 ? 'partial' : 'success',
-        dealsProcessed: hubspotDeals.length,
+        dealsProcessed: dealsToProcess.length,
         dealsCreated: created,
         dealsUpdated: updated,
         dealsFailed: errors.length,
@@ -267,6 +289,9 @@ export async function syncDealsFromHubSpot(
       updated,
       errors,
       duration: Date.now() - startTime,
+      totalDeals: hubspotDeals.length,
+      processedDeals: dealsToProcess.length,
+      remainingDeals,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -292,6 +317,9 @@ export async function syncDealsFromHubSpot(
       updated: 0,
       errors,
       duration: Date.now() - startTime,
+      totalDeals: 0,
+      processedDeals: 0,
+      remainingDeals: 0,
     };
   }
 }
@@ -320,6 +348,9 @@ export async function syncAllRegions(): Promise<{
         updated: 0,
         errors: [`No API key found for region ${region.code}`],
         duration: 0,
+        totalDeals: 0,
+        processedDeals: 0,
+        remainingDeals: 0,
       };
       continue;
     }
@@ -333,6 +364,9 @@ export async function syncAllRegions(): Promise<{
         updated: 0,
         errors: [error instanceof Error ? error.message : 'Unknown error'],
         duration: 0,
+        totalDeals: 0,
+        processedDeals: 0,
+        remainingDeals: 0,
       };
     }
   }
