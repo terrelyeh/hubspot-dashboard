@@ -18,6 +18,7 @@ export const translations = {
 
     // Performance Overview
     performanceOverview: 'Performance Overview',
+    goalProgress: 'Goal Progress',
     pipelineValue: 'Pipeline Value',
     newDealAmount: 'New Deal Amount',
     openDeals: 'Open Deals',
@@ -192,6 +193,7 @@ export const translations = {
 
     // Performance Overview
     performanceOverview: 'パフォーマンス概要',
+    goalProgress: '目標進捗',
     pipelineValue: 'パイプライン金額',
     newDealAmount: '新規案件金額',
     openDeals: '進行中案件',
