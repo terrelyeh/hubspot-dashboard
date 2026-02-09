@@ -900,34 +900,36 @@ function DashboardContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50">
-        {/* Skeleton Header */}
+        {/* Skeleton Header - Mobile Responsive */}
         <div className="bg-slate-900 border-b border-slate-800">
-          <div className="max-w-7xl mx-auto px-6 sm:px-8 py-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="bg-orange-500 p-2.5 rounded-lg">
-                  <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
+            {/* Row 1 */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="bg-orange-500 p-2 sm:p-2.5 rounded-lg flex-shrink-0">
+                  <svg className="h-5 w-5 sm:h-6 sm:w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M18.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 5H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3C9.5 5.22 9.28 5 9 5zm9.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 10H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3c0-.28-.22-.5-.5-.5zm9.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 15H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3c0-.28-.22-.5-.5-.5z"/>
                   </svg>
                 </div>
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h1 className="text-xl font-semibold text-white">Pipeline Dashboard</h1>
-                    <div className="h-8 w-32 bg-slate-700 rounded-lg animate-pulse"></div>
-                  </div>
-                  <div className="h-4 w-20 bg-slate-700 rounded mt-1 animate-pulse"></div>
+                <div className="min-w-0">
+                  <h1 className="text-base sm:text-xl font-semibold text-white truncate">Pipeline Dashboard</h1>
+                  <div className="h-3 sm:h-4 w-16 sm:w-20 bg-slate-700 rounded mt-1 animate-pulse"></div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-20 bg-slate-700 rounded-lg animate-pulse"></div>
-                <div className="h-8 w-8 bg-slate-700 rounded-lg animate-pulse"></div>
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                <div className="h-7 sm:h-8 w-8 sm:w-20 bg-slate-700 rounded-lg animate-pulse"></div>
+                <div className="h-7 sm:h-8 w-7 sm:w-8 bg-slate-700 rounded-lg animate-pulse"></div>
               </div>
+            </div>
+            {/* Row 2: Region */}
+            <div className="mt-3">
+              <div className="h-8 w-32 bg-slate-700 rounded-lg animate-pulse"></div>
             </div>
           </div>
         </div>
 
         {/* Skeleton Content */}
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 py-6 space-y-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
           {/* Skeleton Filter Bar */}
           <div className="bg-slate-900 rounded-xl p-4">
             <div className="flex flex-wrap items-center gap-3">
@@ -979,38 +981,39 @@ function DashboardContent() {
             </div>
           </div>
 
-          {/* Skeleton Activity Metrics - 4 cards */}
-          <div>
-            <div className="h-6 w-40 bg-slate-200 rounded mb-4 animate-pulse"></div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="bg-white rounded-xl p-5 border border-slate-200">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="h-3 w-20 bg-slate-200 rounded animate-pulse"></div>
-                    <div className="h-4 w-4 bg-slate-200 rounded animate-pulse"></div>
-                  </div>
-                  <div className="h-10 w-16 bg-slate-200 rounded animate-pulse"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Skeleton Forecast + Alerts - 2 columns */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {[1, 2].map(i => (
-              <div key={i} className="bg-white rounded-xl p-5 border border-slate-200">
-                <div className="h-5 w-40 bg-slate-200 rounded mb-4 animate-pulse"></div>
-                <div className="space-y-3">
-                  {[1, 2, 3].map(j => (
-                    <div key={j} className="flex items-center gap-3">
+          {/* Skeleton Activity Metrics + Forecast Confidence - Side by Side */}
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Skeleton Activity Metrics (3 cards) */}
+            <div className="flex-1 lg:flex-[3]">
+              <div className="h-6 w-40 bg-slate-200 rounded mb-4 animate-pulse"></div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="bg-white rounded-xl p-5 border border-slate-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="h-3 w-20 bg-slate-200 rounded animate-pulse"></div>
                       <div className="h-4 w-4 bg-slate-200 rounded animate-pulse"></div>
-                      <div className="flex-1 h-4 bg-slate-100 rounded animate-pulse"></div>
-                      <div className="h-4 w-16 bg-slate-200 rounded animate-pulse"></div>
+                    </div>
+                    <div className="h-10 w-16 bg-slate-200 rounded animate-pulse"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Skeleton Forecast Confidence */}
+            <div className="flex-1 lg:flex-[2]">
+              <div className="h-6 w-40 bg-slate-200 rounded mb-4 animate-pulse"></div>
+              <div className="bg-white rounded-xl p-5 border border-slate-200">
+                <div className="h-7 bg-slate-200 rounded mb-4 animate-pulse"></div>
+                <div className="grid grid-cols-3 gap-3">
+                  {[1, 2, 3].map(j => (
+                    <div key={j} className="p-3 bg-slate-50 rounded-lg">
+                      <div className="h-3 w-16 bg-slate-200 rounded mb-2 animate-pulse"></div>
+                      <div className="h-5 w-12 bg-slate-200 rounded animate-pulse"></div>
                     </div>
                   ))}
                 </div>
               </div>
-            ))}
+            </div>
           </div>
 
           {/* Skeleton Top Deals Table */}
@@ -1073,59 +1076,22 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header - Clean & Minimal */}
+      {/* Header - Mobile Responsive */}
       <div className="bg-slate-900 border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
+          {/* Row 1: Logo + Title + Actions */}
+          <div className="flex items-center justify-between gap-3">
+            {/* Left: Logo + Title */}
+            <div className="flex items-center gap-3 min-w-0">
               {/* Logo */}
-              <div className="bg-orange-500 p-2.5 rounded-lg">
-                <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <div className="bg-orange-500 p-2 sm:p-2.5 rounded-lg flex-shrink-0">
+                <svg className="h-5 w-5 sm:h-6 sm:w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M18.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 5H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3C9.5 5.22 9.28 5 9 5zm9.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 10H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3c0-.28-.22-.5-.5-.5zm9.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 15H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3c0-.28-.22-.5-.5-.5z"/>
                 </svg>
               </div>
-              <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-xl font-semibold text-white">Pipeline Dashboard</h1>
-                  {/* Background refresh indicator */}
-                  {isValidating && !loading && (
-                    <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-800 rounded-md">
-                      <RefreshCw className="h-3 w-3 text-slate-400 animate-spin" />
-                      <span className="text-xs text-slate-400">Updating...</span>
-                    </div>
-                  )}
-                  {/* Region Switcher */}
-                  <div className="relative" ref={regionDropdownRef}>
-                    <button
-                      onClick={() => setRegionDropdownOpen(!regionDropdownOpen)}
-                      className="flex items-center gap-2.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-600 transition-colors"
-                    >
-                      <span className="text-xl">{currentRegion.flag}</span>
-                      <span className="text-base font-medium text-white">{currentRegion.name}</span>
-                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${regionDropdownOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                    {regionDropdownOpen && (
-                      <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-50 min-w-[200px]">
-                        {REGIONS.map((region) => (
-                          <button
-                            key={region.code}
-                            onClick={() => handleRegionChange(region.code)}
-                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 transition-colors ${
-                              selectedRegion === region.code ? 'bg-slate-50' : ''
-                            }`}
-                          >
-                            <span className="text-xl">{region.flag}</span>
-                            <span className={`text-base font-medium ${selectedRegion === region.code ? 'text-slate-900' : 'text-slate-600'}`}>{region.name}</span>
-                            {selectedRegion === region.code && (
-                              <CheckCircle className="h-4 w-4 text-emerald-500 ml-auto" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <p className="text-slate-400 text-sm mt-0.5">
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-xl font-semibold text-white truncate">Pipeline Dashboard</h1>
+                <p className="text-slate-400 text-xs sm:text-sm">
                   {startYear === endYear && startQuarter === endQuarter
                     ? `Q${startQuarter} ${startYear}`
                     : `Q${startQuarter} ${startYear} → Q${endQuarter} ${endYear}`
@@ -1134,10 +1100,19 @@ function DashboardContent() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Sync Message */}
+            {/* Right: Actions */}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              {/* Background refresh indicator */}
+              {isValidating && !loading && (
+                <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-slate-800 rounded-md">
+                  <RefreshCw className="h-3 w-3 text-slate-400 animate-spin" />
+                  <span className="text-xs text-slate-400">Updating...</span>
+                </div>
+              )}
+
+              {/* Sync Message - Hidden on mobile */}
               {syncMessage && (
-                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${
+                <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${
                   syncMessage.type === 'success'
                     ? 'bg-emerald-500/10 text-emerald-400'
                     : 'bg-red-500/10 text-red-400'
@@ -1155,7 +1130,7 @@ function DashboardContent() {
               <button
                 onClick={handleSync}
                 disabled={syncing}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium text-sm transition-colors border ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md font-medium text-xs sm:text-sm transition-colors border ${
                   syncing
                     ? 'bg-slate-800 text-slate-500 cursor-not-allowed border-slate-700'
                     : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
@@ -1163,7 +1138,7 @@ function DashboardContent() {
                 title={t('syncFromHubSpot')}
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
-                <span>{syncing ? t('syncing') : t('sync')}</span>
+                <span className="hidden sm:inline">{syncing ? t('syncing') : t('sync')}</span>
               </button>
 
               {/* Language Switcher - Only show for JP region */}
@@ -1172,6 +1147,56 @@ function DashboardContent() {
               {/* User Menu */}
               <UserMenu />
             </div>
+          </div>
+
+          {/* Row 2: Region Switcher - Separate row for better mobile layout */}
+          <div className="mt-3 flex items-center gap-2">
+            {/* Region Switcher */}
+            <div className="relative" ref={regionDropdownRef}>
+              <button
+                onClick={() => setRegionDropdownOpen(!regionDropdownOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-600 transition-colors"
+              >
+                <span className="text-lg">{currentRegion.flag}</span>
+                <span className="text-sm font-medium text-white">{currentRegion.name}</span>
+                <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${regionDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {regionDropdownOpen && (
+                <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-50 min-w-[180px]">
+                  {REGIONS.map((region) => (
+                    <button
+                      key={region.code}
+                      onClick={() => handleRegionChange(region.code)}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 transition-colors ${
+                        selectedRegion === region.code ? 'bg-slate-50' : ''
+                      }`}
+                    >
+                      <span className="text-lg">{region.flag}</span>
+                      <span className={`text-sm font-medium ${selectedRegion === region.code ? 'text-slate-900' : 'text-slate-600'}`}>{region.name}</span>
+                      {selectedRegion === region.code && (
+                        <CheckCircle className="h-4 w-4 text-emerald-500 ml-auto" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Mobile: Show sync message here if exists */}
+            {syncMessage && (
+              <div className={`sm:hidden flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${
+                syncMessage.type === 'success'
+                  ? 'bg-emerald-500/10 text-emerald-400'
+                  : 'bg-red-500/10 text-red-400'
+              }`}>
+                {syncMessage.type === 'success' ? (
+                  <CheckCircle className="h-3.5 w-3.5" />
+                ) : (
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                )}
+                <span className="truncate max-w-[150px]">{syncMessage.text}</span>
+              </div>
+            )}
           </div>
 
           {/* Mock Data Warning Banner - only show if using mock data */}
@@ -1190,14 +1215,14 @@ function DashboardContent() {
             </div>
           )}
 
-          {/* Filters - Clean Style */}
-          <div className="bg-slate-800 rounded-lg p-4 mt-4">
+          {/* Filters - Mobile Responsive */}
+          <div className="bg-slate-800 rounded-lg p-3 sm:p-4 mt-4">
             {/* Row 1: Time Period */}
             <div className="mb-3">
               <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2 block">{t('timePeriod')}</label>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
                 {/* Quick Presets */}
-                <div className="flex gap-1">
+                <div className="flex gap-1 overflow-x-auto pb-1 sm:pb-0">
                   {[
                     { key: 'current', label: t('currentQuarter') },
                     { key: 'ytd', label: t('yearToDate') },
@@ -1206,7 +1231,7 @@ function DashboardContent() {
                     <button
                       key={key}
                       onClick={() => applyPeriodPreset(key as PeriodPreset)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
                         periodPreset === key
                           ? 'bg-orange-500 text-white'
                           : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
@@ -1217,7 +1242,7 @@ function DashboardContent() {
                   ))}
                 </div>
 
-                {/* Divider */}
+                {/* Divider - Hidden on mobile */}
                 <div className="h-6 w-px bg-slate-700 hidden sm:block"></div>
 
                 {/* Date Range Selectors - Combined Year+Quarter dropdowns */}
@@ -1240,7 +1265,7 @@ function DashboardContent() {
                         setEndQuarter(newStartQuarter);
                       }
                     }}
-                    className="w-28 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
+                    className="flex-1 sm:flex-none sm:w-28 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
                   >
                     {/* Generate options for last 3 years (current year + 2 previous) */}
                     {[currentYear - 2, currentYear - 1, currentYear].flatMap(year =>
@@ -1263,7 +1288,7 @@ function DashboardContent() {
                       setEndQuarter(Number(quarter));
                       setPeriodPreset('custom');
                     }}
-                    className="w-28 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
+                    className="flex-1 sm:flex-none sm:w-28 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-md text-white font-medium text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
                   >
                     {/* Only show options that are >= start date */}
                     {[currentYear - 2, currentYear - 1, currentYear].flatMap(year =>
@@ -1452,7 +1477,7 @@ function DashboardContent() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 py-6 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Performance Summary - 左右分區 */}
         <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
           {/* 左邊：Performance Overview (3x2) */}
@@ -1622,204 +1647,121 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* Activity KPIs */}
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('activityMetrics')}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div
-              onClick={() => openSlideout('New Deals Created This Quarter', data.activityKpis.newDeals.deals)}
-              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('newDeals')}</p>
-                <Users className="h-4 w-4 text-slate-400" />
+        {/* Activity Metrics + Forecast Confidence - Side by Side */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* 左側: Activity Metrics (約 60%) */}
+          <div className="flex-1 lg:flex-[3]">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('activityMetrics')}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div
+                onClick={() => openSlideout('New Deals Created This Quarter', data.activityKpis.newDeals.deals)}
+                className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('newDeals')}</p>
+                  <Users className="h-4 w-4 text-slate-400" />
+                </div>
+                <p className="text-3xl font-bold text-slate-900">{data.activityKpis.newDeals.count}</p>
               </div>
-              <p className="text-3xl font-bold text-slate-900">{data.activityKpis.newDeals.count}</p>
-            </div>
 
-            <div
-              onClick={() => openSlideout(t('closedWonDeals'), data.activityKpis.closedWon.deals)}
-              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedWon')}</p>
-                <Award className="h-4 w-4 text-emerald-500" />
+              <div
+                onClick={() => openSlideout(t('closedWonDeals'), data.activityKpis.closedWon.deals)}
+                className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedWon')}</p>
+                  <Award className="h-4 w-4 text-emerald-500" />
+                </div>
+                <p className="text-3xl font-bold text-emerald-600">{data.activityKpis.closedWon.count}</p>
               </div>
-              <p className="text-3xl font-bold text-emerald-600">{data.activityKpis.closedWon.count}</p>
-            </div>
 
-            <div
-              onClick={() => openSlideout(t('closedLostDeals'), data.activityKpis.closedLost.deals)}
-              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedLost')}</p>
-                <XCircle className="h-4 w-4 text-red-500" />
+              <div
+                onClick={() => openSlideout(t('closedLostDeals'), data.activityKpis.closedLost.deals)}
+                className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedLost')}</p>
+                  <XCircle className="h-4 w-4 text-red-500" />
+                </div>
+                <p className="text-3xl font-bold text-red-600">{data.activityKpis.closedLost.count}</p>
               </div>
-              <p className="text-3xl font-bold text-red-600">{data.activityKpis.closedLost.count}</p>
-            </div>
-
-            <div className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('winRate')}</p>
-                <TrendingUp className="h-4 w-4 text-slate-400" />
-              </div>
-              <p className="text-4xl font-bold text-purple-700">{data.activityKpis.winRate.rate}%</p>
             </div>
           </div>
-        </div>
 
-        {/* Forecast Breakdown + Alerts - Unified Typography */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Forecast Confidence */}
-          <div className="bg-white rounded-xl p-5 border border-slate-200">
-            {/* Card Header */}
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">{t('forecastConfidence')}</h2>
-            </div>
+          {/* 右側: Forecast Confidence (約 40%) */}
+          <div className="flex-1 lg:flex-[2]">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('forecastConfidence')}</h2>
+            <div className="bg-white rounded-xl p-5 border border-slate-200 h-[calc(100%-2rem)]">
+              {/* Stacked Bar - Order: Pipeline (low) → Best Case (medium) → Commit (high) */}
+              <div className="mb-4">
+                <div className="flex h-7 rounded-md overflow-hidden bg-slate-100">
+                  {(() => {
+                    const commit = data.forecastBreakdown.commit;
+                    const bestCase = data.forecastBreakdown.bestCase;
+                    const pipeline = data.forecastBreakdown.pipeline;
+                    const total = commit.percentage + bestCase.percentage + pipeline.percentage;
+                    return (
+                      <>
+                        {pipeline.percentage > 0 && (
+                          <div
+                            onClick={() => openSlideout('Pipeline Deals (Negotiating)', pipeline.deals)}
+                            className="bg-blue-500 cursor-pointer hover:bg-blue-600 transition-colors flex items-center justify-center"
+                            style={{ width: `${(pipeline.percentage / total) * 100}%` }}
+                            title={`Pipeline: ${pipeline.amountFormatted}`}
+                          >
+                            {pipeline.percentage > 15 && <span className="text-xs font-semibold text-white">{pipeline.percentage}%</span>}
+                          </div>
+                        )}
+                        {bestCase.percentage > 0 && (
+                          <div
+                            onClick={() => openSlideout('Best Case Deals (Potential)', bestCase.deals)}
+                            className="bg-amber-500 cursor-pointer hover:bg-amber-600 transition-colors flex items-center justify-center"
+                            style={{ width: `${(bestCase.percentage / total) * 100}%` }}
+                            title={`Best Case: ${bestCase.amountFormatted}`}
+                          >
+                            {bestCase.percentage > 15 && <span className="text-xs font-semibold text-white">{bestCase.percentage}%</span>}
+                          </div>
+                        )}
+                        {commit.percentage > 0 && (
+                          <div
+                            onClick={() => openSlideout('Commit Deals (High Confidence)', commit.deals)}
+                            className="bg-emerald-500 cursor-pointer hover:bg-emerald-600 transition-colors flex items-center justify-center"
+                            style={{ width: `${(commit.percentage / total) * 100}%` }}
+                            title={`Commit: ${commit.amountFormatted}`}
+                          >
+                            {commit.percentage > 15 && <span className="text-xs font-semibold text-white">{commit.percentage}%</span>}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
 
-            {/* Stacked Bar - Order: Pipeline (low) → Best Case (medium) → Commit (high) */}
-            <div className="mb-4">
-              <div className="flex h-7 rounded-md overflow-hidden bg-slate-100">
-                {(() => {
-                  const commit = data.forecastBreakdown.commit;
-                  const bestCase = data.forecastBreakdown.bestCase;
-                  const pipeline = data.forecastBreakdown.pipeline;
-                  const total = commit.percentage + bestCase.percentage + pipeline.percentage;
+              {/* Legend Grid - Order: Pipeline (low) → Best Case (medium) → Commit (high) */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { key: 'pipeline', label: 'Pipeline', bgColor: 'bg-blue-50', textColor: 'text-blue-700', dotColor: 'bg-blue-500', title: 'Pipeline Deals (Negotiating)' },
+                  { key: 'bestCase', label: 'Best Case', bgColor: 'bg-amber-50', textColor: 'text-amber-700', dotColor: 'bg-amber-500', title: 'Best Case Deals (Potential)' },
+                  { key: 'commit', label: 'Commit', bgColor: 'bg-emerald-50', textColor: 'text-emerald-700', dotColor: 'bg-emerald-500', title: 'Commit Deals (High Confidence)' }
+                ].map(({ key, label, bgColor, textColor, dotColor, title }) => {
+                  const item = data.forecastBreakdown[key as keyof typeof data.forecastBreakdown];
                   return (
-                    <>
-                      {pipeline.percentage > 0 && (
-                        <div
-                          onClick={() => openSlideout('Pipeline Deals (Negotiating)', pipeline.deals)}
-                          className="bg-blue-500 cursor-pointer hover:bg-blue-600 transition-colors flex items-center justify-center"
-                          style={{ width: `${(pipeline.percentage / total) * 100}%` }}
-                          title={`Pipeline: ${pipeline.amountFormatted}`}
-                        >
-                          {pipeline.percentage > 15 && <span className="text-xs font-semibold text-white">{pipeline.percentage}%</span>}
-                        </div>
-                      )}
-                      {bestCase.percentage > 0 && (
-                        <div
-                          onClick={() => openSlideout('Best Case Deals (Potential)', bestCase.deals)}
-                          className="bg-amber-500 cursor-pointer hover:bg-amber-600 transition-colors flex items-center justify-center"
-                          style={{ width: `${(bestCase.percentage / total) * 100}%` }}
-                          title={`Best Case: ${bestCase.amountFormatted}`}
-                        >
-                          {bestCase.percentage > 15 && <span className="text-xs font-semibold text-white">{bestCase.percentage}%</span>}
-                        </div>
-                      )}
-                      {commit.percentage > 0 && (
-                        <div
-                          onClick={() => openSlideout('Commit Deals (High Confidence)', commit.deals)}
-                          className="bg-emerald-500 cursor-pointer hover:bg-emerald-600 transition-colors flex items-center justify-center"
-                          style={{ width: `${(commit.percentage / total) * 100}%` }}
-                          title={`Commit: ${commit.amountFormatted}`}
-                        >
-                          {commit.percentage > 15 && <span className="text-xs font-semibold text-white">{commit.percentage}%</span>}
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Legend Grid - Order: Pipeline (low) → Best Case (medium) → Commit (high) */}
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { key: 'pipeline', label: 'Pipeline', bgColor: 'bg-blue-50', textColor: 'text-blue-700', dotColor: 'bg-blue-500', title: 'Pipeline Deals (Negotiating)' },
-                { key: 'bestCase', label: 'Best Case', bgColor: 'bg-amber-50', textColor: 'text-amber-700', dotColor: 'bg-amber-500', title: 'Best Case Deals (Potential)' },
-                { key: 'commit', label: 'Commit', bgColor: 'bg-emerald-50', textColor: 'text-emerald-700', dotColor: 'bg-emerald-500', title: 'Commit Deals (High Confidence)' }
-              ].map(({ key, label, bgColor, textColor, dotColor, title }) => {
-                const item = data.forecastBreakdown[key as keyof typeof data.forecastBreakdown];
-                return (
-                  <div
-                    key={key}
-                    onClick={() => openSlideout(title, item.deals)}
-                    className={`p-3 rounded-lg cursor-pointer transition-all hover:shadow-md ${bgColor}`}
-                  >
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <div className={`h-2 w-2 rounded-full ${dotColor}`}></div>
-                      <span className="text-xs font-medium text-slate-600">{label}</span>
+                    <div
+                      key={key}
+                      onClick={() => openSlideout(title, item.deals)}
+                      className={`p-3 rounded-lg cursor-pointer transition-all hover:shadow-md ${bgColor}`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <div className={`h-2 w-2 rounded-full ${dotColor}`}></div>
+                        <span className="text-xs font-medium text-slate-600">{label}</span>
+                      </div>
+                      <p className={`text-base font-bold ${textColor}`}>{item.amountFormatted}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{item.deals.length} deals</p>
                     </div>
-                    <p className={`text-base font-bold ${textColor}`}>{item.amountFormatted}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{item.deals.length} deals</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Alerts & Risks */}
-          <div className="bg-white rounded-xl p-5 border border-slate-200">
-            {/* Card Header */}
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">{t('alertsAndRisks')}</h2>
-            </div>
-
-            {/* Gap to Target - gap > 0 means behind target (red), gap <= 0 means on/ahead of target (green) */}
-            <div className={`p-4 rounded-lg mb-4 ${data.summary.gap <= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">{t('gapToTarget')}</p>
-                  <p className={`text-2xl font-bold ${data.summary.gap <= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {data.summary.gapFormatted}
-                  </p>
-                </div>
-                <div className={`p-2.5 rounded-full ${data.summary.gap <= 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
-                  {data.summary.gap <= 0 ? (
-                    <TrendingUp className="h-5 w-5 text-emerald-600" />
-                  ) : (
-                    <TrendingDown className="h-5 w-5 text-red-600" />
-                  )}
-                </div>
+                  );
+                })}
               </div>
-            </div>
-
-            {/* Alert Items */}
-            <div className="space-y-2">
-              {data.alerts.staleDeals.count > 0 ? (
-                <div
-                  onClick={() => openSlideout(t('staleDealsFull'), data.alerts.staleDeals.deals)}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 cursor-pointer hover:bg-amber-100 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 group"
-                >
-                  <div className="p-2 bg-amber-500 rounded-lg group-hover:bg-amber-600 transition-colors">
-                    <Clock className="h-4 w-4 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">
-                      {data.alerts.staleDeals.count} {t('staleDeals')}
-                    </p>
-                    <p className="text-xs text-slate-500">{data.alerts.staleDeals.amountFormatted} at risk</p>
-                  </div>
-                  <span className="text-xs text-amber-600 font-medium">→</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-50">
-                  <div className="p-2 bg-emerald-500 rounded-lg">
-                    <Activity className="h-4 w-4 text-white" />
-                  </div>
-                  <p className="text-sm font-semibold text-slate-900">{t('allDealsUpToDate')}</p>
-                </div>
-              )}
-
-              {data.alerts.largeDealsClosingSoon.count > 0 && (
-                <div
-                  onClick={() => openSlideout(t('largeDealsFull'), data.alerts.largeDealsClosingSoon.deals)}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 cursor-pointer hover:bg-blue-100 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 group"
-                >
-                  <div className="p-2 bg-blue-500 rounded-lg group-hover:bg-blue-600 transition-colors">
-                    <Target className="h-4 w-4 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">
-                      {data.alerts.largeDealsClosingSoon.count} {t('largeDealsClosing')}
-                    </p>
-                    <p className="text-xs text-slate-500">{data.alerts.largeDealsClosingSoon.amountFormatted} in pipeline</p>
-                  </div>
-                  <span className="text-xs text-blue-600 font-medium">→</span>
-                </div>
-              )}
             </div>
           </div>
         </div>
