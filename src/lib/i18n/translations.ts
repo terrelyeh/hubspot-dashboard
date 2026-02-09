@@ -109,6 +109,10 @@ export const translations = {
     showing: 'Showing',
     commitQty: 'Commit',
     bestCaseQty: 'Best Case',
+    products: 'products',
+    of: 'of',
+    prev: 'Prev',
+    next: 'Next',
 
     // Forecast by Month
     forecastByMonth: 'Forecast by Month',
@@ -279,6 +283,10 @@ export const translations = {
     showing: '表示中',
     commitQty: 'コミット',
     bestCaseQty: 'ベストケース',
+    products: '製品',
+    of: '/',
+    prev: '前へ',
+    next: '次へ',
 
     // Forecast by Month
     forecastByMonth: '月別予測',

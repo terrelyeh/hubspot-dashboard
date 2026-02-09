@@ -269,6 +269,10 @@ function DashboardContent() {
   const [topDealsLimit, setTopDealsLimit] = useState(10);
   const [topDealsSortBy, setTopDealsSortBy] = useState<TopDealsSortBy>('amount');
 
+  // Product Summary pagination
+  const [productPage, setProductPage] = useState(1);
+  const productsPerPage = 10;
+
   // Handle region change - reset all filters to defaults
   const handleRegionChange = (regionCode: string) => {
     setSelectedRegion(regionCode);
@@ -626,6 +630,7 @@ function DashboardContent() {
   React.useEffect(() => {
     if (rawData) {
       setData(applyClientSideFilters(rawData));
+      setProductPage(1); // Reset to first page when filters change
     }
   }, [rawData, applyClientSideFilters]);
 
@@ -1830,7 +1835,7 @@ function DashboardContent() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-slate-600 border-b border-slate-200">
+                  <tr className="text-left text-slate-500 border-b border-slate-200 text-xs uppercase tracking-wider">
                     <th className="pb-2 font-semibold">{t('product')}</th>
                     <th className="pb-2 text-right font-semibold">{t('qty')}</th>
                     <th className="pb-2 text-right font-semibold">{t('amount')}</th>
@@ -1840,7 +1845,9 @@ function DashboardContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.productSummary.topProducts.map((product, i) => (
+                  {data.productSummary.topProducts
+                    .slice((productPage - 1) * productsPerPage, productPage * productsPerPage)
+                    .map((product, i) => (
                     <tr
                       key={i}
                       className="border-b border-slate-100 hover:bg-blue-50 transition-colors cursor-pointer group"
@@ -1858,10 +1865,68 @@ function DashboardContent() {
               </table>
             </div>
 
-            {/* Total Line Items Info */}
-            <div className="mt-3 text-xs text-slate-500 text-right">
-              {t('showing')} Top 10 / {data.productSummary.totalLineItems} {t('lineItems')}
-            </div>
+            {/* Pagination Controls */}
+            {(() => {
+              const totalProducts = data.productSummary.topProducts.length;
+              const totalPages = Math.ceil(totalProducts / productsPerPage);
+              const startItem = (productPage - 1) * productsPerPage + 1;
+              const endItem = Math.min(productPage * productsPerPage, totalProducts);
+
+              return (
+                <div className="mt-3 flex items-center justify-between">
+                  {/* Page Info */}
+                  <div className="text-xs text-slate-500">
+                    {t('showing')} {startItem}-{endItem} {t('of')} {totalProducts} {t('products')}
+                  </div>
+
+                  {/* Pagination Buttons */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setProductPage(p => Math.max(1, p - 1))}
+                        disabled={productPage === 1}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                          productPage === 1
+                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        ← {t('prev')}
+                      </button>
+
+                      {/* Page Numbers */}
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                          <button
+                            key={page}
+                            onClick={() => setProductPage(page)}
+                            className={`w-7 h-7 text-xs font-medium rounded-md transition-colors ${
+                              page === productPage
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={() => setProductPage(p => Math.min(totalPages, p + 1))}
+                        disabled={productPage === totalPages}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                          productPage === totalPages
+                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        {t('next')} →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 

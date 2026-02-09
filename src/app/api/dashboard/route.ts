@@ -708,7 +708,7 @@ export async function GET(request: Request) {
     // Get deal IDs for line item aggregation
     const dealIds = deals.map(d => d.id);
 
-    // Aggregate line items by product name
+    // Aggregate line items by product name (return all for client-side pagination)
     const lineItemStats = dealIds.length > 0
       ? await prisma.lineItem.groupBy({
           by: ['name'],
@@ -729,7 +729,7 @@ export async function GET(request: Request) {
               amount: 'desc',
             },
           },
-          take: 10, // Top 10 products
+          // No limit - return all products for client-side pagination
         })
       : [];
 
