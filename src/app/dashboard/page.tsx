@@ -493,8 +493,18 @@ function DashboardContent() {
       };
     }).filter(stage => stage.dealCount > 0);
 
+    // Filter forecastByQuarter to only include quarters within the selected date range
+    const filteredForecastByQuarter = rawData.forecastByQuarter.filter(quarter => {
+      // Convert quarter to comparable value (year * 10 + quarter)
+      const quarterValue = quarter.year * 10 + quarter.quarter;
+      const startValue = startYear * 10 + startQuarter;
+      const endValue = endYear * 10 + endQuarter;
+      return quarterValue >= startValue && quarterValue <= endValue;
+    });
+
     return {
       ...rawData,
+      forecastByQuarter: filteredForecastByQuarter,
       summary: {
         ...rawData.summary,
         totalPipelineFormatted: formatCurrency(totalPipeline),
@@ -626,7 +636,7 @@ function DashboardContent() {
         totalLineItems: rawData.productSummary.totalLineItems,
       },
     };
-  }, [selectedOwner, selectedStages, selectedCategories, topDealsLimit, topDealsSortBy, dateRangeStart, dateRangeEnd]);
+  }, [selectedOwner, selectedStages, selectedCategories, topDealsLimit, topDealsSortBy, dateRangeStart, dateRangeEnd, startYear, startQuarter, endYear, endQuarter]);
 
   // Apply client-side filters whenever raw data or filters change
   const data = useMemo(() => {
