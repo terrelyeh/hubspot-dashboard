@@ -1533,12 +1533,12 @@ function DashboardContent() {
                 onClick={() => openSlideout('All Pipeline Deals', data.summary.totalPipelineDeals)}
                 className="bg-white rounded-xl p-4 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
               >
-                <div className="flex items-center gap-1.5 mb-1">
+                <div className="flex items-center gap-1.5 mb-2">
                   <DollarSign className="h-3.5 w-3.5 text-slate-400" />
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('pipelineValue')}</p>
                 </div>
-                <p className="text-lg font-bold text-slate-900">{data.summary.totalPipelineFormatted}</p>
-                <p className="text-xs text-slate-400">{t('totalOpportunityValue')}</p>
+                <p className="text-xl font-bold text-slate-900">{data.summary.totalPipelineFormatted}</p>
+                <p className="text-sm text-slate-400 mt-1">{t('totalOpportunityValue')}</p>
               </div>
 
               {/* 2. New Deal Amount */}
@@ -1546,12 +1546,12 @@ function DashboardContent() {
                 onClick={() => openSlideout('New Deals Created This Quarter', data.summary.newDealsList)}
                 className="bg-white rounded-xl p-4 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
               >
-                <div className="flex items-center gap-1.5 mb-1">
+                <div className="flex items-center gap-1.5 mb-2">
                   <TrendingUp className="h-3.5 w-3.5 text-slate-400" />
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('newDealAmount')}</p>
                 </div>
-                <p className="text-lg font-bold text-slate-900">{data.summary.newDealAmountFormatted}</p>
-                <p className="text-xs text-slate-400">{t('xNewDeals').replace('{count}', String(data.summary.newDealCount))}</p>
+                <p className="text-xl font-bold text-slate-900">{data.summary.newDealAmountFormatted}</p>
+                <p className="text-sm text-slate-400 mt-1">{t('xNewDeals').replace('{count}', String(data.summary.newDealCount))}</p>
               </div>
 
               {/* 3. Open Deals */}
@@ -1559,12 +1559,12 @@ function DashboardContent() {
                 onClick={() => openSlideout('Open Deals (Not Closed)', data.summary.openDealsList)}
                 className="bg-white rounded-xl p-4 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
               >
-                <div className="flex items-center gap-1.5 mb-1">
+                <div className="flex items-center gap-1.5 mb-2">
                   <Activity className="h-3.5 w-3.5 text-slate-400" />
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('openDeals')}</p>
                 </div>
-                <p className="text-lg font-bold text-slate-900">{data.summary.openDealAmountFormatted}</p>
-                <p className="text-xs text-slate-400">{t('xActiveDeals').replace('{count}', String(data.summary.openDealCount))}</p>
+                <p className="text-xl font-bold text-slate-900">{data.summary.openDealAmountFormatted}</p>
+                <p className="text-sm text-slate-400 mt-1">{t('xActiveDeals').replace('{count}', String(data.summary.openDealCount))}</p>
               </div>
 
               {/* 4. Commit Revenue */}
@@ -1572,12 +1572,12 @@ function DashboardContent() {
                 onClick={() => openSlideout('Commit Deals (High Confidence)', data.summary.commitDealsList)}
                 className="bg-white rounded-xl p-4 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
               >
-                <div className="flex items-center gap-1.5 mb-1">
+                <div className="flex items-center gap-1.5 mb-2">
                   <Award className="h-3.5 w-3.5 text-slate-400" />
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('commitRevenue')}</p>
                 </div>
-                <p className="text-lg font-bold text-slate-900">{data.summary.commitRevenueFormatted}</p>
-                <p className="text-xs text-slate-400">{t('xHighConfidence').replace('{count}', String(data.summary.commitDealCount))}</p>
+                <p className="text-xl font-bold text-slate-900">{data.summary.commitRevenueFormatted}</p>
+                <p className="text-sm text-slate-400 mt-1">{t('xHighConfidence').replace('{count}', String(data.summary.commitDealCount))}</p>
               </div>
 
               {/* 5. Closed Won Amount */}
@@ -1585,22 +1585,22 @@ function DashboardContent() {
                 onClick={() => openSlideout('Closed Won Deals', data.summary.closedWonDealsList)}
                 className="bg-white rounded-xl p-4 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
               >
-                <div className="flex items-center gap-1.5 mb-1">
+                <div className="flex items-center gap-1.5 mb-2">
                   <Award className="h-3.5 w-3.5 text-emerald-500" />
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('closedWon')}</p>
                 </div>
-                <p className="text-lg font-bold text-emerald-600">{data.summary.closedWonAmountFormatted}</p>
-                <p className="text-xs text-slate-400">{t('xDealsWon').replace('{count}', String(data.summary.closedWonCount))}</p>
+                <p className="text-xl font-bold text-emerald-600">{data.summary.closedWonAmountFormatted}</p>
+                <p className="text-sm text-slate-400 mt-1">{t('xDealsWon').replace('{count}', String(data.summary.closedWonCount))}</p>
               </div>
 
               {/* 6. Weighted Forecast */}
               <div className="bg-white rounded-xl p-4 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer">
-                <div className="flex items-center gap-1.5 mb-1">
+                <div className="flex items-center gap-1.5 mb-2">
                   <BarChart3 className="h-3.5 w-3.5 text-slate-400" />
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('weightedForecast')}</p>
                 </div>
-                <p className="text-lg font-bold text-slate-900">{data.summary.totalForecastFormatted}</p>
-                <p className="text-xs text-slate-400">{t('weightedByProbability')}</p>
+                <p className="text-xl font-bold text-slate-900">{data.summary.totalForecastFormatted}</p>
+                <p className="text-sm text-slate-400 mt-1">{t('weightedByProbability')}</p>
               </div>
             </div>
           </div>
