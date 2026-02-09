@@ -57,6 +57,7 @@ function getFallbackRate(fromCurrency: string, toCurrency: string = 'USD'): numb
     'HKD': 0.13,
     'AUD': 0.65,
     'CAD': 0.73,
+    'INR': 0.012,   // ~83 INR = 1 USD
   };
 
   if (fromCurrency === toCurrency) return 1.0;
@@ -163,6 +164,7 @@ export function formatCurrencyWithSymbol(amount: number, currency: string): stri
     'HKD': 'HK$',
     'AUD': 'A$',
     'CAD': 'C$',
+    'INR': '₹',
   };
 
   const symbol = symbols[currency.toUpperCase()] || currency;
