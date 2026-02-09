@@ -27,6 +27,9 @@ export const translations = {
     weightedForecast: 'Weighted Forecast',
     target: 'Target',
     achievement: 'Achievement',
+    forecastCoverageLabel: 'Forecast Coverage',
+    closedWonVsTarget: 'Closed Won vs Target',
+    expectedIfForecastCloses: 'expected if forecast closes',
     // Performance Card Subtitles
     totalOpportunityValue: 'total opportunity value',
     xNewDeals: '{count} new deals',
@@ -203,6 +206,9 @@ export const translations = {
     weightedForecast: '加重予測',
     target: '目標',
     achievement: '達成率',
+    forecastCoverageLabel: '予測カバー率',
+    closedWonVsTarget: '受注額 vs 目標',
+    expectedIfForecastCloses: '予測成約時の期待値',
     // Performance Card Subtitles
     totalOpportunityValue: '総案件金額',
     xNewDeals: '{count}件の新規案件',

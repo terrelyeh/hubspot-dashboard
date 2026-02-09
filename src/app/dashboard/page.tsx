@@ -76,6 +76,7 @@ interface DashboardData {
     totalTargetFormatted: string;
     gapFormatted: string;
     achievementRate: number;
+    forecastCoverage: number; // Expected achievement if forecasted deals close
     dealCount: number;
     gap: number;
     targetCoverage: {
@@ -407,8 +408,8 @@ function DashboardContent() {
   const applyClientSideFilters = React.useCallback((rawData: DashboardData | null): DashboardData | null => {
     if (!rawData) return null;
 
-    // Helper to filter deals by date range and other filters
-    const filterDeals = (deals: Deal[]): Deal[] => {
+    // Helper to filter deals by closeDate and other filters (default)
+    const filterDealsByCloseDate = (deals: Deal[]): Deal[] => {
       return deals.filter(deal => {
         // Date range filter - filter by closeDate
         const closeDate = new Date(deal.closeDate);
@@ -423,16 +424,34 @@ function DashboardContent() {
       });
     };
 
+    // Helper to filter deals by createdAt (for New Deals)
+    const filterDealsByCreatedAt = (deals: Deal[]): Deal[] => {
+      return deals.filter(deal => {
+        // Date range filter - filter by createdAt
+        const createdAt = new Date(deal.createdAt);
+        if (createdAt < dateRangeStart || createdAt > dateRangeEnd) return false;
+        // Owner filter
+        if (selectedOwner !== 'All' && deal.owner !== selectedOwner) return false;
+        // Stage filter
+        if (selectedStages.length > 0 && !selectedStages.includes(deal.stage)) return false;
+        // Forecast Category filter
+        if (selectedCategories.length > 0 && !selectedCategories.includes(deal.forecastCategory)) return false;
+        return true;
+      });
+    };
+
     // Helper to recalculate amounts from filtered deals
     const sumAmount = (deals: Deal[]) => deals.reduce((sum, d) => sum + d.amount, 0);
 
-    // Filter all deal arrays
-    const filteredTotalPipelineDeals = filterDeals(rawData.summary.totalPipelineDeals);
-    const filteredNewDealsList = filterDeals(rawData.summary.newDealsList);
-    const filteredOpenDealsList = filterDeals(rawData.summary.openDealsList);
-    const filteredCommitDealsList = filterDeals(rawData.summary.commitDealsList);
-    const filteredClosedWonDealsList = filterDeals(rawData.summary.closedWonDealsList);
-    const filteredTopDeals = filterDeals(rawData.topDeals);
+    // Filter all deal arrays using appropriate date field
+    // Most cards use closeDate (when deal is expected to close)
+    const filteredTotalPipelineDeals = filterDealsByCloseDate(rawData.summary.totalPipelineDeals);
+    // New Deals uses createdAt (when deal was created)
+    const filteredNewDealsList = filterDealsByCreatedAt(rawData.summary.newDealsList);
+    const filteredOpenDealsList = filterDealsByCloseDate(rawData.summary.openDealsList);
+    const filteredCommitDealsList = filterDealsByCloseDate(rawData.summary.commitDealsList);
+    const filteredClosedWonDealsList = filterDealsByCloseDate(rawData.summary.closedWonDealsList);
+    const filteredTopDeals = filterDealsByCloseDate(rawData.topDeals);
 
     // Sort and limit top deals based on current settings
     const sortedTopDeals = [...filteredTopDeals].sort((a, b) => {
@@ -452,18 +471,20 @@ function DashboardContent() {
     }).slice(0, topDealsLimit);
 
     // Filter activity KPIs
-    const filteredNewDeals = filterDeals(rawData.activityKpis.newDeals.deals);
-    const filteredClosedWon = filterDeals(rawData.activityKpis.closedWon.deals);
-    const filteredClosedLost = filterDeals(rawData.activityKpis.closedLost.deals);
+    // New Deals in Activity Metrics also uses createdAt
+    const filteredNewDeals = filterDealsByCreatedAt(rawData.activityKpis.newDeals.deals);
+    // Closed Won/Lost use closeDate (when they were closed)
+    const filteredClosedWon = filterDealsByCloseDate(rawData.activityKpis.closedWon.deals);
+    const filteredClosedLost = filterDealsByCloseDate(rawData.activityKpis.closedLost.deals);
 
-    // Filter forecast breakdown
-    const filteredCommit = filterDeals(rawData.forecastBreakdown.commit.deals);
-    const filteredBestCase = filterDeals(rawData.forecastBreakdown.bestCase.deals);
-    const filteredPipeline = filterDeals(rawData.forecastBreakdown.pipeline.deals);
+    // Filter forecast breakdown (by closeDate - when deals are expected to close)
+    const filteredCommit = filterDealsByCloseDate(rawData.forecastBreakdown.commit.deals);
+    const filteredBestCase = filterDealsByCloseDate(rawData.forecastBreakdown.bestCase.deals);
+    const filteredPipeline = filterDealsByCloseDate(rawData.forecastBreakdown.pipeline.deals);
 
-    // Filter alerts
-    const filteredStaleDeals = filterDeals(rawData.alerts.staleDeals.deals);
-    const filteredLargeDeals = filterDeals(rawData.alerts.largeDealsClosingSoon.deals);
+    // Filter alerts (by closeDate)
+    const filteredStaleDeals = filterDealsByCloseDate(rawData.alerts.staleDeals.deals);
+    const filteredLargeDeals = filterDealsByCloseDate(rawData.alerts.largeDealsClosingSoon.deals);
 
     // Calculate new totals
     const totalPipeline = sumAmount(filteredTotalPipelineDeals);
@@ -471,7 +492,10 @@ function DashboardContent() {
     const openDealAmount = sumAmount(filteredOpenDealsList);
     const commitRevenue = sumAmount(filteredCommitDealsList);
     const closedWonAmount = sumAmount(filteredClosedWonDealsList);
-    const totalForecast = sumAmount(filteredCommit) + sumAmount(filteredBestCase) + sumAmount(filteredPipeline);
+
+    // Weighted Forecast: only open deals, weighted by stage probability
+    const weightedSum = (deals: Deal[]) => deals.reduce((sum, d) => sum + d.amount * (d.probability / 100), 0);
+    const totalForecast = weightedSum(filteredCommit) + weightedSum(filteredBestCase) + weightedSum(filteredPipeline);
 
     // Format currency helper
     const formatCurrency = (amount: number): string => {
@@ -551,12 +575,18 @@ function DashboardContent() {
       (sum, t) => sum + t.amount, 0
     );
 
-    // Recalculate achievement rate
+    // Recalculate achievement rate (Closed Won vs Target)
     const filteredAchievementRate = filteredTotalTarget > 0
       ? (closedWonAmount / filteredTotalTarget) * 100
       : 0;
 
-    // Recalculate gap
+    // Recalculate forecast coverage (Closed Won + Weighted Forecast vs Target)
+    const expectedTotal = closedWonAmount + totalForecast;
+    const filteredForecastCoverage = filteredTotalTarget > 0
+      ? (expectedTotal / filteredTotalTarget) * 100
+      : 0;
+
+    // Recalculate gap (how much more closed won needed)
     const filteredGap = filteredTotalTarget - closedWonAmount;
 
     return {
@@ -567,6 +597,7 @@ function DashboardContent() {
         targetCoverage: filteredTargetCoverage,
         totalTargetFormatted: formatCurrency(filteredTotalTarget),
         achievementRate: filteredAchievementRate,
+        forecastCoverage: filteredForecastCoverage,
         gap: filteredGap,
         gapFormatted: formatCurrency(Math.abs(filteredGap)),
         totalPipelineFormatted: formatCurrency(totalPipeline),
@@ -644,8 +675,8 @@ function DashboardContent() {
       productSummary: {
         ...rawData.productSummary,
         topProducts: rawData.productSummary.topProducts.map(product => {
-          // Filter deals for this product
-          const filteredProductDeals = filterDeals(product.deals);
+          // Filter deals for this product (by closeDate)
+          const filteredProductDeals = filterDealsByCloseDate(product.deals);
 
           // Recalculate commitQty and bestCaseQty based on filtered deals
           let filteredCommitQty = 0;
@@ -1538,7 +1569,7 @@ function DashboardContent() {
                 )}
               </div>
 
-              {/* Achievement - Only meaningful when all targets are set */}
+              {/* Achievement - Shows both Closed Won % and Forecast Coverage % */}
               <div className={`rounded-xl p-5 border ${
                 achievementColor === 'emerald'
                   ? 'bg-emerald-50 border-emerald-200'
@@ -1557,16 +1588,27 @@ function DashboardContent() {
                   }`} />
                 </div>
                 {hasCompleteTargets ? (
-                  <>
-                    <p className={`text-3xl font-bold ${
-                      achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : 'text-red-700'
-                    }`}>{data.summary.achievementRate}%</p>
-                    <p className={`text-xs mt-1 ${
-                      achievementColor === 'emerald' ? 'text-emerald-600' : achievementColor === 'orange' ? 'text-amber-600' : 'text-red-600'
-                    }`}>
-                      {data.summary.achievementRate >= 100 ? t('exceedingTarget') : data.summary.achievementRate >= 90 ? t('onTrack') : t('behindTarget')}
-                    </p>
-                  </>
+                  <div className="space-y-2">
+                    {/* Closed Won Achievement */}
+                    <div>
+                      <p className={`text-2xl font-bold ${
+                        achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : 'text-red-700'
+                      }`}>{Math.round(data.summary.achievementRate)}%</p>
+                      <p className={`text-xs ${
+                        achievementColor === 'emerald' ? 'text-emerald-600' : achievementColor === 'orange' ? 'text-amber-600' : 'text-red-600'
+                      }`}>
+                        {data.summary.achievementRate >= 100 ? t('exceedingTarget') : data.summary.achievementRate >= 90 ? t('onTrack') : t('behindTarget')}
+                      </p>
+                    </div>
+                    {/* Forecast Coverage - shows expected achievement if forecast closes */}
+                    <div className="pt-2 border-t border-slate-200/50">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-lg font-semibold text-blue-600">{Math.round(data.summary.forecastCoverage)}%</span>
+                        <span className="text-xs text-slate-500">{t('forecastCoverageLabel')}</span>
+                      </div>
+                      <p className="text-xs text-slate-400">{t('expectedIfForecastCloses')}</p>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <p className="text-3xl font-bold text-slate-400">--</p>
@@ -1715,17 +1757,17 @@ function DashboardContent() {
               <h2 className="text-lg font-semibold text-slate-900">{t('alertsAndRisks')}</h2>
             </div>
 
-            {/* Gap to Target */}
-            <div className={`p-4 rounded-lg mb-4 ${data.summary.gap >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+            {/* Gap to Target - gap > 0 means behind target (red), gap <= 0 means on/ahead of target (green) */}
+            <div className={`p-4 rounded-lg mb-4 ${data.summary.gap <= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-1">{t('gapToTarget')}</p>
-                  <p className={`text-2xl font-bold ${data.summary.gap >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  <p className={`text-2xl font-bold ${data.summary.gap <= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                     {data.summary.gapFormatted}
                   </p>
                 </div>
-                <div className={`p-2.5 rounded-full ${data.summary.gap >= 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
-                  {data.summary.gap >= 0 ? (
+                <div className={`p-2.5 rounded-full ${data.summary.gap <= 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                  {data.summary.gap <= 0 ? (
                     <TrendingUp className="h-5 w-5 text-emerald-600" />
                   ) : (
                     <TrendingDown className="h-5 w-5 text-red-600" />

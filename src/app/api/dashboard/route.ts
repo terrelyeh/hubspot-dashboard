@@ -306,12 +306,11 @@ export async function GET(request: Request) {
     );
     const openDealAmount = openDeals.reduce((sum, deal) => sum + deal.amountUsd, 0);
 
-    const weightedForecast = deals.reduce(
+    // Weighted Forecast: only open deals (not Closed Won/Lost), weighted by stage probability
+    const weightedForecast = openDeals.reduce(
       (sum, deal) => sum + deal.amountUsd * (deal.stageProbability / 100),
       0
     );
-    const gap = weightedForecast - targetAmount;
-    const achievementRate = targetAmount > 0 ? (weightedForecast / targetAmount) * 100 : 0;
     const pipelineCoverage = targetAmount > 0 ? (totalPipeline / targetAmount) * 100 : 0;
 
     // Calculate Activity KPIs
@@ -346,6 +345,17 @@ export async function GET(request: Request) {
     });
 
     const closedWonAmount = closedWonDeals.reduce((sum, d) => sum + d.amountUsd, 0);
+
+    // Gap = Target - Closed Won (how much more closed won needed)
+    const gap = targetAmount - closedWonAmount;
+
+    // Achievement Rate: actual closed won vs target
+    const achievementRate = targetAmount > 0 ? (closedWonAmount / targetAmount) * 100 : 0;
+
+    // Forecast Coverage: (Closed Won + Weighted Forecast) vs Target
+    // This shows expected achievement if all forecasted deals close as predicted
+    const expectedTotal = closedWonAmount + weightedForecast;
+    const forecastCoverage = targetAmount > 0 ? (expectedTotal / targetAmount) * 100 : 0;
 
     // Closed Lost deals
     const closedLostWhere: any = {
@@ -469,7 +479,7 @@ export async function GET(request: Request) {
     );
     const commitRevenue = commitDealsForRevenue.reduce((sum, d) => sum + d.amountUsd, 0);
 
-    // Forecast breakdown by category
+    // Forecast breakdown by category - only for open deals (not Closed Won/Lost)
     const forecastByCategory = {
       commit: 0,
       bestCase: 0,
@@ -477,7 +487,7 @@ export async function GET(request: Request) {
       omitted: 0,
     };
 
-    deals.forEach(deal => {
+    openDeals.forEach(deal => {
       const weighted = deal.amountUsd * (deal.stageProbability / 100);
       const category = (deal.forecastCategory || 'pipeline').toLowerCase();
 
@@ -868,8 +878,9 @@ export async function GET(request: Request) {
           totalQuarters: quartersInRange.length,
         },
         gap,
-        gapFormatted: `${gap >= 0 ? '+' : ''}${formatCurrency(Math.abs(gap))}`,
+        gapFormatted: formatCurrency(Math.abs(gap)),
         achievementRate: Math.round(achievementRate),
+        forecastCoverage: Math.round(forecastCoverage), // Expected achievement if forecasted deals close
         pipelineCoverage: Math.round(pipelineCoverage),
         dealCount: deals.length,
       },
