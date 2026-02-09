@@ -911,9 +911,10 @@ function DashboardContent() {
                     <path d="M18.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 5H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3C9.5 5.22 9.28 5 9 5zm9.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 10H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3c0-.28-.22-.5-.5-.5zm9.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 15H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3c0-.28-.22-.5-.5-.5z"/>
                   </svg>
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex items-center gap-3">
                   <h1 className="text-base sm:text-xl font-semibold text-white truncate">Pipeline Dashboard</h1>
-                  <div className="h-3 sm:h-4 w-16 sm:w-20 bg-slate-700 rounded mt-1 animate-pulse"></div>
+                  {/* Skeleton Region Switcher - Desktop */}
+                  <div className="hidden sm:block h-8 w-32 bg-slate-700 rounded-lg animate-pulse"></div>
                 </div>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
@@ -921,10 +922,20 @@ function DashboardContent() {
                 <div className="h-7 sm:h-8 w-7 sm:w-8 bg-slate-700 rounded-lg animate-pulse"></div>
               </div>
             </div>
-            {/* Row 2: Region */}
-            <div className="mt-3">
-              <div className="h-8 w-32 bg-slate-700 rounded-lg animate-pulse"></div>
+            {/* Row 2: Region (Mobile) + Period */}
+            <div className="mt-3 flex items-center gap-3">
+              {/* Mobile Region */}
+              <div className="sm:hidden h-8 w-28 bg-slate-700 rounded-lg animate-pulse"></div>
+              <div className="h-3 sm:h-4 w-20 sm:w-24 bg-slate-700 rounded animate-pulse"></div>
             </div>
+          </div>
+        </div>
+
+        {/* Loading Message */}
+        <div className="flex items-center justify-center py-8">
+          <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-lg shadow-sm border border-slate-200">
+            <RefreshCw className="h-4 w-4 text-orange-500 animate-spin" />
+            <span className="text-sm text-slate-600 font-medium">Loading dashboard...</span>
           </div>
         </div>
 
@@ -982,13 +993,13 @@ function DashboardContent() {
           </div>
 
           {/* Skeleton Activity Metrics + Forecast Confidence - Side by Side */}
-          <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
             {/* Skeleton Activity Metrics (3 cards) */}
             <div className="flex-1 lg:flex-[3]">
               <div className="h-6 w-40 bg-slate-200 rounded mb-4 animate-pulse"></div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100%-2rem)]">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className="bg-white rounded-xl p-5 border border-slate-200">
+                  <div key={i} className="bg-white rounded-xl p-5 border border-slate-200 flex flex-col justify-center">
                     <div className="flex items-center justify-between mb-3">
                       <div className="h-3 w-20 bg-slate-200 rounded animate-pulse"></div>
                       <div className="h-4 w-4 bg-slate-200 rounded animate-pulse"></div>
@@ -1000,10 +1011,9 @@ function DashboardContent() {
             </div>
 
             {/* Skeleton Forecast Confidence */}
-            <div className="flex-1 lg:flex-[2]">
+            <div className="flex-1 lg:flex-[2] flex flex-col">
               <div className="h-6 w-40 bg-slate-200 rounded mb-4 animate-pulse"></div>
-              <div className="bg-white rounded-xl p-5 border border-slate-200">
-                <div className="h-7 bg-slate-200 rounded mb-4 animate-pulse"></div>
+              <div className="bg-white rounded-xl p-5 border border-slate-200 flex-1 flex flex-col justify-center">
                 <div className="grid grid-cols-3 gap-3">
                   {[1, 2, 3].map(j => (
                     <div key={j} className="p-3 bg-slate-50 rounded-lg">
@@ -1079,9 +1089,9 @@ function DashboardContent() {
       {/* Header - Mobile Responsive */}
       <div className="bg-slate-900 border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
-          {/* Row 1: Logo + Title + Actions */}
+          {/* Row 1: Logo + Title + Region (Desktop) + Actions */}
           <div className="flex items-center justify-between gap-3">
-            {/* Left: Logo + Title */}
+            {/* Left: Logo + Title + Region (Desktop) */}
             <div className="flex items-center gap-3 min-w-0">
               {/* Logo */}
               <div className="bg-orange-500 p-2 sm:p-2.5 rounded-lg flex-shrink-0">
@@ -1089,14 +1099,38 @@ function DashboardContent() {
                   <path d="M18.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 5H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3C9.5 5.22 9.28 5 9 5zm9.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 10H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3c0-.28-.22-.5-.5-.5zm9.5 8.5v-3c0-.28-.22-.5-.5-.5h-3c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5zM9 15H6c-.28 0-.5.22-.5.5v3c0 .28.22.5.5.5h3c.28 0 .5-.22.5-.5v-3c0-.28-.22-.5-.5-.5z"/>
                 </svg>
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex items-center gap-3">
                 <h1 className="text-base sm:text-xl font-semibold text-white truncate">Pipeline Dashboard</h1>
-                <p className="text-slate-400 text-xs sm:text-sm">
-                  {startYear === endYear && startQuarter === endQuarter
-                    ? `Q${startQuarter} ${startYear}`
-                    : `Q${startQuarter} ${startYear} → Q${endQuarter} ${endYear}`
-                  }
-                </p>
+                {/* Region Switcher - Desktop: inline with title */}
+                <div className="relative hidden sm:block" ref={regionDropdownRef}>
+                  <button
+                    onClick={() => setRegionDropdownOpen(!regionDropdownOpen)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-600 transition-colors"
+                  >
+                    <span className="text-lg">{currentRegion.flag}</span>
+                    <span className="text-sm font-medium text-white">{currentRegion.name}</span>
+                    <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${regionDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {regionDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-50 min-w-[180px]">
+                      {REGIONS.map((region) => (
+                        <button
+                          key={region.code}
+                          onClick={() => handleRegionChange(region.code)}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 transition-colors ${
+                            selectedRegion === region.code ? 'bg-slate-50' : ''
+                          }`}
+                        >
+                          <span className="text-lg">{region.flag}</span>
+                          <span className={`text-sm font-medium ${selectedRegion === region.code ? 'text-slate-900' : 'text-slate-600'}`}>{region.name}</span>
+                          {selectedRegion === region.code && (
+                            <CheckCircle className="h-4 w-4 text-emerald-500 ml-auto" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1149,10 +1183,10 @@ function DashboardContent() {
             </div>
           </div>
 
-          {/* Row 2: Region Switcher - Separate row for better mobile layout */}
-          <div className="mt-3 flex items-center gap-2">
-            {/* Region Switcher */}
-            <div className="relative" ref={regionDropdownRef}>
+          {/* Row 2: Region (Mobile) + Period */}
+          <div className="mt-3 flex items-center gap-3">
+            {/* Region Switcher - Mobile only */}
+            <div className="relative sm:hidden" ref={regionDropdownRef}>
               <button
                 onClick={() => setRegionDropdownOpen(!regionDropdownOpen)}
                 className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-600 transition-colors"
@@ -1181,6 +1215,14 @@ function DashboardContent() {
                 </div>
               )}
             </div>
+
+            {/* Period display */}
+            <p className="text-slate-400 text-xs sm:text-sm">
+              {startYear === endYear && startQuarter === endQuarter
+                ? `Q${startQuarter} ${startYear}`
+                : `Q${startQuarter} ${startYear} → Q${endQuarter} ${endYear}`
+              }
+            </p>
 
             {/* Mobile: Show sync message here if exists */}
             {syncMessage && (
@@ -1648,14 +1690,14 @@ function DashboardContent() {
         </div>
 
         {/* Activity Metrics + Forecast Confidence - Side by Side */}
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
           {/* 左側: Activity Metrics (約 60%) */}
           <div className="flex-1 lg:flex-[3]">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('activityMetrics')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100%-2rem)]">
               <div
                 onClick={() => openSlideout('New Deals Created This Quarter', data.activityKpis.newDeals.deals)}
-                className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-center"
               >
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('newDeals')}</p>
@@ -1666,7 +1708,7 @@ function DashboardContent() {
 
               <div
                 onClick={() => openSlideout(t('closedWonDeals'), data.activityKpis.closedWon.deals)}
-                className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-center"
               >
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedWon')}</p>
@@ -1677,7 +1719,7 @@ function DashboardContent() {
 
               <div
                 onClick={() => openSlideout(t('closedLostDeals'), data.activityKpis.closedLost.deals)}
-                className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+                className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-center"
               >
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('closedLost')}</p>
@@ -1689,55 +1731,9 @@ function DashboardContent() {
           </div>
 
           {/* 右側: Forecast Confidence (約 40%) */}
-          <div className="flex-1 lg:flex-[2]">
+          <div className="flex-1 lg:flex-[2] flex flex-col">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('forecastConfidence')}</h2>
-            <div className="bg-white rounded-xl p-5 border border-slate-200 h-[calc(100%-2rem)]">
-              {/* Stacked Bar - Order: Pipeline (low) → Best Case (medium) → Commit (high) */}
-              <div className="mb-4">
-                <div className="flex h-7 rounded-md overflow-hidden bg-slate-100">
-                  {(() => {
-                    const commit = data.forecastBreakdown.commit;
-                    const bestCase = data.forecastBreakdown.bestCase;
-                    const pipeline = data.forecastBreakdown.pipeline;
-                    const total = commit.percentage + bestCase.percentage + pipeline.percentage;
-                    return (
-                      <>
-                        {pipeline.percentage > 0 && (
-                          <div
-                            onClick={() => openSlideout('Pipeline Deals (Negotiating)', pipeline.deals)}
-                            className="bg-blue-500 cursor-pointer hover:bg-blue-600 transition-colors flex items-center justify-center"
-                            style={{ width: `${(pipeline.percentage / total) * 100}%` }}
-                            title={`Pipeline: ${pipeline.amountFormatted}`}
-                          >
-                            {pipeline.percentage > 15 && <span className="text-xs font-semibold text-white">{pipeline.percentage}%</span>}
-                          </div>
-                        )}
-                        {bestCase.percentage > 0 && (
-                          <div
-                            onClick={() => openSlideout('Best Case Deals (Potential)', bestCase.deals)}
-                            className="bg-amber-500 cursor-pointer hover:bg-amber-600 transition-colors flex items-center justify-center"
-                            style={{ width: `${(bestCase.percentage / total) * 100}%` }}
-                            title={`Best Case: ${bestCase.amountFormatted}`}
-                          >
-                            {bestCase.percentage > 15 && <span className="text-xs font-semibold text-white">{bestCase.percentage}%</span>}
-                          </div>
-                        )}
-                        {commit.percentage > 0 && (
-                          <div
-                            onClick={() => openSlideout('Commit Deals (High Confidence)', commit.deals)}
-                            className="bg-emerald-500 cursor-pointer hover:bg-emerald-600 transition-colors flex items-center justify-center"
-                            style={{ width: `${(commit.percentage / total) * 100}%` }}
-                            title={`Commit: ${commit.amountFormatted}`}
-                          >
-                            {commit.percentage > 15 && <span className="text-xs font-semibold text-white">{commit.percentage}%</span>}
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-
+            <div className="bg-white rounded-xl p-5 border border-slate-200 flex-1 flex flex-col justify-center">
               {/* Legend Grid - Order: Pipeline (low) → Best Case (medium) → Commit (high) */}
               <div className="grid grid-cols-3 gap-3">
                 {[
