@@ -38,6 +38,7 @@ export const translations = {
     exceedingTarget: '✓ Exceeding Target',
     onTrack: '↗ On Track',
     behindTarget: '↘ Behind Target',
+    setTargetsToTrack: 'Set targets to track',
 
     // Activity Metrics
     activityMetrics: 'Activity Metrics',
@@ -213,6 +214,7 @@ export const translations = {
     exceedingTarget: '✓ 目標超過',
     onTrack: '↗ 順調',
     behindTarget: '↘ 目標未達',
+    setTargetsToTrack: '目標を設定して追跡',
 
     // Activity Metrics
     activityMetrics: 'アクティビティ指標',

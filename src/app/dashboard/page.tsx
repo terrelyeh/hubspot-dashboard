@@ -960,7 +960,15 @@ function DashboardContent() {
     );
   }
 
-  const achievementColor = data.summary.achievementRate >= 100 ? 'emerald' : data.summary.achievementRate >= 90 ? 'orange' : 'red';
+  // Only calculate achievement color if all targets are set
+  const hasCompleteTargets = data.summary.targetCoverage.isComplete;
+  const achievementColor = !hasCompleteTargets
+    ? 'slate' // Gray when targets not complete
+    : data.summary.achievementRate >= 100
+      ? 'emerald'
+      : data.summary.achievementRate >= 90
+        ? 'orange'
+        : 'red';
 
   const getForecastBadge = (category: string) => {
     const c = category.toLowerCase();
@@ -1463,30 +1471,43 @@ function DashboardContent() {
                 )}
               </div>
 
-              {/* Achievement */}
+              {/* Achievement - Only meaningful when all targets are set */}
               <div className={`rounded-xl p-5 border ${
                 achievementColor === 'emerald'
                   ? 'bg-emerald-50 border-emerald-200'
                   : achievementColor === 'orange'
                     ? 'bg-amber-50 border-amber-200'
-                    : 'bg-red-50 border-red-200'
+                    : achievementColor === 'slate'
+                      ? 'bg-slate-50 border-slate-200'
+                      : 'bg-red-50 border-red-200'
               }`}>
                 <div className="flex items-center justify-between mb-2">
                   <p className={`text-sm font-medium ${
-                    achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : 'text-red-700'
+                    achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : achievementColor === 'slate' ? 'text-slate-600' : 'text-red-700'
                   }`}>{t('achievement')}</p>
                   <BarChart3 className={`h-4 w-4 ${
-                    achievementColor === 'emerald' ? 'text-emerald-500' : achievementColor === 'orange' ? 'text-amber-500' : 'text-red-500'
+                    achievementColor === 'emerald' ? 'text-emerald-500' : achievementColor === 'orange' ? 'text-amber-500' : achievementColor === 'slate' ? 'text-slate-400' : 'text-red-500'
                   }`} />
                 </div>
-                <p className={`text-3xl font-bold ${
-                  achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : 'text-red-700'
-                }`}>{data.summary.achievementRate}%</p>
-                <p className={`text-xs mt-1 ${
-                  achievementColor === 'emerald' ? 'text-emerald-600' : achievementColor === 'orange' ? 'text-amber-600' : 'text-red-600'
-                }`}>
-                  {data.summary.achievementRate >= 100 ? t('exceedingTarget') : data.summary.achievementRate >= 90 ? t('onTrack') : t('behindTarget')}
-                </p>
+                {hasCompleteTargets ? (
+                  <>
+                    <p className={`text-3xl font-bold ${
+                      achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : 'text-red-700'
+                    }`}>{data.summary.achievementRate}%</p>
+                    <p className={`text-xs mt-1 ${
+                      achievementColor === 'emerald' ? 'text-emerald-600' : achievementColor === 'orange' ? 'text-amber-600' : 'text-red-600'
+                    }`}>
+                      {data.summary.achievementRate >= 100 ? t('exceedingTarget') : data.summary.achievementRate >= 90 ? t('onTrack') : t('behindTarget')}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-3xl font-bold text-slate-400">--</p>
+                    <p className="text-xs mt-1 text-slate-500">
+                      {t('setTargetsToTrack') || 'Set targets to track'}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>
