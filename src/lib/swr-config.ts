@@ -1,15 +1,111 @@
 /**
- * SWR Configuration for client-side caching
+ * SWR Configuration for client-side caching with localStorage persistence
  *
  * Benefits:
  * - Automatic caching of API responses
  * - Stale-while-revalidate pattern for optimal UX
  * - Built-in deduplication of requests
- * - Focus revalidation (refresh when tab regains focus)
+ * - **Persistent cache across browser reloads** (localStorage)
  * - Manual cache invalidation support
  */
 
 import { SWRConfiguration } from 'swr';
+
+// localStorage key for SWR cache
+const SWR_CACHE_KEY = 'swr-dashboard-cache';
+const CACHE_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes max cache age
+
+// Cache entry interface
+interface CacheEntry {
+  data: unknown;
+  timestamp: number;
+}
+
+interface CacheStore {
+  [key: string]: CacheEntry;
+}
+
+// Load cache from localStorage
+function loadCache(): Map<string, unknown> {
+  if (typeof window === 'undefined') return new Map();
+
+  try {
+    const stored = localStorage.getItem(SWR_CACHE_KEY);
+    if (!stored) return new Map();
+
+    const parsed: CacheStore = JSON.parse(stored);
+    const now = Date.now();
+    const cache = new Map<string, unknown>();
+
+    // Only load entries that aren't expired
+    Object.entries(parsed).forEach(([key, entry]) => {
+      if (now - entry.timestamp < CACHE_MAX_AGE_MS) {
+        cache.set(key, entry.data);
+      }
+    });
+
+    return cache;
+  } catch (e) {
+    console.error('Error loading SWR cache from localStorage:', e);
+    return new Map();
+  }
+}
+
+// Save cache to localStorage
+function saveCache(cache: Map<string, unknown>) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const now = Date.now();
+    const store: CacheStore = {};
+
+    cache.forEach((data, key) => {
+      // Only save dashboard API responses (not all SWR data)
+      if (key.startsWith('/api/dashboard')) {
+        store[key] = { data, timestamp: now };
+      }
+    });
+
+    localStorage.setItem(SWR_CACHE_KEY, JSON.stringify(store));
+  } catch (e) {
+    console.error('Error saving SWR cache to localStorage:', e);
+  }
+}
+
+// Create cache provider for SWR
+// This function is called by SWRConfig and receives the parent cache
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function localStorageCacheProvider(): () => Map<string, any> {
+  return () => {
+    // Initialize from localStorage
+    const cache = loadCache() as Map<string, any>;
+
+    // Set up debounced save
+    let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+    const debouncedSave = () => {
+      if (saveTimeout) clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(() => saveCache(cache), 1000);
+    };
+
+    // Override set to trigger save
+    const originalSet = cache.set.bind(cache);
+    cache.set = (key: string, value: unknown) => {
+      originalSet(key, value);
+      debouncedSave();
+      return cache;
+    };
+
+    // Override delete to trigger save
+    const originalDelete = cache.delete.bind(cache);
+    cache.delete = (key: string) => {
+      const result = originalDelete(key);
+      saveCache(cache);
+      return result;
+    };
+
+    return cache;
+  };
+}
 
 // Default fetcher function
 export const fetcher = async (url: string) => {
@@ -83,12 +179,13 @@ export function updateCacheMetadata() {
   }
 }
 
-// Clear cache metadata
+// Clear cache metadata and localStorage cache
 export function clearCacheMetadata() {
   if (typeof window === 'undefined') return;
 
   try {
     localStorage.removeItem(CACHE_METADATA_KEY);
+    localStorage.removeItem(SWR_CACHE_KEY);
   } catch (e) {
     console.error('Error clearing cache metadata:', e);
   }
