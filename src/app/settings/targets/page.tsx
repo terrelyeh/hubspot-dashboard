@@ -43,11 +43,41 @@ export default function TargetsSettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
+  // All hooks must be called before any conditional returns
   const [targets, setTargets] = useState<TargetData[]>([]);
   const [owners, setOwners] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Region selection - must be before conditional returns
+  const [selectedRegion, setSelectedRegion] = useState('JP');
+
+  // Form states - must be before conditional returns
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    regionCode: 'JP',
+    year: new Date().getFullYear(),
+    quarter: Math.ceil((new Date().getMonth() + 1) / 3),
+    ownerName: '', // Empty string = region-level target
+    currency: 'USD', // Default to USD
+    amount: 0,
+    notes: '',
+  });
+
+  // Bulk operation states - must be before conditional returns
+  const [showBulkForm, setShowBulkForm] = useState(false);
+  const [bulkOperation, setBulkOperation] = useState<'copy' | 'applyGrowth'>('copy');
+  const [bulkFormData, setBulkFormData] = useState({
+    sourceYear: new Date().getFullYear(),
+    sourceQuarter: Math.ceil((new Date().getMonth() + 1) / 3) - 1 || 4,
+    targetYear: new Date().getFullYear(),
+    targetQuarter: Math.ceil((new Date().getMonth() + 1) / 3),
+    growthRate: 10,
+  });
+
+  // Derived state (not a hook, so can be anywhere)
+  const currentRegionConfig = REGIONS.find(r => r.code === selectedRegion) || REGIONS[0];
 
   // 權限檢查：只有 ADMIN 和 MANAGER 可以訪問
   useEffect(() => {
@@ -71,33 +101,6 @@ export default function TargetsSettingsPage() {
   if (status === 'authenticated' && session?.user?.role === 'VIEWER') {
     return null; // VIEWER 會被重定向，先顯示空白
   }
-
-  // Region selection
-  const [selectedRegion, setSelectedRegion] = useState('JP');
-  const currentRegionConfig = REGIONS.find(r => r.code === selectedRegion) || REGIONS[0];
-
-  // Form states
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    regionCode: selectedRegion,
-    year: new Date().getFullYear(),
-    quarter: Math.ceil((new Date().getMonth() + 1) / 3),
-    ownerName: '', // Empty string = region-level target
-    currency: 'USD', // Default to USD
-    amount: 0,
-    notes: '',
-  });
-
-  // Bulk operation states
-  const [showBulkForm, setShowBulkForm] = useState(false);
-  const [bulkOperation, setBulkOperation] = useState<'copy' | 'applyGrowth'>('copy');
-  const [bulkFormData, setBulkFormData] = useState({
-    sourceYear: new Date().getFullYear(),
-    sourceQuarter: Math.ceil((new Date().getMonth() + 1) / 3) - 1 || 4,
-    targetYear: new Date().getFullYear(),
-    targetQuarter: Math.ceil((new Date().getMonth() + 1) / 3),
-    growthRate: 10,
-  });
 
   // Update formData when region changes
   useEffect(() => {
