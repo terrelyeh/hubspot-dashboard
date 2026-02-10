@@ -55,7 +55,7 @@ export async function syncDealsFromHubSpot(
 
     // Log the date range being synced
     if (closeDateFilter) {
-      console.log(`Syncing deals with closeDate between ${closeDateFilter.start.toISOString()} and ${closeDateFilter.end.toISOString()}`);
+      console.log(`Syncing deals with closeDate OR createDate between ${closeDateFilter.start.toISOString()} and ${closeDateFilter.end.toISOString()}`);
     } else {
       console.log('Syncing all deals (no date filter)');
     }
