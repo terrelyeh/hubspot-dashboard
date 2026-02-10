@@ -516,10 +516,18 @@ function DashboardContent() {
     const weightedSum = (deals: Deal[]) => deals.reduce((sum, d) => sum + d.amount * (d.probability / 100), 0);
     const totalForecast = weightedSum(filteredCommit) + weightedSum(filteredBestCase) + weightedSum(filteredPipeline);
 
-    // Format currency helper
+    // Format currency helper - smart formatting hides .0 decimal
     const formatCurrency = (amount: number): string => {
-      if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
-      if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
+      if (amount >= 1000000) {
+        const value = amount / 1000000;
+        const formatted = value.toFixed(1);
+        return formatted.endsWith('.0') ? `$${value.toFixed(0)}M` : `$${formatted}M`;
+      }
+      if (amount >= 1000) {
+        const value = amount / 1000;
+        const formatted = value.toFixed(1);
+        return formatted.endsWith('.0') ? `$${value.toFixed(0)}K` : `$${formatted}K`;
+      }
       return `$${amount.toFixed(0)}`;
     };
 

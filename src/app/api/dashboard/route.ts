@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 
 /**
  * Format currency with appropriate unit (K for thousands, M for millions)
+ * Smart formatting: hides .0 decimal (e.g., $200K instead of $200.0K)
  */
 function formatCurrency(amount: number): string {
   // Handle null, undefined, or NaN
@@ -11,9 +12,14 @@ function formatCurrency(amount: number): string {
   }
 
   if (amount >= 1000000) {
-    return `$${(amount / 1000000).toFixed(1)}M`;
+    const value = amount / 1000000;
+    // Hide .0 decimal for clean display
+    const formatted = value.toFixed(1);
+    return formatted.endsWith('.0') ? `$${value.toFixed(0)}M` : `$${formatted}M`;
   } else if (amount >= 1000) {
-    return `$${(amount / 1000).toFixed(1)}K`;
+    const value = amount / 1000;
+    const formatted = value.toFixed(1);
+    return formatted.endsWith('.0') ? `$${value.toFixed(0)}K` : `$${formatted}K`;
   } else {
     return `$${amount.toFixed(0)}`;
   }
@@ -498,7 +504,7 @@ export async function GET(request: Request) {
         hubspotId: deal.hubspotId,
         name: deal.name,
         amount: deal.amountUsd,
-        amountFormatted: `$${(deal.amountUsd / 1000).toFixed(0)}K`,
+        amountFormatted: formatCurrency(deal.amountUsd),
         currency: deal.currency,
         stage: deal.stage,
         probability: deal.stageProbability,
