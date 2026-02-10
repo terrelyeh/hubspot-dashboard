@@ -254,6 +254,11 @@ function DashboardContent() {
   const [endYear, setEndYear] = useState(currentYear);
   const [endQuarter, setEndQuarter] = useState(currentQuarter);
 
+  // Filter states (moved before SWR key to avoid "used before declaration" error)
+  const [selectedOwner, setSelectedOwner] = useState('All');
+  const [selectedStages, setSelectedStages] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
   // SWR for dashboard data - cache per region and owner
   // Date filtering will be done client-side for better UX
   // We fetch a wide date range (2024-2026) and filter client-side
@@ -287,10 +292,6 @@ function DashboardContent() {
 
   // Quick period presets
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('current');
-
-  const [selectedOwner, setSelectedOwner] = useState('All');
-  const [selectedStages, setSelectedStages] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   // Top Deals controls
   const [topDealsLimit, setTopDealsLimit] = useState(10);
