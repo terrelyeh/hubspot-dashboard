@@ -89,6 +89,61 @@ export default function TargetsSettingsPage() {
     }
   }, [session, status, router]);
 
+  // Update formData when region changes - must be before conditional returns
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      regionCode: selectedRegion,
+    }));
+  }, [selectedRegion]);
+
+  // Fetch targets and owners when region changes - must be before conditional returns
+  useEffect(() => {
+    // Fetch targets for selected region
+    const fetchTargets = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/targets?regionCode=${selectedRegion}`);
+        const data = await response.json();
+
+        if (data.success) {
+          const filteredTargets = data.targets.filter(
+            (t: TargetData) => t.region.code === selectedRegion
+          );
+          setTargets(filteredTargets);
+        } else {
+          setError(data.message || 'Failed to fetch targets');
+        }
+      } catch (err) {
+        setError('Failed to fetch targets');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Fetch available owners for selected region
+    const fetchOwners = async () => {
+      try {
+        const response = await fetch(`/api/dashboard?region=${selectedRegion}&startYear=2025&startQuarter=1&endYear=2026&endQuarter=4`);
+        const data = await response.json();
+        if (data.success && data.filters?.availableOwners) {
+          setOwners(data.filters.availableOwners);
+        }
+      } catch (err) {
+        console.error('Failed to fetch owners:', err);
+      }
+    };
+
+    refetchTargets();
+    fetchOwners();
+    // Reset forms when region changes
+    setShowForm(false);
+    setShowBulkForm(false);
+    setError('');
+    setSuccessMessage('');
+  }, [selectedRegion]);
+
   // 如果正在加載 session 或是 VIEWER 角色，顯示 loading 或空白
   if (status === 'loading') {
     return (
@@ -102,23 +157,14 @@ export default function TargetsSettingsPage() {
     return null; // VIEWER 會被重定向，先顯示空白
   }
 
-  // Update formData when region changes
-  useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      regionCode: selectedRegion,
-    }));
-  }, [selectedRegion]);
-
-  // Fetch targets for selected region
-  const fetchTargets = async () => {
+  // Refetch function for use in handlers (defined after conditional returns is OK for regular functions)
+  const refetchTargets = async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/targets?regionCode=${selectedRegion}`);
       const data = await response.json();
 
       if (data.success) {
-        // Filter targets for selected region
         const filteredTargets = data.targets.filter(
           (t: TargetData) => t.region.code === selectedRegion
         );
@@ -133,29 +179,6 @@ export default function TargetsSettingsPage() {
       setLoading(false);
     }
   };
-
-  // Fetch available owners for selected region
-  const fetchOwners = async () => {
-    try {
-      const response = await fetch(`/api/dashboard?region=${selectedRegion}&startYear=2025&startQuarter=1&endYear=2026&endQuarter=4`);
-      const data = await response.json();
-      if (data.success && data.filters?.availableOwners) {
-        setOwners(data.filters.availableOwners);
-      }
-    } catch (err) {
-      console.error('Failed to fetch owners:', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchTargets();
-    fetchOwners();
-    // Reset forms when region changes
-    setShowForm(false);
-    setShowBulkForm(false);
-    setError('');
-    setSuccessMessage('');
-  }, [selectedRegion]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -183,7 +206,7 @@ export default function TargetsSettingsPage() {
       if (data.success) {
         setSuccessMessage(data.message || 'Target saved successfully');
         setShowForm(false);
-        fetchTargets();
+        refetchTargets();
 
         // Reset form
         setFormData({
@@ -220,7 +243,7 @@ export default function TargetsSettingsPage() {
 
       if (data.success) {
         setSuccessMessage('Target deleted successfully');
-        fetchTargets();
+        refetchTargets();
       } else {
         setError(data.message || 'Failed to delete target');
       }
@@ -256,7 +279,7 @@ export default function TargetsSettingsPage() {
       if (data.success) {
         setSuccessMessage(data.message || 'Bulk operation completed successfully');
         setShowBulkForm(false);
-        fetchTargets();
+        refetchTargets();
       } else {
         setError(data.message || 'Failed to perform bulk operation');
       }
