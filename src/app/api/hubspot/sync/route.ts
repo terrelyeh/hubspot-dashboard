@@ -85,7 +85,7 @@ export async function POST(request: Request) {
         startDate,
         endDate,
         maxDeals: maxDeals ?? 50,  // Default 50 deals per batch for Vercel timeout
-        skipLineItems: skipLineItems ?? true,  // Skip line items by default for faster sync
+        skipLineItems: skipLineItems ?? false,  // Sync line items by default
       });
       results = { [regionCode]: result };
     } else {
@@ -124,7 +124,7 @@ export async function POST(request: Request) {
         startDate,
         endDate,
         maxDeals: maxDeals ?? 50,
-        skipLineItems: skipLineItems ?? true,
+        skipLineItems: skipLineItems ?? false,  // Sync line items by default
       });
       results = { [defaultRegionCode]: result };
     }
