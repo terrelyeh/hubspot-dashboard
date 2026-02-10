@@ -135,7 +135,7 @@ export default function TargetsSettingsPage() {
       }
     };
 
-    refetchTargets();
+    fetchTargets();
     fetchOwners();
     // Reset forms when region changes
     setShowForm(false);
