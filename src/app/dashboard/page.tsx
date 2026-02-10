@@ -290,6 +290,7 @@ function DashboardContent() {
     isComplete: boolean;
     coveredQuarters: number;
     totalQuarters: number;
+    hasOwnerTarget: boolean; // Whether the owner has their own target set
   }>(ownerTargetKey, {
     keepPreviousData: true, // Keep showing old target while new one loads
   });
@@ -1144,9 +1145,12 @@ function DashboardContent() {
     );
   }
 
+  // Check if we're viewing a specific owner who doesn't have a personal target
+  const isViewingOwnerWithoutTarget = selectedOwner !== 'All' && ownerTargetData?.success && !ownerTargetData.hasOwnerTarget;
+
   // Only calculate achievement color if all targets are set
   const hasCompleteTargets = data.summary.targetCoverage.isComplete;
-  const achievementColor = !hasCompleteTargets
+  const achievementColor = !hasCompleteTargets || isViewingOwnerWithoutTarget
     ? 'slate' // Gray when targets not complete
     : data.summary.achievementRate >= 100
       ? 'emerald'
@@ -1676,86 +1680,113 @@ function DashboardContent() {
           {/* 右邊：Goal Progress */}
           <div className="w-full lg:w-64 flex-shrink-0 flex flex-col">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('goalProgress')}</h2>
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 space-y-3 flex-1 flex flex-col justify-center">
-              {/* Target */}
-              <div className={`bg-white rounded-xl p-4 border ${!data.summary.targetCoverage.isComplete ? 'border-amber-300' : 'border-slate-200'} relative`}>
-                {!data.summary.targetCoverage.isComplete && (
-                  <div className="absolute -top-1.5 -right-1.5 p-1 bg-amber-500 rounded-full" title={t('missingTargetsWarning')}>
-                    <AlertTriangle className="h-3 w-3 text-white" />
+            {isViewingOwnerWithoutTarget ? (
+              /* Show "Target Not Set" UI when viewing a specific owner without personal target */
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex-1 flex flex-col justify-center">
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center p-2 bg-amber-100 rounded-full mb-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-600" />
                   </div>
-                )}
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('target')}</p>
-                  <Target className="h-4 w-4 text-slate-400" />
+                  <p className="text-sm font-semibold text-amber-800 mb-1">
+                    {t('targetNotSet') || '目標未設定'}
+                  </p>
+                  <p className="text-xs text-amber-600 mb-3">
+                    {t('ownerTargetNotSetDescription') || '此業務尚未設定個人目標'}
+                  </p>
+                  <a
+                    href="/settings/targets"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 hover:text-amber-900 transition-colors"
+                  >
+                    {t('goToSetTarget') || '前往設定'}
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </a>
                 </div>
-                <p className="text-lg font-bold text-slate-900">{data.summary.totalTargetFormatted}</p>
-                {data.summary.targetCoverage.totalQuarters === 1 ? (
-                  <p className="text-xs text-slate-400 mt-1">{t('quarterGoal').replace('{quarter}', String(startQuarter)).replace('{year}', String(startYear))}</p>
-                ) : (
-                  <div className="mt-1">
-                    {data.summary.targetCoverage.isComplete ? (
-                      <p className="text-xs text-slate-400">
-                        {t('allQuartersHaveTargets').replace('{count}', String(data.summary.targetCoverage.totalQuarters))}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-amber-600">
-                        {t('partialTargetCoverage').replace('{covered}', String(data.summary.targetCoverage.coveredQuarters)).replace('{total}', String(data.summary.targetCoverage.totalQuarters))}
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
+            ) : (
+              /* Normal Goal Progress UI */
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 space-y-3 flex-1 flex flex-col justify-center">
+                {/* Target */}
+                <div className={`bg-white rounded-xl p-4 border ${!data.summary.targetCoverage.isComplete ? 'border-amber-300' : 'border-slate-200'} relative`}>
+                  {!data.summary.targetCoverage.isComplete && (
+                    <div className="absolute -top-1.5 -right-1.5 p-1 bg-amber-500 rounded-full" title={t('missingTargetsWarning')}>
+                      <AlertTriangle className="h-3 w-3 text-white" />
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('target')}</p>
+                    <Target className="h-4 w-4 text-slate-400" />
+                  </div>
+                  <p className="text-lg font-bold text-slate-900">{data.summary.totalTargetFormatted}</p>
+                  {data.summary.targetCoverage.totalQuarters === 1 ? (
+                    <p className="text-xs text-slate-400 mt-1">{t('quarterGoal').replace('{quarter}', String(startQuarter)).replace('{year}', String(startYear))}</p>
+                  ) : (
+                    <div className="mt-1">
+                      {data.summary.targetCoverage.isComplete ? (
+                        <p className="text-xs text-slate-400">
+                          {t('allQuartersHaveTargets').replace('{count}', String(data.summary.targetCoverage.totalQuarters))}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-amber-600">
+                          {t('partialTargetCoverage').replace('{covered}', String(data.summary.targetCoverage.coveredQuarters)).replace('{total}', String(data.summary.targetCoverage.totalQuarters))}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
 
-              {/* Achievement - Shows both Closed Won % and Forecast Coverage % */}
-              <div className={`rounded-xl p-4 border ${
-                achievementColor === 'emerald'
-                  ? 'bg-emerald-50 border-emerald-200'
-                  : achievementColor === 'orange'
-                    ? 'bg-amber-50 border-amber-200'
-                    : achievementColor === 'slate'
-                      ? 'bg-slate-50 border-slate-200'
-                      : 'bg-red-50 border-red-200'
-              }`}>
-                <div className="flex items-center justify-between mb-1">
-                  <p className={`text-xs font-semibold uppercase tracking-wide ${
-                    achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : achievementColor === 'slate' ? 'text-slate-500' : 'text-red-700'
-                  }`}>{t('achievement')}</p>
-                  <BarChart3 className={`h-4 w-4 ${
-                    achievementColor === 'emerald' ? 'text-emerald-500' : achievementColor === 'orange' ? 'text-amber-500' : achievementColor === 'slate' ? 'text-slate-400' : 'text-red-500'
-                  }`} />
-                </div>
-                {hasCompleteTargets ? (
-                  <div className="space-y-1.5">
-                    {/* Closed Won Achievement */}
-                    <div>
-                      <p className={`text-lg font-bold ${
-                        achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : 'text-red-700'
-                      }`}>{Math.round(data.summary.achievementRate)}%</p>
-                      <p className={`text-xs ${
-                        achievementColor === 'emerald' ? 'text-emerald-600' : achievementColor === 'orange' ? 'text-amber-600' : 'text-red-600'
-                      }`}>
-                        {data.summary.achievementRate >= 100 ? t('exceedingTarget') : data.summary.achievementRate >= 90 ? t('onTrack') : t('behindTarget')}
-                      </p>
-                    </div>
-                    {/* Forecast Coverage - shows expected achievement if forecast closes */}
-                    <div className="pt-1.5 border-t border-slate-200/50">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-base font-semibold text-blue-600">{Math.round(data.summary.forecastCoverage)}%</span>
-                        <span className="text-xs text-slate-500">{t('forecastCoverageLabel')}</span>
-                      </div>
-                      <p className="text-xs text-slate-400">{t('expectedIfForecastCloses')}</p>
-                    </div>
+                {/* Achievement - Shows both Closed Won % and Forecast Coverage % */}
+                <div className={`rounded-xl p-4 border ${
+                  achievementColor === 'emerald'
+                    ? 'bg-emerald-50 border-emerald-200'
+                    : achievementColor === 'orange'
+                      ? 'bg-amber-50 border-amber-200'
+                      : achievementColor === 'slate'
+                        ? 'bg-slate-50 border-slate-200'
+                        : 'bg-red-50 border-red-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className={`text-xs font-semibold uppercase tracking-wide ${
+                      achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : achievementColor === 'slate' ? 'text-slate-500' : 'text-red-700'
+                    }`}>{t('achievement')}</p>
+                    <BarChart3 className={`h-4 w-4 ${
+                      achievementColor === 'emerald' ? 'text-emerald-500' : achievementColor === 'orange' ? 'text-amber-500' : achievementColor === 'slate' ? 'text-slate-400' : 'text-red-500'
+                    }`} />
                   </div>
-                ) : (
-                  <>
-                    <p className="text-2xl font-bold text-slate-400">--</p>
-                    <p className="text-xs mt-1 text-slate-500">
-                      {t('setTargetsToTrack') || 'Set targets to track'}
-                    </p>
-                  </>
-                )}
+                  {hasCompleteTargets ? (
+                    <div className="space-y-1.5">
+                      {/* Closed Won Achievement */}
+                      <div>
+                        <p className={`text-lg font-bold ${
+                          achievementColor === 'emerald' ? 'text-emerald-700' : achievementColor === 'orange' ? 'text-amber-700' : 'text-red-700'
+                        }`}>{Math.round(data.summary.achievementRate)}%</p>
+                        <p className={`text-xs ${
+                          achievementColor === 'emerald' ? 'text-emerald-600' : achievementColor === 'orange' ? 'text-amber-600' : 'text-red-600'
+                        }`}>
+                          {data.summary.achievementRate >= 100 ? t('exceedingTarget') : data.summary.achievementRate >= 90 ? t('onTrack') : t('behindTarget')}
+                        </p>
+                      </div>
+                      {/* Forecast Coverage - shows expected achievement if forecast closes */}
+                      <div className="pt-1.5 border-t border-slate-200/50">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-base font-semibold text-blue-600">{Math.round(data.summary.forecastCoverage)}%</span>
+                          <span className="text-xs text-slate-500">{t('forecastCoverageLabel')}</span>
+                        </div>
+                        <p className="text-xs text-slate-400">{t('expectedIfForecastCloses')}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-bold text-slate-400">--</p>
+                      <p className="text-xs mt-1 text-slate-500">
+                        {t('setTargetsToTrack') || 'Set targets to track'}
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 

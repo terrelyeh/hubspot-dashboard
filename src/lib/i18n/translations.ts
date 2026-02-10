@@ -181,6 +181,11 @@ export const translations = {
     partialTargetCoverage: 'Targets set for {covered}/{total} quarters',
     missingQuarters: 'Missing',
     missingTargetsWarning: 'Some quarters are missing targets. Achievement rate is calculated based on available targets only.',
+
+    // Owner Target Not Set
+    targetNotSet: 'Target Not Set',
+    ownerTargetNotSetDescription: 'This owner has no personal target set',
+    goToSetTarget: 'Go to Settings',
   },
 
   ja: {
@@ -365,6 +370,11 @@ export const translations = {
     partialTargetCoverage: '{covered}/{total}四半期の目標のみ設定',
     missingQuarters: '未設定',
     missingTargetsWarning: '一部の四半期に目標が設定されていません。達成率は設定済みの目標のみで計算されます。',
+
+    // Owner Target Not Set
+    targetNotSet: '目標未設定',
+    ownerTargetNotSetDescription: 'この担当者の個人目標が設定されていません',
+    goToSetTarget: '設定へ移動',
   }
 } as const;
 
