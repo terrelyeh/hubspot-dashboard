@@ -235,10 +235,8 @@ export async function GET(request: Request) {
       };
     }
 
-    // Apply filters
-    if (ownerFilter) {
-      where.ownerName = ownerFilter;
-    }
+    // Apply filters (owner filter removed - now done client-side for instant response)
+    // Target filtering by owner is handled by separate /api/owner-targets endpoint
 
     if (stageFilter) {
       const stages = stageFilter.split(',');
@@ -265,29 +263,16 @@ export async function GET(request: Request) {
     const quartersMissingTargets: { year: number; quarter: number }[] = [];
 
     for (const q of quartersInRange) {
-      let target = null;
-
-      if (ownerFilter) {
-        // Try to find owner-specific target
-        target = await prisma.target.findFirst({
-          where: {
-            regionId: region.id,
-            year: q.year,
-            quarter: q.quarter,
-            ownerName: ownerFilter,
-          },
-        });
-      } else {
-        // No owner filter: get region-level target (ownerName = null)
-        target = await prisma.target.findFirst({
-          where: {
-            regionId: region.id,
-            year: q.year,
-            quarter: q.quarter,
-            ownerName: null,
-          },
-        });
-      }
+      // Always get region-level target (ownerName = null) for dashboard
+      // Owner-specific targets are fetched via /api/owner-targets endpoint
+      const target = await prisma.target.findFirst({
+        where: {
+          regionId: region.id,
+          year: q.year,
+          quarter: q.quarter,
+          ownerName: null,
+        },
+      });
 
       if (target) {
         targetAmount += target.amount;

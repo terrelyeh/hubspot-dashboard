@@ -259,11 +259,11 @@ function DashboardContent() {
   const [selectedStages, setSelectedStages] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
-  // SWR for dashboard data - cache per region and owner
+  // SWR for dashboard data - cache per region only
+  // Owner filtering is done client-side for instant response
   // Date filtering will be done client-side for better UX
   // We fetch a wide date range (2024-2026) and filter client-side
-  const ownerParam = selectedOwner !== 'All' ? `&owner=${encodeURIComponent(selectedOwner)}` : '';
-  const swrKey = `/api/dashboard?region=${selectedRegion}${ownerParam}&startYear=2024&startQuarter=1&endYear=2026&endQuarter=4&topDealsLimit=500&topDealsSortBy=amount`;
+  const swrKey = `/api/dashboard?region=${selectedRegion}&startYear=2024&startQuarter=1&endYear=2026&endQuarter=4&topDealsLimit=500&topDealsSortBy=amount`;
   const {
     data: swrData,
     error: swrError,
@@ -276,6 +276,22 @@ function DashboardContent() {
     },
     // Keep previous data when switching regions to avoid flash
     keepPreviousData: false, // Don't keep - we want loading for region change
+  });
+
+  // Separate SWR for owner-specific targets (allows instant owner switching)
+  const ownerTargetKey = `/api/owner-targets?region=${selectedRegion}&owner=${encodeURIComponent(selectedOwner)}&startYear=${startYear}&startQuarter=${startQuarter}&endYear=${endYear}&endQuarter=${endQuarter}`;
+  const { data: ownerTargetData } = useSWR<{
+    success: boolean;
+    owner: string;
+    targetAmount: number;
+    targetAmountFormatted: string;
+    quartersWithTargets: { year: number; quarter: number; amount: number }[];
+    quartersMissingTargets: { year: number; quarter: number }[];
+    isComplete: boolean;
+    coveredQuarters: number;
+    totalQuarters: number;
+  }>(ownerTargetKey, {
+    keepPreviousData: true, // Keep showing old target while new one loads
   });
 
   // Derive loading, error, data states from SWR
@@ -521,16 +537,60 @@ function DashboardContent() {
     }).filter(stage => stage.dealCount > 0);
 
     // Filter forecastByQuarter to only include quarters within the selected date range
-    const filteredForecastByQuarter = rawData.forecastByQuarter.filter(quarter => {
-      // Convert quarter to comparable value (year * 10 + quarter)
-      const quarterValue = quarter.year * 10 + quarter.quarter;
-      const startValue = startYear * 10 + startQuarter;
-      const endValue = endYear * 10 + endQuarter;
-      return quarterValue >= startValue && quarterValue <= endValue;
-    });
+    // Filter forecastByQuarter and update with owner-specific targets
+    const filteredForecastByQuarter = rawData.forecastByQuarter
+      .filter(quarter => {
+        // Convert quarter to comparable value (year * 10 + quarter)
+        const quarterValue = quarter.year * 10 + quarter.quarter;
+        const startValue = startYear * 10 + startQuarter;
+        const endValue = endYear * 10 + endQuarter;
+        return quarterValue >= startValue && quarterValue <= endValue;
+      })
+      .map(quarter => {
+        // If we have owner-specific target data, update the quarter's target
+        if (ownerTargetData?.success) {
+          const ownerQuarterTarget = ownerTargetData.quartersWithTargets.find(
+            t => t.year === quarter.year && t.quarter === quarter.quarter
+          );
+          if (ownerQuarterTarget) {
+            const achievementRate = ownerQuarterTarget.amount > 0
+              ? Math.round((quarter.totalAmount / ownerQuarterTarget.amount) * 100)
+              : null;
+            return {
+              ...quarter,
+              target: ownerQuarterTarget.amount,
+              targetFormatted: formatCurrency(ownerQuarterTarget.amount),
+              hasTarget: true,
+              achievementRate,
+            };
+          }
+          // Owner has no target for this quarter
+          return {
+            ...quarter,
+            target: 0,
+            targetFormatted: null,
+            hasTarget: false,
+            achievementRate: null,
+          };
+        }
+        return quarter;
+      });
 
     // Recalculate targetCoverage for the selected date range only
+    // Use owner-specific targets if available from ownerTargetData
     const recalculateTargetCoverage = () => {
+      // If we have owner-specific target data, use it directly
+      if (ownerTargetData?.success) {
+        return {
+          quartersWithTargets: ownerTargetData.quartersWithTargets,
+          quartersMissingTargets: ownerTargetData.quartersMissingTargets,
+          isComplete: ownerTargetData.isComplete,
+          coveredQuarters: ownerTargetData.coveredQuarters,
+          totalQuarters: ownerTargetData.totalQuarters,
+        };
+      }
+
+      // Fallback to original data (region-level targets)
       const originalCoverage = rawData.summary.targetCoverage;
       const quartersWithTargets: { year: number; quarter: number; amount: number }[] = [];
       const quartersMissingTargets: { year: number; quarter: number }[] = [];
@@ -732,7 +792,7 @@ function DashboardContent() {
         totalLineItems: rawData.productSummary.totalLineItems,
       },
     };
-  }, [selectedOwner, selectedStages, selectedCategories, topDealsLimit, topDealsSortBy, dateRangeStart, dateRangeEnd, startYear, startQuarter, endYear, endQuarter]);
+  }, [selectedOwner, selectedStages, selectedCategories, topDealsLimit, topDealsSortBy, dateRangeStart, dateRangeEnd, startYear, startQuarter, endYear, endQuarter, ownerTargetData]);
 
   // Apply client-side filters whenever raw data or filters change
   const data = useMemo(() => {
