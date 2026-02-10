@@ -254,10 +254,11 @@ function DashboardContent() {
   const [endYear, setEndYear] = useState(currentYear);
   const [endQuarter, setEndQuarter] = useState(currentQuarter);
 
-  // SWR for dashboard data - cache per region only (not per date range)
+  // SWR for dashboard data - cache per region and owner
   // Date filtering will be done client-side for better UX
   // We fetch a wide date range (2024-2026) and filter client-side
-  const swrKey = `/api/dashboard?region=${selectedRegion}&startYear=2024&startQuarter=1&endYear=2026&endQuarter=4&topDealsLimit=500&topDealsSortBy=amount`;
+  const ownerParam = selectedOwner !== 'All' ? `&owner=${encodeURIComponent(selectedOwner)}` : '';
+  const swrKey = `/api/dashboard?region=${selectedRegion}${ownerParam}&startYear=2024&startQuarter=1&endYear=2026&endQuarter=4&topDealsLimit=500&topDealsSortBy=amount`;
   const {
     data: swrData,
     error: swrError,
