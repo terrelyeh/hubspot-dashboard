@@ -67,21 +67,35 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Track if we're querying for a specific owner (not 'All')
+    const isQueryingSpecificOwner = ownerName && ownerName !== 'All';
+
+    // Check if ANY owner-specific targets exist in this region (for the date range)
+    // This determines whether we should show "Target Not Set" or fallback to region target
+    let regionHasAnyOwnerTargets = false;
+    if (isQueryingSpecificOwner) {
+      const anyOwnerTarget = await prisma.target.findFirst({
+        where: {
+          regionId: region.id,
+          ownerName: { not: null }, // Any owner-specific target
+        },
+      });
+      regionHasAnyOwnerTargets = !!anyOwnerTarget;
+    }
+
     // Fetch targets for each quarter
     let targetAmount = 0;
     const quartersWithTargets: { year: number; quarter: number; amount: number }[] = [];
     const quartersMissingTargets: { year: number; quarter: number }[] = [];
 
-    // Track if we're querying for a specific owner (not 'All')
-    const isQueryingSpecificOwner = ownerName && ownerName !== 'All';
-    // Track if any owner-specific target exists
+    // Track if this specific owner has their own target
     let hasOwnerTarget = false;
 
     for (const q of quartersInRange) {
       let target = null;
 
       if (isQueryingSpecificOwner) {
-        // Only query owner-specific target, NO fallback to region target
+        // First, try to find owner-specific target
         target = await prisma.target.findFirst({
           where: {
             regionId: region.id,
@@ -93,7 +107,20 @@ export async function GET(request: NextRequest) {
 
         if (target) {
           hasOwnerTarget = true;
+        } else if (!regionHasAnyOwnerTargets) {
+          // If no one in this region has owner-specific targets,
+          // fallback to region-level target (team shares the same goal)
+          target = await prisma.target.findFirst({
+            where: {
+              regionId: region.id,
+              year: q.year,
+              quarter: q.quarter,
+              ownerName: null,
+            },
+          });
         }
+        // If regionHasAnyOwnerTargets but this owner doesn't have one,
+        // don't fallback - show "Target Not Set" instead
       } else {
         // For 'All' or no owner specified, get region-level target
         target = await prisma.target.findFirst({
@@ -114,6 +141,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Determine if we should show "Target Not Set" UI
+    // Only show it when:
+    // 1. Querying a specific owner AND
+    // 2. The region has some owner-specific targets (meaning they use personal targets) AND
+    // 3. This specific owner doesn't have their own target
+    const shouldShowTargetNotSet = isQueryingSpecificOwner && regionHasAnyOwnerTargets && !hasOwnerTarget;
+
     return NextResponse.json({
       success: true,
       owner: ownerName || 'All',
@@ -125,9 +159,10 @@ export async function GET(request: NextRequest) {
       isComplete: quartersMissingTargets.length === 0,
       coveredQuarters: quartersWithTargets.length,
       totalQuarters: quartersInRange.length,
-      // New field: indicates if the owner has their own target set
-      // Only relevant when querying a specific owner (not 'All')
-      hasOwnerTarget: isQueryingSpecificOwner ? hasOwnerTarget : true,
+      // Indicates if the owner has their own target set
+      hasOwnerTarget: isQueryingSpecificOwner ? (hasOwnerTarget || !regionHasAnyOwnerTargets) : true,
+      // Additional context
+      regionHasAnyOwnerTargets,
     });
   } catch (error) {
     console.error('Owner targets API error:', error);
