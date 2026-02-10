@@ -427,12 +427,16 @@ function DashboardContent() {
   const applyClientSideFilters = React.useCallback((rawData: DashboardData | null): DashboardData | null => {
     if (!rawData) return null;
 
-    // Helper to filter deals by closeDate and other filters (default)
+    // Helper to filter deals by closeDate OR createdAt (default)
+    // This ensures deals created in Q1 but closing in Q2 are visible in Q1
     const filterDealsByCloseDate = (deals: Deal[]): Deal[] => {
       return deals.filter(deal => {
-        // Date range filter - filter by closeDate
+        // Date range filter - closeDate OR createdAt in range
         const closeDate = new Date(deal.closeDate);
-        if (closeDate < dateRangeStart || closeDate > dateRangeEnd) return false;
+        const createdAt = new Date(deal.createdAt);
+        const closeDateInRange = closeDate >= dateRangeStart && closeDate <= dateRangeEnd;
+        const createdAtInRange = createdAt >= dateRangeStart && createdAt <= dateRangeEnd;
+        if (!closeDateInRange && !createdAtInRange) return false;
         // Owner filter
         if (selectedOwner !== 'All' && deal.owner !== selectedOwner) return false;
         // Stage filter

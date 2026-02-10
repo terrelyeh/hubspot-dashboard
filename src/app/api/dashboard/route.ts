@@ -221,12 +221,24 @@ export async function GET(request: Request) {
     const isMultiQuarter = quartersInRange.length > 1;
 
     // Build where clause for deals
+    // Include deals where closeDate OR createdAt is in range
+    // This ensures deals created in Q1 but closing in Q2 are visible in Q1
     const where: any = {
       regionId: region.id,  // Filter by region
-      closeDate: {
-        gte: quarterStart,
-        lte: quarterEnd,
-      },
+      OR: [
+        {
+          closeDate: {
+            gte: quarterStart,
+            lte: quarterEnd,
+          },
+        },
+        {
+          createdAt: {
+            gte: quarterStart,
+            lte: quarterEnd,
+          },
+        },
+      ],
       NOT: {
         stage: 'Closed Lost',
       },
