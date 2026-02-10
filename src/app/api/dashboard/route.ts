@@ -709,8 +709,17 @@ export async function GET(request: Request) {
       };
     });
 
-    // Get unique owners for filter dropdown
-    const uniqueOwners = [...new Set(deals.map(d => d.ownerName).filter(Boolean))].sort();
+    // Get unique owners for filter dropdown (from ALL deals in region, not filtered)
+    // This ensures the dropdown always shows all available owners
+    const allOwnersInRegion = await prisma.deal.findMany({
+      where: {
+        regionId: region.id,
+        ownerName: { not: null },
+      },
+      select: { ownerName: true },
+      distinct: ['ownerName'],
+    });
+    const uniqueOwners = [...new Set(allOwnersInRegion.map(d => d.ownerName).filter(Boolean))].sort() as string[];
 
     // Get unique stages for filter dropdown
     const uniqueStages = [...new Set(deals.map(d => d.stage))].sort();
