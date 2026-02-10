@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
+// ==================== Helper Functions ====================
+
 /**
  * Format currency with appropriate unit (K for thousands, M for millions)
  * Smart formatting: hides .0 decimal (e.g., $200K instead of $200.0K)
  */
 function formatCurrency(amount: number): string {
-  // Handle null, undefined, or NaN
   if (amount == null || isNaN(amount)) {
     return '$0';
   }
 
   if (amount >= 1000000) {
     const value = amount / 1000000;
-    // Hide .0 decimal for clean display
     const formatted = value.toFixed(1);
     return formatted.endsWith('.0') ? `$${value.toFixed(0)}M` : `$${formatted}M`;
   } else if (amount >= 1000) {
@@ -25,9 +25,6 @@ function formatCurrency(amount: number): string {
   }
 }
 
-/**
- * Helper function to get quarter date range
- */
 function getQuarterDateRange(year: number, quarter: number): { start: Date; end: Date } {
   const start = new Date(year, (quarter - 1) * 3, 1);
   const end = new Date(year, quarter * 3, 0);
@@ -35,9 +32,6 @@ function getQuarterDateRange(year: number, quarter: number): { start: Date; end:
   return { start, end };
 }
 
-/**
- * Helper function to get all quarters between start and end
- */
 function getQuartersBetween(
   startYear: number,
   startQuarter: number,
@@ -63,21 +57,14 @@ function getQuartersBetween(
   return quarters;
 }
 
-/**
- * Helper function to get the previous comparable period
- * For single quarter: returns the previous quarter
- * For multi-quarter range: returns the same length period before
- */
 function getPreviousPeriod(
   startYear: number,
   startQuarter: number,
   endYear: number,
   endQuarter: number
 ): { startYear: number; startQuarter: number; endYear: number; endQuarter: number } {
-  // Calculate total quarters in the current period
   const quartersInPeriod = getQuartersBetween(startYear, startQuarter, endYear, endQuarter).length;
 
-  // Go back by that many quarters
   let prevEndYear = startYear;
   let prevEndQuarter = startQuarter - 1;
 
@@ -86,7 +73,6 @@ function getPreviousPeriod(
     prevEndYear--;
   }
 
-  // Calculate start of previous period
   let prevStartYear = prevEndYear;
   let prevStartQuarter = prevEndQuarter;
 
@@ -106,9 +92,6 @@ function getPreviousPeriod(
   };
 }
 
-/**
- * Calculate percentage change between two values
- */
 function calculatePercentageChange(current: number, previous: number): string {
   if (previous === 0 && current === 0) {
     return '0%';
@@ -121,24 +104,25 @@ function calculatePercentageChange(current: number, previous: number): string {
   return `${rounded >= 0 ? '+' : ''}${rounded}%`;
 }
 
+// ==================== Main Route ====================
+
 /**
  * GET /api/dashboard
  *
- * Single organization dashboard data
+ * Performance-optimized dashboard data endpoint.
+ * Uses parallel DB queries (max 3-4 concurrent) to stay within Supabase free tier connection limits.
+ * Response payload is deduplicated — deals appear once in `allDeals`, other sections reference by ID.
  *
  * Query params:
  *   - year: number (optional) - Default: current year (for single quarter mode)
  *   - quarter: number (optional) - Default: current quarter (for single quarter mode)
- *   - startYear: number (optional) - Start year for date range
- *   - startQuarter: number (optional) - Start quarter for date range
- *   - endYear: number (optional) - End year for date range
- *   - endQuarter: number (optional) - End quarter for date range
+ *   - startYear/startQuarter/endYear/endQuarter: date range mode
  *   - owner: string (optional) - Filter by deal owner
  *   - stage: string (optional) - Filter by deal stage (comma-separated)
  *   - forecastCategory: string (optional) - Filter by forecast category (comma-separated)
  *   - topDealsLimit: number (optional) - Number of top deals to return (default: 10)
- *   - topDealsSortBy: string (optional) - Sort top deals by: amount, closeDate, deployTime, updated (default: amount)
- *   - topDealsSortOrder: string (optional) - Sort order: asc, desc (default: desc for amount, asc for dates)
+ *   - topDealsSortBy: string (optional) - Sort by: amount, closeDate, deployTime, updated
+ *   - topDealsSortOrder: string (optional) - Sort order: asc, desc
  *   - region: string (optional) - Region code (e.g., 'JP', 'APAC'). Default: 'JP'
  */
 export async function GET(request: Request) {
@@ -155,22 +139,17 @@ export async function GET(request: Request) {
 
     if (!region) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Region not found',
-          message: `No region found with code: ${regionCode}`,
-        },
+        { success: false, error: 'Region not found', message: `No region found with code: ${regionCode}` },
         { status: 404 }
       );
     }
 
-    // Support both single quarter (year/quarter) and date range (startYear/startQuarter to endYear/endQuarter)
+    // ==================== Parse Query Params ====================
     const hasDateRange = searchParams.has('startYear') || searchParams.has('endYear');
 
     let startYear: number, startQuarter: number, endYear: number, endQuarter: number;
 
     if (hasDateRange) {
-      // Date range mode
       const now = new Date();
       const currentYear = now.getFullYear();
       const currentQuarter = Math.floor(now.getMonth() / 3) + 1;
@@ -180,7 +159,6 @@ export async function GET(request: Request) {
       endYear = searchParams.get('endYear') ? parseInt(searchParams.get('endYear')!) : currentYear;
       endQuarter = searchParams.get('endQuarter') ? parseInt(searchParams.get('endQuarter')!) : currentQuarter;
     } else {
-      // Single quarter mode (backwards compatible)
       const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : 2024;
       const quarter = searchParams.get('quarter') ? parseInt(searchParams.get('quarter')!) : 3;
       startYear = endYear = year;
@@ -191,107 +169,76 @@ export async function GET(request: Request) {
     const stageFilter = searchParams.get('stage');
     const forecastCategoryFilter = searchParams.get('forecastCategory');
 
-    // Top Deals parameters
     const topDealsLimit = searchParams.get('topDealsLimit') ? parseInt(searchParams.get('topDealsLimit')!) : 10;
     const topDealsSortBy = searchParams.get('topDealsSortBy') || 'amount';
-    const topDealsSortOrder = searchParams.get('topDealsSortOrder') || (topDealsSortBy === 'amount' ? 'desc' : 'asc');
 
-    // Check if we have real HubSpot data (deals with non-empty hubspotId starting with numbers)
-    const hubspotDealsCount = await prisma.deal.count({
-      where: {
-        hubspotId: {
-          not: {
-            startsWith: 'mock-',
-          },
-        },
-      },
-    });
-    const hasRealHubSpotData = hubspotDealsCount > 0;
-
-    // Calculate date range for the selected period
+    // ==================== Compute Date Ranges ====================
     const periodStart = getQuarterDateRange(startYear, startQuarter).start;
     const periodEnd = getQuarterDateRange(endYear, endQuarter).end;
-
-    // For backwards compatibility
     const quarterStart = periodStart;
     const quarterEnd = periodEnd;
 
-    // Get all quarters in the range for target calculation
     const quartersInRange = getQuartersBetween(startYear, startQuarter, endYear, endQuarter);
     const isMultiQuarter = quartersInRange.length > 1;
 
-    // Build where clause for deals
-    // Include deals where closeDate OR createdAt is in range
-    // This ensures deals created in Q1 but closing in Q2 are visible in Q1
-    const where: any = {
-      regionId: region.id,  // Filter by region
-      OR: [
-        {
-          closeDate: {
-            gte: quarterStart,
-            lte: quarterEnd,
-          },
-        },
-        {
-          createdAt: {
-            gte: quarterStart,
-            lte: quarterEnd,
-          },
-        },
-      ],
-      NOT: {
-        stage: 'Closed Lost',
-      },
+    const prevPeriod = getPreviousPeriod(startYear, startQuarter, endYear, endQuarter);
+    const prevPeriodStart = getQuarterDateRange(prevPeriod.startYear, prevPeriod.startQuarter).start;
+    const prevPeriodEnd = getQuarterDateRange(prevPeriod.endYear, prevPeriod.endQuarter).end;
+
+    // ==================== Build Where Clauses ====================
+    // We need hasRealHubSpotData first, but we can batch it with other independent queries
+
+    // Mock data exclusion filter (reusable)
+    const mockExclusionFilter = {
+      hubspotId: { not: { startsWith: 'mock-' } },
     };
 
-    // If we have real HubSpot data, only show real data (exclude mock data)
-    if (hasRealHubSpotData) {
-      where.hubspotId = {
-        not: {
-          startsWith: 'mock-',
+    // ==================== BATCH 1: Independent queries (parallel) ====================
+    // These queries have no dependencies on each other.
+    // Limited to 4 concurrent queries to stay within Supabase free tier connection pool.
+
+    const [
+      hubspotDealsCount,
+      allTargetsInRange,
+      allOwnersInRegion,
+    ] = await Promise.all([
+      // 1. Check for real HubSpot data
+      prisma.deal.count({
+        where: mockExclusionFilter,
+      }),
+
+      // 2. P0-2 FIX: Fetch ALL targets for the quarter range in ONE query (was N+1 loop)
+      prisma.target.findMany({
+        where: {
+          regionId: region.id,
+          ownerName: null,
+          OR: quartersInRange.map(q => ({
+            year: q.year,
+            quarter: q.quarter,
+          })),
         },
-      };
-    }
+      }),
 
-    // Apply filters (owner filter removed - now done client-side for instant response)
-    // Target filtering by owner is handled by separate /api/owner-targets endpoint
+      // 3. Unique owners for filter dropdown
+      prisma.deal.findMany({
+        where: {
+          regionId: region.id,
+          ownerName: { not: null },
+        },
+        select: { ownerName: true },
+        distinct: ['ownerName'],
+      }),
+    ]);
 
-    if (stageFilter) {
-      const stages = stageFilter.split(',');
-      where.stage = { in: stages };
-    }
+    const hasRealHubSpotData = hubspotDealsCount > 0;
 
-    if (forecastCategoryFilter) {
-      const categories = forecastCategoryFilter.split(',');
-      where.forecastCategory = { in: categories };
-    }
-
-    // Fetch all deals in the quarter
-    const deals = await prisma.deal.findMany({
-      where,
-      orderBy: {
-        amountUsd: 'desc',
-      },
-    });
-
-    // Fetch targets for all quarters in the range and sum them
-    // Also track which quarters have targets and which are missing
+    // Process targets from single query result (was N+1 loop)
     let targetAmount = 0;
     const quartersWithTargets: { year: number; quarter: number; amount: number }[] = [];
     const quartersMissingTargets: { year: number; quarter: number }[] = [];
 
     for (const q of quartersInRange) {
-      // Always get region-level target (ownerName = null) for dashboard
-      // Owner-specific targets are fetched via /api/owner-targets endpoint
-      const target = await prisma.target.findFirst({
-        where: {
-          regionId: region.id,
-          year: q.year,
-          quarter: q.quarter,
-          ownerName: null,
-        },
-      });
-
+      const target = allTargetsInRange.find(t => t.year === q.year && t.quarter === q.quarter);
       if (target) {
         targetAmount += target.amount;
         quartersWithTargets.push({ year: q.year, quarter: q.quarter, amount: target.amount });
@@ -300,210 +247,99 @@ export async function GET(request: Request) {
       }
     }
 
-    // Calculate summary metrics
-    const totalPipeline = deals.reduce((sum, deal) => sum + deal.amountUsd, 0);
-
-    // Open Deal Amount: all deals that are not Closed Won or Closed Lost
-    const openDeals = deals.filter(d =>
-      d.stage !== 'Closed Won' && d.stage !== 'Closed Lost'
-    );
-    const openDealAmount = openDeals.reduce((sum, deal) => sum + deal.amountUsd, 0);
-
-    // Weighted Forecast: only open deals (not Closed Won/Lost), weighted by stage probability
-    const weightedForecast = openDeals.reduce(
-      (sum, deal) => sum + deal.amountUsd * (deal.stageProbability / 100),
-      0
-    );
-    const pipelineCoverage = targetAmount > 0 ? (totalPipeline / targetAmount) * 100 : 0;
-
-    // Calculate Activity KPIs
-    const now = new Date();
-
-    // New Deals (created in this quarter)
-    const newDeals = deals.filter(d => {
-      const created = new Date(d.createdAt);
-      return created >= quarterStart && created <= quarterEnd;
-    });
-    const newDealAmount = newDeals.reduce((sum, d) => sum + d.amountUsd, 0);
-
-    // Closed Won deals
-    const closedWonWhere: any = {
-      regionId: region.id,
-      stage: 'Closed Won',
-      closeDate: {
-        gte: quarterStart,
-        lte: quarterEnd,
-      },
-    };
-    // If we have real HubSpot data, only show real data (exclude mock data)
-    if (hasRealHubSpotData) {
-      closedWonWhere.hubspotId = {
-        not: {
-          startsWith: 'mock-',
-        },
-      };
-    }
-    const closedWonDeals = await prisma.deal.findMany({
-      where: closedWonWhere,
-    });
-
-    const closedWonAmount = closedWonDeals.reduce((sum, d) => sum + d.amountUsd, 0);
-
-    // Gap = Target - Closed Won (how much more closed won needed)
-    const gap = targetAmount - closedWonAmount;
-
-    // Achievement Rate: actual closed won vs target
-    const achievementRate = targetAmount > 0 ? (closedWonAmount / targetAmount) * 100 : 0;
-
-    // Forecast Coverage: (Closed Won + Weighted Forecast) vs Target
-    // This shows expected achievement if all forecasted deals close as predicted
-    const expectedTotal = closedWonAmount + weightedForecast;
-    const forecastCoverage = targetAmount > 0 ? (expectedTotal / targetAmount) * 100 : 0;
-
-    // Closed Lost deals
-    const closedLostWhere: any = {
-      regionId: region.id,
-      stage: 'Closed Lost',
-      closeDate: {
-        gte: quarterStart,
-        lte: quarterEnd,
-      },
-    };
-    // If we have real HubSpot data, only show real data (exclude mock data)
-    if (hasRealHubSpotData) {
-      closedLostWhere.hubspotId = {
-        not: {
-          startsWith: 'mock-',
-        },
-      };
-    }
-    const closedLostDeals = await prisma.deal.findMany({
-      where: closedLostWhere,
-    });
-
-    const closedLostAmount = closedLostDeals.reduce((sum, d) => sum + d.amountUsd, 0);
-
-    // Win Rate
-    const totalClosed = closedWonDeals.length + closedLostDeals.length;
-    const winRate = totalClosed > 0 ? (closedWonDeals.length / totalClosed) * 100 : 0;
-
-    // ========== PREVIOUS PERIOD COMPARISON ==========
-    // Calculate previous period date range
-    const prevPeriod = getPreviousPeriod(startYear, startQuarter, endYear, endQuarter);
-    const prevPeriodStart = getQuarterDateRange(prevPeriod.startYear, prevPeriod.startQuarter).start;
-    const prevPeriodEnd = getQuarterDateRange(prevPeriod.endYear, prevPeriod.endQuarter).end;
-
-    // Build where clause for previous period (same filters, different date range)
-    const prevWhereBase: any = {
+    // ==================== Build deal where clauses ====================
+    const baseWhere: any = {
       regionId: region.id,
     };
     if (hasRealHubSpotData) {
-      prevWhereBase.hubspotId = {
-        not: {
-          startsWith: 'mock-',
-        },
-      };
+      baseWhere.hubspotId = { not: { startsWith: 'mock-' } };
     }
+
+    const dealWhere: any = {
+      ...baseWhere,
+      OR: [
+        { closeDate: { gte: quarterStart, lte: quarterEnd } },
+        { createdAt: { gte: quarterStart, lte: quarterEnd } },
+      ],
+      NOT: { stage: 'Closed Lost' },
+    };
+
+    if (stageFilter) {
+      dealWhere.stage = { in: stageFilter.split(',') };
+    }
+    if (forecastCategoryFilter) {
+      dealWhere.forecastCategory = { in: forecastCategoryFilter.split(',') };
+    }
+
+    const prevWhereBase: any = { ...baseWhere };
     if (ownerFilter) {
       prevWhereBase.ownerName = ownerFilter;
     }
 
-    // Previous period: New Deals (created in previous period)
-    const prevNewDeals = await prisma.deal.findMany({
-      where: {
-        ...prevWhereBase,
-        createdAt: {
-          gte: prevPeriodStart,
-          lte: prevPeriodEnd,
+    // ==================== BATCH 2: Deal queries (parallel) ====================
+    // All deal queries can run simultaneously. Max 5 concurrent.
+
+    const [
+      deals,
+      closedWonDeals,
+      closedLostDeals,
+      prevNewDeals,
+      prevClosedWonDeals,
+      prevClosedLostDeals,
+    ] = await Promise.all([
+      // 1. Main deals query
+      prisma.deal.findMany({
+        where: dealWhere,
+        orderBy: { amountUsd: 'desc' },
+      }),
+
+      // 2. Closed Won deals (current period)
+      prisma.deal.findMany({
+        where: {
+          ...baseWhere,
+          stage: 'Closed Won',
+          closeDate: { gte: quarterStart, lte: quarterEnd },
         },
-      },
-    });
-    const prevNewDealCount = prevNewDeals.length;
+      }),
 
-    // Previous period: Closed Won deals
-    const prevClosedWonDeals = await prisma.deal.findMany({
-      where: {
-        ...prevWhereBase,
-        stage: 'Closed Won',
-        closeDate: {
-          gte: prevPeriodStart,
-          lte: prevPeriodEnd,
+      // 3. Closed Lost deals (current period)
+      prisma.deal.findMany({
+        where: {
+          ...baseWhere,
+          stage: 'Closed Lost',
+          closeDate: { gte: quarterStart, lte: quarterEnd },
         },
-      },
-    });
-    const prevClosedWonCount = prevClosedWonDeals.length;
+      }),
 
-    // Previous period: Closed Lost deals
-    const prevClosedLostDeals = await prisma.deal.findMany({
-      where: {
-        ...prevWhereBase,
-        stage: 'Closed Lost',
-        closeDate: {
-          gte: prevPeriodStart,
-          lte: prevPeriodEnd,
+      // 4. Previous period: New Deals
+      prisma.deal.findMany({
+        where: {
+          ...prevWhereBase,
+          createdAt: { gte: prevPeriodStart, lte: prevPeriodEnd },
         },
-      },
-    });
-    const prevClosedLostCount = prevClosedLostDeals.length;
+      }),
 
-    // Previous period: Win Rate
-    const prevTotalClosed = prevClosedWonCount + prevClosedLostCount;
-    const prevWinRate = prevTotalClosed > 0 ? (prevClosedWonCount / prevTotalClosed) * 100 : 0;
+      // 5. Previous period: Closed Won
+      prisma.deal.findMany({
+        where: {
+          ...prevWhereBase,
+          stage: 'Closed Won',
+          closeDate: { gte: prevPeriodStart, lte: prevPeriodEnd },
+        },
+      }),
 
-    // Calculate trends (percentage change vs previous period)
-    const newDealsTrend = calculatePercentageChange(newDeals.length, prevNewDealCount);
-    const closedWonTrend = calculatePercentageChange(closedWonDeals.length, prevClosedWonCount);
-    const closedLostTrend = calculatePercentageChange(closedLostDeals.length, prevClosedLostCount);
-    const winRateTrend = calculatePercentageChange(Math.round(winRate), Math.round(prevWinRate));
+      // 6. Previous period: Closed Lost
+      prisma.deal.findMany({
+        where: {
+          ...prevWhereBase,
+          stage: 'Closed Lost',
+          closeDate: { gte: prevPeriodStart, lte: prevPeriodEnd },
+        },
+      }),
+    ]);
 
-    // ========== END PREVIOUS PERIOD COMPARISON ==========
-
-    // Detect stale deals (>14 days since last modified)
-    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-    const staleDeals = deals.filter(d => new Date(d.lastModifiedAt) < fourteenDaysAgo);
-    const staleDealAmount = staleDeals.reduce((sum, d) => sum + d.amountUsd, 0);
-
-    // Detect large deals (>$100K) closing this month
-    const thisMonth = now.getMonth();
-    const thisYear = now.getFullYear();
-    const largeDealsClosingSoon = deals.filter(d => {
-      const closeDate = new Date(d.closeDate);
-      return (
-        d.amountUsd > 100000 &&
-        closeDate.getMonth() === thisMonth &&
-        closeDate.getFullYear() === thisYear
-      );
-    });
-    const largeDealsAmount = largeDealsClosingSoon.reduce((sum, d) => sum + d.amountUsd, 0);
-
-    // Commit Revenue: total amount of deals with "Commit" forecast category (unweighted)
-    const commitDealsForRevenue = deals.filter(d =>
-      (d.forecastCategory || 'pipeline').toLowerCase() === 'commit'
-    );
-    const commitRevenue = commitDealsForRevenue.reduce((sum, d) => sum + d.amountUsd, 0);
-
-    // Forecast breakdown by category - only for open deals (not Closed Won/Lost)
-    const forecastByCategory = {
-      commit: 0,
-      bestCase: 0,
-      pipeline: 0,
-      omitted: 0,
-    };
-
-    openDeals.forEach(deal => {
-      const weighted = deal.amountUsd * (deal.stageProbability / 100);
-      const category = (deal.forecastCategory || 'pipeline').toLowerCase();
-
-      if (category === 'commit') {
-        forecastByCategory.commit += weighted;
-      } else if (category === 'best case' || category === 'bestcase') {
-        forecastByCategory.bestCase += weighted;
-      } else if (category === 'omitted') {
-        forecastByCategory.omitted += weighted;
-      } else {
-        forecastByCategory.pipeline += weighted;
-      }
-    });
+    // ==================== Compute Metrics (in-memory, no DB) ====================
+    const now = new Date();
 
     // Format deal helper
     const formatDeal = (deal: any) => {
@@ -536,76 +372,149 @@ export async function GET(request: Request) {
       };
     };
 
-    // Get top deals based on the selected dimension
-    // Smart switching based on whether the selected period is in the future or past
-    // - Future period: "closing soonest" / "deploying soonest"
-    // - Past period: "most recently closed" / "most recently deployed"
+    // Summary metrics
+    const totalPipeline = deals.reduce((sum, deal) => sum + deal.amountUsd, 0);
+
+    const openDeals = deals.filter(d =>
+      d.stage !== 'Closed Won' && d.stage !== 'Closed Lost'
+    );
+    const openDealAmount = openDeals.reduce((sum, deal) => sum + deal.amountUsd, 0);
+
+    const weightedForecast = openDeals.reduce(
+      (sum, deal) => sum + deal.amountUsd * (deal.stageProbability / 100),
+      0
+    );
+    const pipelineCoverage = targetAmount > 0 ? (totalPipeline / targetAmount) * 100 : 0;
+
+    // New Deals
+    const newDeals = deals.filter(d => {
+      const created = new Date(d.createdAt);
+      return created >= quarterStart && created <= quarterEnd;
+    });
+    const newDealAmount = newDeals.reduce((sum, d) => sum + d.amountUsd, 0);
+
+    // Closed Won metrics
+    const closedWonAmount = closedWonDeals.reduce((sum, d) => sum + d.amountUsd, 0);
+    const gap = targetAmount - closedWonAmount;
+    const achievementRate = targetAmount > 0 ? (closedWonAmount / targetAmount) * 100 : 0;
+
+    const expectedTotal = closedWonAmount + weightedForecast;
+    const forecastCoverage = targetAmount > 0 ? (expectedTotal / targetAmount) * 100 : 0;
+
+    // Closed Lost metrics
+    const closedLostAmount = closedLostDeals.reduce((sum, d) => sum + d.amountUsd, 0);
+    const totalClosed = closedWonDeals.length + closedLostDeals.length;
+    const winRate = totalClosed > 0 ? (closedWonDeals.length / totalClosed) * 100 : 0;
+
+    // Previous period trends
+    const prevNewDealCount = prevNewDeals.length;
+    const prevClosedWonCount = prevClosedWonDeals.length;
+    const prevClosedLostCount = prevClosedLostDeals.length;
+    const prevTotalClosed = prevClosedWonCount + prevClosedLostCount;
+    const prevWinRate = prevTotalClosed > 0 ? (prevClosedWonCount / prevTotalClosed) * 100 : 0;
+
+    const newDealsTrend = calculatePercentageChange(newDeals.length, prevNewDealCount);
+    const closedWonTrend = calculatePercentageChange(closedWonDeals.length, prevClosedWonCount);
+    const closedLostTrend = calculatePercentageChange(closedLostDeals.length, prevClosedLostCount);
+    const winRateTrend = calculatePercentageChange(Math.round(winRate), Math.round(prevWinRate));
+
+    // Commit Revenue
+    const commitDealsForRevenue = deals.filter(d =>
+      (d.forecastCategory || 'pipeline').toLowerCase() === 'commit'
+    );
+    const commitRevenue = commitDealsForRevenue.reduce((sum, d) => sum + d.amountUsd, 0);
+
+    // Alerts
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const staleDeals = deals.filter(d => new Date(d.lastModifiedAt) < fourteenDaysAgo);
+    const staleDealAmount = staleDeals.reduce((sum, d) => sum + d.amountUsd, 0);
+
+    const thisMonth = now.getMonth();
+    const thisYear = now.getFullYear();
+    const largeDealsClosingSoon = deals.filter(d => {
+      const closeDate = new Date(d.closeDate);
+      return (
+        d.amountUsd > 100000 &&
+        closeDate.getMonth() === thisMonth &&
+        closeDate.getFullYear() === thisYear
+      );
+    });
+    const largeDealsAmount = largeDealsClosingSoon.reduce((sum, d) => sum + d.amountUsd, 0);
+
+    // Forecast breakdown by category
+    const forecastByCategory = { commit: 0, bestCase: 0, pipeline: 0, omitted: 0 };
+
+    openDeals.forEach(deal => {
+      const weighted = deal.amountUsd * (deal.stageProbability / 100);
+      const category = (deal.forecastCategory || 'pipeline').toLowerCase();
+
+      if (category === 'commit') {
+        forecastByCategory.commit += weighted;
+      } else if (category === 'best case' || category === 'bestcase') {
+        forecastByCategory.bestCase += weighted;
+      } else if (category === 'omitted') {
+        forecastByCategory.omitted += weighted;
+      } else {
+        forecastByCategory.pipeline += weighted;
+      }
+    });
+
+    // ==================== Top Deals Sorting ====================
     const isFuturePeriod = periodEnd >= now;
     let topDealsFiltered = [...deals];
 
-    // For date-based dimensions, filter and sort appropriately
     switch (topDealsSortBy) {
       case 'closeDate':
         if (isFuturePeriod) {
-          // Future: Top N deals closing soonest (closest future dates first)
           topDealsFiltered = topDealsFiltered
             .filter(d => new Date(d.closeDate) >= now)
             .sort((a, b) => new Date(a.closeDate).getTime() - new Date(b.closeDate).getTime());
         } else {
-          // Past: Top N deals most recently closed (newest first)
           topDealsFiltered = topDealsFiltered
             .sort((a, b) => new Date(b.closeDate).getTime() - new Date(a.closeDate).getTime());
         }
         break;
       case 'deployTime':
-        // Filter out deals without deployTime first
         topDealsFiltered = topDealsFiltered.filter(d => d.deployTime);
         if (isFuturePeriod) {
-          // Future: Top N deals deploying soonest (closest future dates first)
           topDealsFiltered = topDealsFiltered
             .filter(d => new Date(d.deployTime!) >= now)
             .sort((a, b) => new Date(a.deployTime!).getTime() - new Date(b.deployTime!).getTime());
         } else {
-          // Past: Top N deals most recently deployed (newest first)
           topDealsFiltered = topDealsFiltered
             .sort((a, b) => new Date(b.deployTime!).getTime() - new Date(a.deployTime!).getTime());
         }
         break;
       case 'updated':
-        // Top N most recently updated deals (always newest first)
         topDealsFiltered = topDealsFiltered
           .sort((a, b) => new Date(b.lastModifiedAt).getTime() - new Date(a.lastModifiedAt).getTime());
         break;
       case 'amount':
       default:
-        // Top N highest value deals
         topDealsFiltered = topDealsFiltered
           .sort((a, b) => b.amountUsd - a.amountUsd);
         break;
     }
 
-    const topDeals = topDealsFiltered.slice(0, topDealsLimit).map(formatDeal);
+    // ==================== Deal ID Lists (P1-5: payload dedup) ====================
+    // Build category → dealId[] maps, avoiding duplicate full deal objects in response
+    const commitDealIds = deals
+      .filter(d => (d.forecastCategory || 'pipeline').toLowerCase() === 'commit')
+      .map(d => d.id);
+    const bestCaseDealIds = deals
+      .filter(d => {
+        const cat = (d.forecastCategory || 'pipeline').toLowerCase();
+        return cat === 'best case' || cat === 'bestcase';
+      })
+      .map(d => d.id);
+    const pipelineDealIds = deals
+      .filter(d => {
+        const cat = (d.forecastCategory || 'pipeline').toLowerCase();
+        return cat === 'pipeline' || (!cat || (cat !== 'commit' && cat !== 'best case' && cat !== 'bestcase' && cat !== 'omitted'));
+      })
+      .map(d => d.id);
 
-    // Format detailed deal lists for slideout
-    const newDealsFormatted = newDeals.map(formatDeal);
-    const openDealsFormatted = openDeals.map(formatDeal);
-    const closedWonDealsFormatted = closedWonDeals.map(formatDeal);
-    const closedLostDealsFormatted = closedLostDeals.map(formatDeal);
-    const staleDealsFormatted = staleDeals.map(formatDeal);
-    const largeDealsFormatted = largeDealsClosingSoon.map(formatDeal);
-
-    // Forecast category deal lists
-    const commitDeals = deals.filter(d => (d.forecastCategory || 'pipeline').toLowerCase() === 'commit').map(formatDeal);
-    const bestCaseDeals = deals.filter(d => {
-      const cat = (d.forecastCategory || 'pipeline').toLowerCase();
-      return cat === 'best case' || cat === 'bestcase';
-    }).map(formatDeal);
-    const pipelineDeals = deals.filter(d => {
-      const cat = (d.forecastCategory || 'pipeline').toLowerCase();
-      return cat === 'pipeline' || (!cat || (cat !== 'commit' && cat !== 'best case' && cat !== 'bestcase' && cat !== 'omitted'));
-    }).map(formatDeal);
-
-    // Pipeline by stage
+    // ==================== Pipeline by Stage ====================
     const stageMap = new Map<string, { count: number; simple: number; weighted: number; probability: number }>();
 
     deals.forEach(deal => {
@@ -629,7 +538,7 @@ export async function GET(request: Request) {
       }))
       .sort((a, b) => b.probability - a.probability);
 
-    // Forecast by month - grouped by quarter with quarterly targets
+    // ==================== Forecast by Month/Quarter ====================
     const monthYearMap = new Map<string, { count: number; amount: number; month: number; year: number }>();
 
     deals.forEach(deal => {
@@ -645,9 +554,7 @@ export async function GET(request: Request) {
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-    // Build forecast data grouped by quarter
     const forecastByQuarter = quartersInRange.map(q => {
-      // Get the 3 months in this quarter
       const qMonthIndices = [(q.quarter - 1) * 3, (q.quarter - 1) * 3 + 1, (q.quarter - 1) * 3 + 2];
 
       const months = qMonthIndices.map(monthIndex => {
@@ -663,15 +570,13 @@ export async function GET(request: Request) {
         };
       });
 
-      // Get the target for this specific quarter
       const quarterTarget = quartersWithTargets.find(t => t.year === q.year && t.quarter === q.quarter);
       const hasTarget = !!quarterTarget;
-      const targetAmount = quarterTarget?.amount || 0;
+      const qTargetAmount = quarterTarget?.amount || 0;
 
-      // Calculate quarterly totals
       const totalAmount = months.reduce((sum, m) => sum + m.amount, 0);
       const totalDeals = months.reduce((sum, m) => sum + m.dealCount, 0);
-      const achievementRate = hasTarget && targetAmount > 0 ? Math.round((totalAmount / targetAmount) * 100) : null;
+      const qAchievementRate = hasTarget && qTargetAmount > 0 ? Math.round((totalAmount / qTargetAmount) * 100) : null;
 
       return {
         quarter: q.quarter,
@@ -681,14 +586,14 @@ export async function GET(request: Request) {
         totalAmount,
         totalAmountFormatted: formatCurrency(totalAmount),
         totalDeals,
-        target: targetAmount,
-        targetFormatted: hasTarget ? formatCurrency(targetAmount) : null,
+        target: qTargetAmount,
+        targetFormatted: hasTarget ? formatCurrency(qTargetAmount) : null,
         hasTarget,
-        achievementRate,
+        achievementRate: qAchievementRate,
       };
     });
 
-    // Also keep flat forecastByMonth for backwards compatibility
+    // Flat forecastByMonth (backwards compatibility)
     const allMonthsInRange: { month: number; year: number }[] = [];
     for (const q of quartersInRange) {
       const qMonths = [(q.quarter - 1) * 3, (q.quarter - 1) * 3 + 1, (q.quarter - 1) * 3 + 2];
@@ -712,131 +617,137 @@ export async function GET(request: Request) {
       };
     });
 
-    // Get unique owners for filter dropdown (from ALL deals in region, not filtered)
-    // This ensures the dropdown always shows all available owners
-    const allOwnersInRegion = await prisma.deal.findMany({
-      where: {
-        regionId: region.id,
-        ownerName: { not: null },
-      },
-      select: { ownerName: true },
-      distinct: ['ownerName'],
-    });
+    // ==================== Owners & Stages ====================
     const uniqueOwners = [...new Set(allOwnersInRegion.map(d => d.ownerName).filter(Boolean))].sort() as string[];
-
-    // Get unique stages for filter dropdown
     const uniqueStages = [...new Set(deals.map(d => d.stage))].sort();
 
-    // ========== PRODUCT SUMMARY ==========
-    // Get deal IDs for line item aggregation
+    // ==================== BATCH 3: Product Summary (parallel) ====================
+    // P0-3 FIX: Fetch ALL line items for these deals in ONE query, then group in memory
     const dealIds = deals.map(d => d.id);
 
-    // Aggregate line items by product name (return all for client-side pagination)
-    const lineItemStats = dealIds.length > 0
-      ? await prisma.lineItem.groupBy({
-          by: ['name'],
-          where: {
-            dealId: {
-              in: dealIds,
-            },
-          },
-          _sum: {
-            quantity: true,
-            amount: true,
-          },
-          _count: {
-            id: true,
-          },
-          orderBy: {
-            _sum: {
-              amount: 'desc',
-            },
-          },
-          // No limit - return all products for client-side pagination
-        })
-      : [];
+    // Build a dealId → deal lookup map for O(1) access (was O(n) .find() in loop)
+    const dealLookup = new Map(deals.map(d => [d.id, d]));
 
-    // For each top product, get the associated deals
-    const topProductsWithDeals = await Promise.all(
-      lineItemStats.map(async (item) => {
-        // Find all line items with this product name
-        const lineItemsForProduct = await prisma.lineItem.findMany({
-          where: {
-            name: item.name,
-            dealId: {
-              in: dealIds,
-            },
-          },
+    let productSummary;
+
+    if (dealIds.length > 0) {
+      // Two queries in parallel instead of N+1
+      const [allLineItems, allLineItemTotals] = await Promise.all([
+        // Single query to get ALL line items for all deals
+        prisma.lineItem.findMany({
+          where: { dealId: { in: dealIds } },
           select: {
+            name: true,
             dealId: true,
             quantity: true,
             amount: true,
           },
-        });
+        }),
 
-        // Get unique deal IDs that have this product
-        const productDealIds = [...new Set(lineItemsForProduct.map(li => li.dealId))];
+        // Aggregate totals
+        prisma.lineItem.aggregate({
+          where: { dealId: { in: dealIds } },
+          _sum: { quantity: true, amount: true },
+          _count: { id: true },
+        }),
+      ]);
 
-        // Get the deals with this product
-        const productDeals = deals.filter(d => productDealIds.includes(d.id));
+      // Group line items by product name in memory (was N separate DB queries)
+      const productMap = new Map<string, {
+        totalQuantity: number;
+        totalAmount: number;
+        dealIds: Set<string>;
+        commitQty: number;
+        bestCaseQty: number;
+      }>();
 
-        // Calculate quantity by Forecast Category
-        let commitQty = 0;
-        let bestCaseQty = 0;
-
-        lineItemsForProduct.forEach(li => {
-          const deal = deals.find(d => d.id === li.dealId);
-          if (deal) {
-            const category = (deal.forecastCategory || 'Pipeline').toLowerCase();
-            if (category === 'commit') {
-              commitQty += li.quantity;
-            } else if (category === 'best case' || category === 'bestcase') {
-              bestCaseQty += li.quantity;
-            }
-          }
-        });
-
-        return {
-          name: item.name,
-          totalQuantity: item._sum.quantity || 0,
-          totalAmount: item._sum.amount || 0,
-          totalAmountFormatted: formatCurrency(item._sum.amount || 0),
-          dealCount: productDealIds.length,
-          commitQty,
-          bestCaseQty,
-          deals: productDeals.map(formatDeal),
+      for (const li of allLineItems) {
+        const existing = productMap.get(li.name) || {
+          totalQuantity: 0,
+          totalAmount: 0,
+          dealIds: new Set<string>(),
+          commitQty: 0,
+          bestCaseQty: 0,
         };
-      })
-    );
 
-    // Calculate product totals from all line items (not just top 10)
-    const allLineItemTotals = dealIds.length > 0
-      ? await prisma.lineItem.aggregate({
-          where: {
-            dealId: {
-              in: dealIds,
-            },
-          },
-          _sum: {
-            quantity: true,
-            amount: true,
-          },
-          _count: {
-            id: true,
-          },
+        existing.totalQuantity += li.quantity;
+        existing.totalAmount += li.amount;
+        existing.dealIds.add(li.dealId);
+
+        // Calculate qty by forecast category using O(1) lookup
+        const deal = dealLookup.get(li.dealId);
+        if (deal) {
+          const category = (deal.forecastCategory || 'Pipeline').toLowerCase();
+          if (category === 'commit') {
+            existing.commitQty += li.quantity;
+          } else if (category === 'best case' || category === 'bestcase') {
+            existing.bestCaseQty += li.quantity;
+          }
+        }
+
+        productMap.set(li.name, existing);
+      }
+
+      // Convert to sorted array
+      const topProductsWithDeals = Array.from(productMap.entries())
+        .map(([name, data]) => {
+          const productDealIds = Array.from(data.dealIds);
+          const productDeals = productDealIds
+            .map(id => dealLookup.get(id))
+            .filter(Boolean);
+
+          return {
+            name,
+            totalQuantity: data.totalQuantity,
+            totalAmount: data.totalAmount,
+            totalAmountFormatted: formatCurrency(data.totalAmount),
+            dealCount: productDealIds.length,
+            commitQty: data.commitQty,
+            bestCaseQty: data.bestCaseQty,
+            deals: productDeals.map(formatDeal),
+          };
         })
-      : { _sum: { quantity: 0, amount: 0 }, _count: { id: 0 } };
+        .sort((a, b) => b.totalAmount - a.totalAmount);
 
-    const productSummary = {
-      topProducts: topProductsWithDeals,
-      totalProductsInPipeline: allLineItemTotals._sum.quantity || 0,
-      totalProductValue: allLineItemTotals._sum.amount || 0,
-      totalProductValueFormatted: formatCurrency(allLineItemTotals._sum.amount || 0),
-      totalLineItems: allLineItemTotals._count.id || 0,
-    };
-    // ========== END PRODUCT SUMMARY ==========
+      productSummary = {
+        topProducts: topProductsWithDeals,
+        totalProductsInPipeline: allLineItemTotals._sum.quantity || 0,
+        totalProductValue: allLineItemTotals._sum.amount || 0,
+        totalProductValueFormatted: formatCurrency(allLineItemTotals._sum.amount || 0),
+        totalLineItems: allLineItemTotals._count.id || 0,
+      };
+    } else {
+      productSummary = {
+        topProducts: [],
+        totalProductsInPipeline: 0,
+        totalProductValue: 0,
+        totalProductValueFormatted: '$0',
+        totalLineItems: 0,
+      };
+    }
 
-    // Return comprehensive data
+    // ==================== Build Response ====================
+    // P1-5: Deduplicated response — all unique deals in `allDeals`,
+    // category sections reference by ID arrays to reduce payload size ~50-70%
+
+    // Collect all unique deals (main deals + closedWon + closedLost)
+    const allDealsMap = new Map<string, any>();
+    for (const deal of deals) {
+      allDealsMap.set(deal.id, formatDeal(deal));
+    }
+    for (const deal of closedWonDeals) {
+      if (!allDealsMap.has(deal.id)) {
+        allDealsMap.set(deal.id, formatDeal(deal));
+      }
+    }
+    for (const deal of closedLostDeals) {
+      if (!allDealsMap.has(deal.id)) {
+        allDealsMap.set(deal.id, formatDeal(deal));
+      }
+    }
+
+    const allDealsArray = Array.from(allDealsMap.values());
+
     return NextResponse.json({
       success: true,
       usingMockData: !hasRealHubSpotData,
@@ -845,10 +756,8 @@ export async function GET(request: Request) {
         name: region.name,
       },
       period: {
-        // Single quarter mode (backwards compatible)
         year: startYear,
         quarter: startQuarter,
-        // Date range mode
         startYear,
         startQuarter,
         endYear,
@@ -858,31 +767,32 @@ export async function GET(request: Request) {
         startDate: periodStart.toISOString(),
         endDate: periodEnd.toISOString(),
       },
+      // P1-5: Single array of all deals — other sections use ID references
+      allDeals: allDealsArray,
       summary: {
         totalPipeline,
         totalPipelineFormatted: formatCurrency(totalPipeline),
-        totalPipelineDeals: deals.map(formatDeal), // All deals for Pipeline Value card
+        totalPipelineDealIds: deals.map(d => d.id),
         newDealAmount,
         newDealAmountFormatted: formatCurrency(newDealAmount),
         newDealCount: newDeals.length,
-        newDealsList: newDealsFormatted, // For New Deal Amount card
+        newDealIds: newDeals.map(d => d.id),
         openDealAmount,
         openDealAmountFormatted: formatCurrency(openDealAmount),
         openDealCount: openDeals.length,
-        openDealsList: openDealsFormatted, // For Open Deals card
+        openDealIds: openDeals.map(d => d.id),
         commitRevenue,
         commitRevenueFormatted: formatCurrency(commitRevenue),
-        commitDealCount: commitDeals.length,
-        commitDealsList: commitDeals, // For Commit Revenue card
+        commitDealCount: commitDealIds.length,
+        commitDealIds,
         closedWonAmount,
         closedWonAmountFormatted: formatCurrency(closedWonAmount),
         closedWonCount: closedWonDeals.length,
-        closedWonDealsList: closedWonDealsFormatted, // For Closed Won Amount card
+        closedWonDealIds: closedWonDeals.map(d => d.id),
         totalForecast: weightedForecast,
         totalForecastFormatted: formatCurrency(weightedForecast),
         totalTarget: targetAmount,
         totalTargetFormatted: formatCurrency(targetAmount),
-        // Target coverage info for multi-quarter periods
         targetCoverage: {
           quartersWithTargets,
           quartersMissingTargets,
@@ -893,7 +803,7 @@ export async function GET(request: Request) {
         gap,
         gapFormatted: formatCurrency(Math.abs(gap)),
         achievementRate: Math.round(achievementRate),
-        forecastCoverage: Math.round(forecastCoverage), // Expected achievement if forecasted deals close
+        forecastCoverage: Math.round(forecastCoverage),
         pipelineCoverage: Math.round(pipelineCoverage),
         dealCount: deals.length,
       },
@@ -904,7 +814,7 @@ export async function GET(request: Request) {
           amountFormatted: formatCurrency(newDealAmount),
           trend: newDealsTrend,
           prevCount: prevNewDealCount,
-          deals: newDealsFormatted,
+          dealIds: newDeals.map(d => d.id),
         },
         closedWon: {
           count: closedWonDeals.length,
@@ -912,7 +822,7 @@ export async function GET(request: Request) {
           amountFormatted: formatCurrency(closedWonAmount),
           trend: closedWonTrend,
           prevCount: prevClosedWonCount,
-          deals: closedWonDealsFormatted,
+          dealIds: closedWonDeals.map(d => d.id),
         },
         closedLost: {
           count: closedLostDeals.length,
@@ -920,7 +830,7 @@ export async function GET(request: Request) {
           amountFormatted: formatCurrency(closedLostAmount),
           trend: closedLostTrend,
           prevCount: prevClosedLostCount,
-          deals: closedLostDealsFormatted,
+          dealIds: closedLostDeals.map(d => d.id),
         },
         winRate: {
           rate: Math.round(winRate),
@@ -933,19 +843,19 @@ export async function GET(request: Request) {
           amount: forecastByCategory.commit,
           amountFormatted: formatCurrency(forecastByCategory.commit),
           percentage: weightedForecast > 0 ? Math.round((forecastByCategory.commit / weightedForecast) * 100) : 0,
-          deals: commitDeals,
+          dealIds: commitDealIds,
         },
         bestCase: {
           amount: forecastByCategory.bestCase,
           amountFormatted: formatCurrency(forecastByCategory.bestCase),
           percentage: weightedForecast > 0 ? Math.round((forecastByCategory.bestCase / weightedForecast) * 100) : 0,
-          deals: bestCaseDeals,
+          dealIds: bestCaseDealIds,
         },
         pipeline: {
           amount: forecastByCategory.pipeline,
           amountFormatted: formatCurrency(forecastByCategory.pipeline),
           percentage: weightedForecast > 0 ? Math.round((forecastByCategory.pipeline / weightedForecast) * 100) : 0,
-          deals: pipelineDeals,
+          dealIds: pipelineDealIds,
         },
       },
       alerts: {
@@ -953,16 +863,16 @@ export async function GET(request: Request) {
           count: staleDeals.length,
           amount: staleDealAmount,
           amountFormatted: formatCurrency(staleDealAmount),
-          deals: staleDealsFormatted,
+          dealIds: staleDeals.map(d => d.id),
         },
         largeDealsClosingSoon: {
           count: largeDealsClosingSoon.length,
           amount: largeDealsAmount,
           amountFormatted: formatCurrency(largeDealsAmount),
-          deals: largeDealsFormatted,
+          dealIds: largeDealsClosingSoon.map(d => d.id),
         },
       },
-      topDeals,
+      topDeals: topDealsFiltered.slice(0, topDealsLimit).map(formatDeal),
       pipelineByStage,
       forecastByMonth,
       forecastByQuarter,

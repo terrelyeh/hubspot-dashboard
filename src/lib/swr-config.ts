@@ -51,7 +51,7 @@ function loadCache(): Map<string, unknown> {
   }
 }
 
-// Save cache to localStorage
+// Save cache to localStorage with QuotaExceeded handling (P2-9)
 function saveCache(cache: Map<string, unknown>) {
   if (typeof window === 'undefined') return;
 
@@ -66,9 +66,32 @@ function saveCache(cache: Map<string, unknown>) {
       }
     });
 
-    localStorage.setItem(SWR_CACHE_KEY, JSON.stringify(store));
+    const serialized = JSON.stringify(store);
+    localStorage.setItem(SWR_CACHE_KEY, serialized);
   } catch (e) {
-    console.error('Error saving SWR cache to localStorage:', e);
+    // P2-9: Handle QuotaExceededError by clearing oldest entries and retrying
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      try {
+        // Clear the SWR cache to free space
+        localStorage.removeItem(SWR_CACHE_KEY);
+        localStorage.removeItem(CACHE_METADATA_KEY);
+
+        // Retry with just the current data
+        const now = Date.now();
+        const store: CacheStore = {};
+        cache.forEach((data, key) => {
+          if (key.startsWith('/api/dashboard')) {
+            store[key] = { data, timestamp: now };
+          }
+        });
+        localStorage.setItem(SWR_CACHE_KEY, JSON.stringify(store));
+      } catch {
+        // If still failing, localStorage is truly full — skip caching
+        console.warn('localStorage quota exceeded, skipping cache persistence');
+      }
+    } else {
+      console.error('Error saving SWR cache to localStorage:', e);
+    }
   }
 }
 

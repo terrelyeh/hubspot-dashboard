@@ -418,7 +418,59 @@ function DashboardContent() {
 
   // Raw data from SWR (unfiltered) - used for client-side filtering
   // SWR automatically caches and deduplicates requests
-  const rawData = swrData as DashboardData | null;
+  // P1-5: Normalize API response — the API now returns `allDeals` + `dealIds` references
+  // to reduce payload size. This layer hydrates deal arrays from the lookup for client-side use.
+  const rawData = useMemo(() => {
+    if (!swrData) return null;
+
+    // Check if response uses the new deduplicated format (has allDeals + dealIds)
+    const apiData = swrData as any;
+    if (!apiData.allDeals) {
+      // Old format — use as-is
+      return swrData as DashboardData;
+    }
+
+    // Build O(1) lookup from allDeals array
+    const dealMap = new Map<string, Deal>();
+    for (const deal of apiData.allDeals) {
+      dealMap.set(deal.id, deal);
+    }
+
+    // Helper to resolve dealIds → Deal[]
+    const resolve = (ids: string[] | undefined): Deal[] => {
+      if (!ids) return [];
+      return ids.map((id: string) => dealMap.get(id)).filter(Boolean) as Deal[];
+    };
+
+    // Hydrate the response back to the DashboardData shape the UI expects
+    return {
+      ...apiData,
+      summary: {
+        ...apiData.summary,
+        totalPipelineDeals: resolve(apiData.summary.totalPipelineDealIds),
+        newDealsList: resolve(apiData.summary.newDealIds),
+        openDealsList: resolve(apiData.summary.openDealIds),
+        commitDealsList: resolve(apiData.summary.commitDealIds),
+        closedWonDealsList: resolve(apiData.summary.closedWonDealIds),
+      },
+      activityKpis: {
+        ...apiData.activityKpis,
+        newDeals: { ...apiData.activityKpis.newDeals, deals: resolve(apiData.activityKpis.newDeals.dealIds) },
+        closedWon: { ...apiData.activityKpis.closedWon, deals: resolve(apiData.activityKpis.closedWon.dealIds) },
+        closedLost: { ...apiData.activityKpis.closedLost, deals: resolve(apiData.activityKpis.closedLost.dealIds) },
+      },
+      forecastBreakdown: {
+        commit: { ...apiData.forecastBreakdown.commit, deals: resolve(apiData.forecastBreakdown.commit.dealIds) },
+        bestCase: { ...apiData.forecastBreakdown.bestCase, deals: resolve(apiData.forecastBreakdown.bestCase.dealIds) },
+        pipeline: { ...apiData.forecastBreakdown.pipeline, deals: resolve(apiData.forecastBreakdown.pipeline.dealIds) },
+      },
+      alerts: {
+        staleDeals: { ...apiData.alerts.staleDeals, deals: resolve(apiData.alerts.staleDeals.dealIds) },
+        largeDealsClosingSoon: { ...apiData.alerts.largeDealsClosingSoon, deals: resolve(apiData.alerts.largeDealsClosingSoon.dealIds) },
+      },
+      // productSummary.topProducts already has full deal objects from the API
+    } as DashboardData;
+  }, [swrData]);
 
   // Calculate date range boundaries for client-side filtering
   const dateRangeStart = useMemo(() => new Date(startYear, (startQuarter - 1) * 3, 1), [startYear, startQuarter]);

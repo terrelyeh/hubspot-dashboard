@@ -3,6 +3,11 @@
  *
  * Provides methods to fetch deals from HubSpot CRM API
  * Docs: https://developers.hubspot.com/docs/api/crm/deals
+ *
+ * Performance optimizations:
+ * - Iterative pagination (no recursion stack overflow risk)
+ * - Single retry with backoff for transient errors (429, 502, 503)
+ * - Timeout protection for Vercel serverless (7s default)
  */
 
 interface HubSpotDeal {
@@ -26,7 +31,7 @@ interface HubSpotDeal {
   };
   createdAt: string;
   updatedAt: string;
-  url?: string; // HubSpot provides the direct URL to the deal
+  url?: string;
 }
 
 interface HubSpotOwner {
@@ -72,6 +77,28 @@ interface HubSpotContact {
   };
 }
 
+// Status codes that are safe to retry
+const RETRYABLE_STATUS_CODES = new Set([429, 502, 503, 504]);
+
+// Default deal properties to fetch
+const DEFAULT_DEAL_PROPERTIES = [
+  'dealname',
+  'amount',
+  'deal_currency_code',
+  'dealstage',
+  'pipeline',
+  'closedate',
+  'createdate',
+  'hs_lastmodifieddate',
+  'hubspot_owner_id',
+  'hs_deal_stage_probability',
+  'hs_forecast_category',
+  'distributor',
+  'deploy_time',
+  'expected_close_date',
+  'end_user_location__dr_',
+];
+
 export class HubSpotClient {
   private apiKey: string;
   private baseUrl = 'https://api.hubapi.com';
@@ -112,8 +139,41 @@ export class HubSpotClient {
   }
 
   /**
-   * Fetch all deals from HubSpot
-   * Uses pagination to retrieve all deals
+   * P1-7: Fetch with single retry for transient errors (429, 502, 503, 504)
+   * Uses short backoff to stay within Vercel 10s timeout budget.
+   */
+  private async fetchWithRetry(
+    url: string,
+    options: RequestInit,
+    timeout?: number
+  ): Promise<Response> {
+    const response = await this.fetchWithTimeout(url, options, timeout);
+
+    if (RETRYABLE_STATUS_CODES.has(response.status)) {
+      // Wait 1 second before retry (short to stay within Vercel timeout)
+      const retryAfter = response.headers.get('Retry-After');
+      const waitMs = retryAfter ? Math.min(parseInt(retryAfter) * 1000, 2000) : 1000;
+      await new Promise(resolve => setTimeout(resolve, waitMs));
+
+      // Single retry
+      return this.fetchWithTimeout(url, options, timeout);
+    }
+
+    return response;
+  }
+
+  /**
+   * Standard auth headers
+   */
+  private get headers(): Record<string, string> {
+    return {
+      'Authorization': `Bearer ${this.apiKey}`,
+      'Content-Type': 'application/json',
+    };
+  }
+
+  /**
+   * P1-6: Fetch all deals using iterative pagination (was recursive — stack overflow risk)
    */
   async fetchDeals(params?: {
     limit?: number;
@@ -121,71 +181,49 @@ export class HubSpotClient {
     properties?: string[];
     associations?: string[];
   }): Promise<HubSpotDeal[]> {
-    const properties = params?.properties || [
-      'dealname',
-      'amount',
-      'deal_currency_code',
-      'dealstage',
-      'pipeline',
-      'closedate',
-      'createdate',
-      'hs_lastmodifieddate',
-      'hubspot_owner_id',
-      'hs_deal_stage_probability',
-      'hs_forecast_category',
-      'distributor',
-      'deploy_time',
-      'expected_close_date',
-      'end_user_location__dr_',
-    ];
+    const properties = params?.properties || DEFAULT_DEAL_PROPERTIES;
+    const allDeals: HubSpotDeal[] = [];
+    let after = params?.after;
 
-    const queryParams = new URLSearchParams({
-      limit: (params?.limit || 100).toString(),
-      properties: properties.join(','),
-    });
-
-    if (params?.after) {
-      queryParams.set('after', params.after);
-    }
-
-    if (params?.associations) {
-      queryParams.set('associations', params.associations.join(','));
-    }
-
-    const response = await this.fetchWithTimeout(
-      `${this.baseUrl}/crm/v3/objects/deals?${queryParams}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`HubSpot API error: ${response.status} - ${error}`);
-    }
-
-    const data = await response.json();
-    const deals = data.results || [];
-
-    // Handle pagination
-    if (data.paging?.next?.after) {
-      const nextDeals = await this.fetchDeals({
-        ...params,
-        after: data.paging.next.after,
+    // Iterative pagination loop (was recursive)
+    do {
+      const queryParams = new URLSearchParams({
+        limit: (params?.limit || 100).toString(),
+        properties: properties.join(','),
       });
-      return [...deals, ...nextDeals];
-    }
 
-    return deals;
+      if (after) {
+        queryParams.set('after', after);
+      }
+
+      if (params?.associations) {
+        queryParams.set('associations', params.associations.join(','));
+      }
+
+      const response = await this.fetchWithRetry(
+        `${this.baseUrl}/crm/v3/objects/deals?${queryParams}`,
+        { headers: this.headers }
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`HubSpot API error: ${response.status} - ${error}`);
+      }
+
+      const data = await response.json();
+      const deals = data.results || [];
+      allDeals.push(...deals);
+
+      // Check for next page
+      after = data.paging?.next?.after || null;
+    } while (after);
+
+    return allDeals;
   }
 
   /**
-   * Fetch deals with filters
+   * P1-8: Fetch deals with filters — now with pagination support
    * Date filtering includes both closeDate and createDate (OR logic)
-   * so deals created in the period but closing later are also included
    */
   async fetchDealsWithFilters(filters: {
     closeDate?: { start: Date; end: Date };
@@ -194,8 +232,6 @@ export class HubSpotClient {
   }): Promise<HubSpotDeal[]> {
     const filterGroups: any[] = [];
 
-    // Date filter: Close Date OR Create Date in range
-    // HubSpot filterGroups are OR'd together, filters within a group are AND'd
     if (filters.closeDate) {
       // Group 1: Close Date in range
       filterGroups.push({
@@ -213,7 +249,7 @@ export class HubSpotClient {
         ],
       });
 
-      // Group 2: Create Date in range (deals created in this period but closing later)
+      // Group 2: Create Date in range
       filterGroups.push({
         filters: [
           {
@@ -230,65 +266,54 @@ export class HubSpotClient {
       });
     }
 
-    // Deal stage filter - needs to be combined with each date filter group
-    // For simplicity, we'll filter stages client-side if both date and stage filters exist
-    // HubSpot Search API has limitations on complex filter combinations
+    const allDeals: HubSpotDeal[] = [];
+    let after: string | null = null;
 
-    // Owner filter - same approach
-    // Note: Stage and Owner filters are typically applied client-side after fetching
-    // because HubSpot's filterGroups OR logic makes combining them complex
+    // Iterative pagination for search API
+    do {
+      const body: any = {
+        filterGroups,
+        properties: DEFAULT_DEAL_PROPERTIES,
+        limit: 100,
+      };
 
-    const response = await fetch(
-      `${this.baseUrl}/crm/v3/objects/deals/search`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filterGroups,
-          properties: [
-            'dealname',
-            'amount',
-            'deal_currency_code',
-            'dealstage',
-            'pipeline',
-            'closedate',
-            'createdate',
-            'hs_lastmodifieddate',
-            'hubspot_owner_id',
-            'hs_deal_stage_probability',
-            'hs_forecast_category',
-            'distributor',
-            'deploy_time',
-            'expected_close_date',
-            'end_user_location__dr_',
-          ],
-          limit: 100,
-        }),
+      if (after) {
+        body.after = after;
       }
-    );
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`HubSpot API error: ${response.status} - ${error}`);
-    }
+      const response = await this.fetchWithRetry(
+        `${this.baseUrl}/crm/v3/objects/deals/search`,
+        {
+          method: 'POST',
+          headers: this.headers,
+          body: JSON.stringify(body),
+        }
+      );
 
-    const data = await response.json();
-    return data.results || [];
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`HubSpot API error: ${response.status} - ${error}`);
+      }
+
+      const data = await response.json();
+      const deals = data.results || [];
+      allDeals.push(...deals);
+
+      // Check for next page
+      after = data.paging?.next?.after || null;
+    } while (after);
+
+    return allDeals;
   }
 
   /**
    * Fetch deal owners
    */
   async fetchOwners(): Promise<HubSpotOwner[]> {
-    const response = await this.fetchWithTimeout(`${this.baseUrl}/crm/v3/owners`, {
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/crm/v3/owners`,
+      { headers: this.headers }
+    );
 
     if (!response.ok) {
       const error = await response.text();
@@ -303,14 +328,9 @@ export class HubSpotClient {
    * Fetch pipelines and their stages
    */
   async fetchPipelines(): Promise<HubSpotPipeline[]> {
-    const response = await this.fetchWithTimeout(
+    const response = await this.fetchWithRetry(
       `${this.baseUrl}/crm/v3/pipelines/deals`,
-      {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
+      { headers: this.headers }
     );
 
     if (!response.ok) {
@@ -328,14 +348,11 @@ export class HubSpotClient {
   async fetchLineItems(lineItemIds: string[]): Promise<HubSpotLineItem[]> {
     if (lineItemIds.length === 0) return [];
 
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `${this.baseUrl}/crm/v3/objects/line_items/batch/read`,
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
+        headers: this.headers,
         body: JSON.stringify({
           properties: ['name', 'quantity', 'price', 'amount', 'description', 'hs_product_id'],
           inputs: lineItemIds.map(id => ({ id })),
@@ -359,14 +376,11 @@ export class HubSpotClient {
   async fetchContacts(contactIds: string[]): Promise<HubSpotContact[]> {
     if (contactIds.length === 0) return [];
 
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `${this.baseUrl}/crm/v3/objects/contacts/batch/read`,
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
+        headers: this.headers,
         body: JSON.stringify({
           properties: ['firstname', 'lastname', 'email', 'jobtitle', 'phone', 'company'],
           inputs: contactIds.map(id => ({ id })),
@@ -393,14 +407,9 @@ export class HubSpotClient {
     contacts: HubSpotContact[];
   } | null> {
     try {
-      const response = await fetch(
+      const response = await this.fetchWithRetry(
         `${this.baseUrl}/crm/v3/objects/deals/${dealId}?associations=line_items,contacts`,
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
+        { headers: this.headers }
       );
 
       if (!response.ok) {
@@ -409,19 +418,16 @@ export class HubSpotClient {
 
       const deal = await response.json();
 
-      // Fetch line items
+      // Fetch line items and contacts in parallel
       const lineItemIds = deal.associations?.['line items']?.results?.map((r: any) => r.id) || [];
-      const lineItems = await this.fetchLineItems(lineItemIds);
-
-      // Fetch contacts
       const contactIds = deal.associations?.contacts?.results?.map((r: any) => r.id) || [];
-      const contacts = await this.fetchContacts(contactIds);
 
-      return {
-        deal,
-        lineItems,
-        contacts,
-      };
+      const [lineItems, contacts] = await Promise.all([
+        this.fetchLineItems(lineItemIds),
+        this.fetchContacts(contactIds),
+      ]);
+
+      return { deal, lineItems, contacts };
     } catch (error) {
       console.error('Error fetching deal with associations:', error);
       return null;
@@ -430,22 +436,15 @@ export class HubSpotClient {
 
   /**
    * Fetch line item associations for a single deal
-   * Uses HubSpot Associations API v4
    */
   async fetchDealLineItemAssociations(dealId: string): Promise<string[]> {
     try {
-      const response = await this.fetchWithTimeout(
+      const response = await this.fetchWithRetry(
         `${this.baseUrl}/crm/v4/objects/deals/${dealId}/associations/line_items`,
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
+        { headers: this.headers }
       );
 
       if (!response.ok) {
-        // Don't log warning for 404 (no associations found)
         if (response.status !== 404) {
           console.warn(`Failed to fetch line item associations for deal ${dealId}: ${response.status}`);
         }
@@ -465,12 +464,10 @@ export class HubSpotClient {
    */
   async testConnection(): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await fetch(`${this.baseUrl}/crm/v3/objects/deals?limit=1`, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await this.fetchWithRetry(
+        `${this.baseUrl}/crm/v3/objects/deals?limit=1`,
+        { headers: this.headers }
+      );
 
       if (!response.ok) {
         return {
