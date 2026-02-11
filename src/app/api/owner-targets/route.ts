@@ -142,6 +142,7 @@ export async function GET(request: NextRequest) {
         target = await prisma.target.findFirst({
           where: {
             regionId: region.id,
+            ...pipelineFilter,
             year: q.year,
             quarter: q.quarter,
             ownerName: null,

@@ -356,9 +356,7 @@ function DashboardContent() {
     coveredQuarters: number;
     totalQuarters: number;
     hasOwnerTarget: boolean; // Whether the owner has their own target set
-  }>(ownerTargetKey, {
-    keepPreviousData: true, // Keep showing old target while new one loads
-  });
+  }>(ownerTargetKey);
 
   // Derive loading, error, data states from SWR
   // isLoading is true only on first load for this key (no cached data)
