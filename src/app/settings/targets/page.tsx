@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
 import { Target, Plus, Trash2, Save, Copy, TrendingUp, AlertCircle, Database, ArrowLeft, Globe } from 'lucide-react';
 import Link from 'next/link';
+import { fetcher } from '@/lib/swr-config';
 
 interface TargetData {
   id: string;
@@ -25,11 +27,11 @@ interface TargetData {
   updatedAt: string;
 }
 
-interface Region {
+interface PipelineOption {
   id: string;
-  code: string;
+  hubspotId: string;
   name: string;
-  currency: string;
+  isDefault: boolean;
 }
 
 // Available regions configuration
@@ -43,40 +45,24 @@ export default function TargetsSettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // All hooks must be called before any conditional returns
-  const [targets, setTargets] = useState<TargetData[]>([]);
-  const [owners, setOwners] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Region & pipeline selection
+  const [selectedRegion, setSelectedRegion] = useState('JP');
+  const [selectedPipeline, setSelectedPipeline] = useState<string | null>(null);
+
+  // Form states
+  const [showForm, setShowForm] = useState(false);
+  const [showBulkForm, setShowBulkForm] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-
-  // Region selection - must be before conditional returns
-  const [selectedRegion, setSelectedRegion] = useState('JP');
-
-  // Pipeline selection
-  interface PipelineOption {
-    id: string;
-    hubspotId: string;
-    name: string;
-    isDefault: boolean;
-  }
-  const [availablePipelines, setAvailablePipelines] = useState<PipelineOption[]>([]);
-  const [selectedPipeline, setSelectedPipeline] = useState<string | null>(null); // hubspotId
-
-  // Form states - must be before conditional returns
-  const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     regionCode: 'JP',
     year: new Date().getFullYear(),
     quarter: Math.ceil((new Date().getMonth() + 1) / 3),
-    ownerName: '', // Empty string = region-level target
-    currency: 'USD', // Default to USD
+    ownerName: '',
+    currency: 'USD',
     amount: 0,
     notes: '',
   });
-
-  // Bulk operation states - must be before conditional returns
-  const [showBulkForm, setShowBulkForm] = useState(false);
   const [bulkOperation, setBulkOperation] = useState<'copy' | 'applyGrowth'>('copy');
   const [bulkFormData, setBulkFormData] = useState({
     sourceYear: new Date().getFullYear(),
@@ -86,10 +72,57 @@ export default function TargetsSettingsPage() {
     growthRate: 10,
   });
 
-  // Derived state (not a hook, so can be anywhere)
   const currentRegionConfig = REGIONS.find(r => r.code === selectedRegion) || REGIONS[0];
 
-  // 權限檢查：只有 ADMIN 和 MANAGER 可以訪問
+  // ==================== SWR: Pipelines ====================
+  const { data: pipelinesData } = useSWR<{ success: boolean; pipelines: PipelineOption[] }>(
+    `/api/pipelines?region=${selectedRegion}`,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const availablePipelines = pipelinesData?.pipelines || [];
+  const pipelinesLoaded = !!pipelinesData;
+
+  // Auto-select default pipeline when pipelines load or region changes
+  useEffect(() => {
+    if (!pipelinesData) return;
+    const pipelines = pipelinesData.pipelines || [];
+    const defaultPipeline = pipelines.find(p => p.isDefault) || pipelines[0];
+    setSelectedPipeline(defaultPipeline?.hubspotId || null);
+  }, [pipelinesData]);
+
+  // ==================== SWR: Targets ====================
+  const pipelineParam = selectedPipeline ? `&pipeline=${selectedPipeline}` : '';
+  const targetsKey = pipelinesLoaded
+    ? `/api/targets?region=${selectedRegion}${pipelineParam}`
+    : null;
+
+  const {
+    data: targetsData,
+    isLoading: targetsLoading,
+    mutate: mutateTargets,
+  } = useSWR<{ success: boolean; targets: TargetData[] }>(targetsKey, fetcher, {
+    revalidateOnFocus: false,
+  });
+
+  const targets = (targetsData?.targets || []).filter(t => t.region.code === selectedRegion);
+  const loading = targetsLoading || !pipelinesLoaded;
+
+  // ==================== SWR: Owners ====================
+  const ownersKey = pipelinesLoaded
+    ? `/api/dashboard?region=${selectedRegion}${pipelineParam}&startYear=2025&startQuarter=1&endYear=2026&endQuarter=4`
+    : null;
+
+  const { data: ownersData } = useSWR<{ success: boolean; filters?: { availableOwners: string[] } }>(
+    ownersKey,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const owners = ownersData?.filters?.availableOwners || [];
+
+  // ==================== Auth ====================
   useEffect(() => {
     if (status === 'authenticated') {
       const role = session?.user?.role;
@@ -99,98 +132,12 @@ export default function TargetsSettingsPage() {
     }
   }, [session, status, router]);
 
-  // Update formData when region changes - must be before conditional returns
+  // Update formData.regionCode when region changes
   useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      regionCode: selectedRegion,
-    }));
+    setFormData(prev => ({ ...prev, regionCode: selectedRegion }));
   }, [selectedRegion]);
 
-  // Track whether pipeline fetch has completed
-  const [pipelinesLoaded, setPipelinesLoaded] = useState(false);
-
-  // Fetch pipelines when region changes
-  useEffect(() => {
-    let cancelled = false;
-    setSelectedPipeline(null);
-    setAvailablePipelines([]);
-    setPipelinesLoaded(false);
-
-    fetch(`/api/pipelines?region=${selectedRegion}`)
-      .then(r => r.json())
-      .then(data => {
-        if (cancelled) return;
-        const pipelines = data.pipelines || [];
-        setAvailablePipelines(pipelines);
-        const defaultPipeline = pipelines.find((p: PipelineOption) => p.isDefault) || pipelines[0];
-        if (defaultPipeline) {
-          setSelectedPipeline(defaultPipeline.hubspotId);
-        }
-        setPipelinesLoaded(true);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setAvailablePipelines([]);
-          setSelectedPipeline(null);
-          setPipelinesLoaded(true);
-        }
-      });
-
-    return () => { cancelled = true; };
-  }, [selectedRegion]);
-
-  // Fetch targets and owners when region or pipeline changes - must be before conditional returns
-  useEffect(() => {
-    if (!pipelinesLoaded) return; // Wait until pipeline fetch completes
-    // Fetch targets for selected region
-    const fetchTargets = async () => {
-      try {
-        setLoading(true);
-        const pipelineParam = selectedPipeline ? `&pipeline=${selectedPipeline}` : '';
-        const response = await fetch(`/api/targets?region=${selectedRegion}${pipelineParam}`);
-        const data = await response.json();
-
-        if (data.success) {
-          const filteredTargets = data.targets.filter(
-            (t: TargetData) => t.region.code === selectedRegion
-          );
-          setTargets(filteredTargets);
-        } else {
-          setError(data.message || 'Failed to fetch targets');
-        }
-      } catch (err) {
-        setError('Failed to fetch targets');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Fetch available owners for selected region + pipeline
-    const fetchOwners = async () => {
-      try {
-        const pipelineParam = selectedPipeline ? `&pipeline=${selectedPipeline}` : '';
-        const response = await fetch(`/api/dashboard?region=${selectedRegion}${pipelineParam}&startYear=2025&startQuarter=1&endYear=2026&endQuarter=4`);
-        const data = await response.json();
-        if (data.success && data.filters?.availableOwners) {
-          setOwners(data.filters.availableOwners);
-        }
-      } catch (err) {
-        console.error('Failed to fetch owners:', err);
-      }
-    };
-
-    fetchTargets();
-    fetchOwners();
-    // Reset forms when region/pipeline changes
-    setShowForm(false);
-    setShowBulkForm(false);
-    setError('');
-    setSuccessMessage('');
-  }, [selectedRegion, selectedPipeline, pipelinesLoaded]);
-
-  // 如果正在加載 session 或是 VIEWER 角色，顯示 loading 或空白
+  // ==================== Conditional Returns ====================
   if (status === 'loading') {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -200,34 +147,10 @@ export default function TargetsSettingsPage() {
   }
 
   if (status === 'authenticated' && session?.user?.role === 'VIEWER') {
-    return null; // VIEWER 會被重定向，先顯示空白
+    return null;
   }
 
-  // Refetch function for use in handlers (defined after conditional returns is OK for regular functions)
-  const refetchTargets = async () => {
-    try {
-      setLoading(true);
-      const pipelineParam = selectedPipeline ? `&pipeline=${selectedPipeline}` : '';
-      const response = await fetch(`/api/targets?region=${selectedRegion}${pipelineParam}`);
-      const data = await response.json();
-
-      if (data.success) {
-        const filteredTargets = data.targets.filter(
-          (t: TargetData) => t.region.code === selectedRegion
-        );
-        setTargets(filteredTargets);
-      } else {
-        setError(data.message || 'Failed to fetch targets');
-      }
-    } catch (err) {
-      setError('Failed to fetch targets');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle form submission
+  // ==================== Handlers ====================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -254,9 +177,8 @@ export default function TargetsSettingsPage() {
       if (data.success) {
         setSuccessMessage(data.message || 'Target saved successfully');
         setShowForm(false);
-        refetchTargets();
+        mutateTargets(); // Revalidate targets
 
-        // Reset form
         setFormData({
           regionCode: selectedRegion,
           year: new Date().getFullYear(),
@@ -275,7 +197,6 @@ export default function TargetsSettingsPage() {
     }
   };
 
-  // Handle delete
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this target?')) return;
 
@@ -291,7 +212,7 @@ export default function TargetsSettingsPage() {
 
       if (data.success) {
         setSuccessMessage('Target deleted successfully');
-        refetchTargets();
+        mutateTargets(); // Revalidate targets
       } else {
         setError(data.message || 'Failed to delete target');
       }
@@ -301,7 +222,6 @@ export default function TargetsSettingsPage() {
     }
   };
 
-  // Handle bulk operation
   const handleBulkOperation = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -328,7 +248,7 @@ export default function TargetsSettingsPage() {
       if (data.success) {
         setSuccessMessage(data.message || 'Bulk operation completed successfully');
         setShowBulkForm(false);
-        refetchTargets();
+        mutateTargets(); // Revalidate targets
       } else {
         setError(data.message || 'Failed to perform bulk operation');
       }
@@ -338,7 +258,6 @@ export default function TargetsSettingsPage() {
     }
   };
 
-  // Edit target
   const handleEdit = (target: TargetData) => {
     setFormData({
       regionCode: target.region.code,
@@ -352,7 +271,15 @@ export default function TargetsSettingsPage() {
     setShowForm(true);
   };
 
-  // Group targets by year/quarter for better display
+  const handlePipelineChange = (hubspotId: string) => {
+    setSelectedPipeline(hubspotId);
+    setShowForm(false);
+    setShowBulkForm(false);
+    setError('');
+    setSuccessMessage('');
+  };
+
+  // ==================== Derived State ====================
   const groupedTargets = targets.reduce((acc, target) => {
     const key = `${target.year}-Q${target.quarter}`;
     if (!acc[key]) {
@@ -362,9 +289,9 @@ export default function TargetsSettingsPage() {
     return acc;
   }, {} as Record<string, TargetData[]>);
 
-  // Sort periods (newest first)
   const sortedPeriods = Object.keys(groupedTargets).sort((a, b) => b.localeCompare(a));
 
+  // ==================== Render ====================
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header */}
@@ -442,8 +369,8 @@ export default function TargetsSettingsPage() {
             </div>
           </div>
 
-          {/* Pipeline Selector - only show if there are 2+ pipelines */}
-          {availablePipelines.length > 1 && (
+          {/* Pipeline Selector - show when pipelines are available */}
+          {availablePipelines.length >= 1 && (
             <div className="flex items-center gap-4 mt-4">
               <div className="flex items-center gap-2">
                 <Database className="h-5 w-5 text-slate-500" />
@@ -453,11 +380,7 @@ export default function TargetsSettingsPage() {
                 {availablePipelines.map((pipeline) => (
                   <button
                     key={pipeline.hubspotId}
-                    onClick={() => {
-                      setSelectedPipeline(pipeline.hubspotId);
-                      setShowForm(false);
-                      setShowBulkForm(false);
-                    }}
+                    onClick={() => handlePipelineChange(pipeline.hubspotId)}
                     className={`px-4 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
                       selectedPipeline === pipeline.hubspotId
                         ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
@@ -744,7 +667,7 @@ export default function TargetsSettingsPage() {
             <div className="p-12 text-center">
               <Target className="h-16 w-16 text-slate-300 mx-auto mb-4" />
               <p className="text-slate-500 font-medium">No targets set for {currentRegionConfig.name}</p>
-              <p className="text-slate-400 text-sm mt-1">Click "Add Target" to create your first quarterly target</p>
+              <p className="text-slate-400 text-sm mt-1">Click &quot;Add Target&quot; to create your first quarterly target</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -772,7 +695,6 @@ export default function TargetsSettingsPage() {
                         key={target.id}
                         className="hover:bg-slate-50 transition-colors"
                       >
-                        {/* Period - only show on first row of group */}
                         <td className="px-6 py-4">
                           {index === 0 ? (
                             <div className="flex flex-col">
@@ -788,7 +710,6 @@ export default function TargetsSettingsPage() {
                           ) : null}
                         </td>
 
-                        {/* Type */}
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${
                             target.targetType === 'region'
@@ -799,26 +720,22 @@ export default function TargetsSettingsPage() {
                           </span>
                         </td>
 
-                        {/* Owner */}
                         <td className="px-6 py-4">
                           <span className="text-sm text-slate-700">
                             {target.targetType === 'region' ? 'All Team Members' : target.ownerName}
                           </span>
                         </td>
 
-                        {/* Amount */}
                         <td className="px-6 py-4 text-right">
                           <span className="text-lg font-bold text-slate-900">
                             {target.amountFormatted}
                           </span>
                         </td>
 
-                        {/* Currency */}
                         <td className="px-6 py-4">
                           <span className="text-sm text-slate-500">{target.currency}</span>
                         </td>
 
-                        {/* Notes */}
                         <td className="px-6 py-4">
                           {target.notes ? (
                             <span className="text-sm text-slate-500 italic max-w-[200px] truncate block" title={target.notes}>
@@ -829,14 +746,12 @@ export default function TargetsSettingsPage() {
                           )}
                         </td>
 
-                        {/* Updated */}
                         <td className="px-6 py-4">
                           <span className="text-sm text-slate-500">
                             {new Date(target.updatedAt).toLocaleDateString()}
                           </span>
                         </td>
 
-                        {/* Actions */}
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <button
