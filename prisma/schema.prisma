@@ -118,8 +118,28 @@ model Region {
   targets     Target[]
   syncLogs    SyncLog[]
   userAccess  UserRegionAccess[]
+  pipelines   Pipeline[]
 
   @@index([code])
+}
+
+model Pipeline {
+  id           String   @id @default(cuid())
+  hubspotId    String                          // HubSpot pipeline ID (e.g., "default", "12345")
+  regionId     String
+  name         String                          // HubSpot pipeline label
+  isDefault    Boolean  @default(false)        // One default per region
+  isActive     Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  region  Region   @relation(fields: [regionId], references: [id])
+  deals   Deal[]
+  targets Target[]
+
+  @@unique([hubspotId, regionId])
+  @@index([regionId])
 }
 
 model Deal {
@@ -156,16 +176,21 @@ model Deal {
   hubspotUrl           String?
   rawData              Json?
 
+  pipelineId           String?      // Nullable for migration; assigned during sync
+
   region               Region       @relation(fields: [regionId], references: [id])
+  pipeline             Pipeline?    @relation(fields: [pipelineId], references: [id])
   lineItems            LineItem[]
   contacts             DealContact[]
 
   @@unique([hubspotId, regionId])
   @@index([regionId])
+  @@index([pipelineId])
   @@index([stage])
   @@index([closeDate])
   @@index([lastModifiedAt])
   @@index([regionId, closeDate])
+  @@index([regionId, pipelineId, closeDate])
 }
 
 model LineItem {
@@ -214,6 +239,7 @@ model DealContact {
 model Target {
   id              String   @id @default(cuid())
   regionId        String
+  pipelineId      String?  // Nullable for migration; null = region-level (legacy)
   ownerName       String?  // null = region-level target, otherwise owner-specific
 
   year            Int
@@ -227,9 +253,11 @@ model Target {
   createdBy       String?
   notes           String?
 
-  region          Region   @relation(fields: [regionId], references: [id])
+  region          Region    @relation(fields: [regionId], references: [id])
+  pipeline        Pipeline? @relation(fields: [pipelineId], references: [id])
 
-  @@unique([regionId, year, quarter, ownerName])
+  @@unique([regionId, pipelineId, year, quarter, ownerName])
+  @@index([pipelineId])
   @@index([year, quarter])
   @@index([ownerName])
 }

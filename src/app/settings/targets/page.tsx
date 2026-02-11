@@ -53,6 +53,16 @@ export default function TargetsSettingsPage() {
   // Region selection - must be before conditional returns
   const [selectedRegion, setSelectedRegion] = useState('JP');
 
+  // Pipeline selection
+  interface PipelineOption {
+    id: string;
+    hubspotId: string;
+    name: string;
+    isDefault: boolean;
+  }
+  const [availablePipelines, setAvailablePipelines] = useState<PipelineOption[]>([]);
+  const [selectedPipeline, setSelectedPipeline] = useState<string | null>(null); // hubspotId
+
   // Form states - must be before conditional returns
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -97,13 +107,42 @@ export default function TargetsSettingsPage() {
     }));
   }, [selectedRegion]);
 
-  // Fetch targets and owners when region changes - must be before conditional returns
+  // Fetch pipelines when region changes
   useEffect(() => {
+    let cancelled = false;
+    setSelectedPipeline(null);
+    setAvailablePipelines([]);
+
+    fetch(`/api/pipelines?region=${selectedRegion}`)
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        const pipelines = data.pipelines || [];
+        setAvailablePipelines(pipelines);
+        const defaultPipeline = pipelines.find((p: PipelineOption) => p.isDefault) || pipelines[0];
+        if (defaultPipeline) {
+          setSelectedPipeline(defaultPipeline.hubspotId);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAvailablePipelines([]);
+          setSelectedPipeline(null);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [selectedRegion]);
+
+  // Fetch targets and owners when region or pipeline changes - must be before conditional returns
+  useEffect(() => {
+    if (!selectedPipeline) return; // Wait until pipeline is resolved
     // Fetch targets for selected region
     const fetchTargets = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/targets?regionCode=${selectedRegion}`);
+        const pipelineParam = selectedPipeline ? `&pipeline=${selectedPipeline}` : '';
+        const response = await fetch(`/api/targets?region=${selectedRegion}${pipelineParam}`);
         const data = await response.json();
 
         if (data.success) {
@@ -122,10 +161,11 @@ export default function TargetsSettingsPage() {
       }
     };
 
-    // Fetch available owners for selected region
+    // Fetch available owners for selected region + pipeline
     const fetchOwners = async () => {
       try {
-        const response = await fetch(`/api/dashboard?region=${selectedRegion}&startYear=2025&startQuarter=1&endYear=2026&endQuarter=4`);
+        const pipelineParam = selectedPipeline ? `&pipeline=${selectedPipeline}` : '';
+        const response = await fetch(`/api/dashboard?region=${selectedRegion}${pipelineParam}&startYear=2025&startQuarter=1&endYear=2026&endQuarter=4`);
         const data = await response.json();
         if (data.success && data.filters?.availableOwners) {
           setOwners(data.filters.availableOwners);
@@ -137,12 +177,12 @@ export default function TargetsSettingsPage() {
 
     fetchTargets();
     fetchOwners();
-    // Reset forms when region changes
+    // Reset forms when region/pipeline changes
     setShowForm(false);
     setShowBulkForm(false);
     setError('');
     setSuccessMessage('');
-  }, [selectedRegion]);
+  }, [selectedRegion, selectedPipeline]);
 
   // 如果正在加載 session 或是 VIEWER 角色，顯示 loading 或空白
   if (status === 'loading') {
@@ -161,7 +201,8 @@ export default function TargetsSettingsPage() {
   const refetchTargets = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/targets?regionCode=${selectedRegion}`);
+      const pipelineParam = selectedPipeline ? `&pipeline=${selectedPipeline}` : '';
+      const response = await fetch(`/api/targets?region=${selectedRegion}${pipelineParam}`);
       const data = await response.json();
 
       if (data.success) {
@@ -192,6 +233,7 @@ export default function TargetsSettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           regionCode: selectedRegion,
+          pipelineHubspotId: selectedPipeline || undefined,
           year: formData.year,
           quarter: formData.quarter,
           ownerName: formData.ownerName || null,
@@ -266,6 +308,7 @@ export default function TargetsSettingsPage() {
         body: JSON.stringify({
           operation: bulkOperation,
           regionCode: selectedRegion,
+          pipelineHubspotId: selectedPipeline || undefined,
           sourceYear: bulkFormData.sourceYear,
           sourceQuarter: bulkFormData.sourceQuarter,
           targetYear: bulkFormData.targetYear,
@@ -392,6 +435,38 @@ export default function TargetsSettingsPage() {
               ))}
             </div>
           </div>
+
+          {/* Pipeline Selector - only show if there are 2+ pipelines */}
+          {availablePipelines.length > 1 && (
+            <div className="flex items-center gap-4 mt-4">
+              <div className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-slate-500" />
+                <span className="text-sm font-bold text-slate-700">Pipeline:</span>
+              </div>
+              <div className="flex gap-2">
+                {availablePipelines.map((pipeline) => (
+                  <button
+                    key={pipeline.hubspotId}
+                    onClick={() => {
+                      setSelectedPipeline(pipeline.hubspotId);
+                      setShowForm(false);
+                      setShowBulkForm(false);
+                    }}
+                    className={`px-4 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
+                      selectedPipeline === pipeline.hubspotId
+                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <span>{pipeline.name}</span>
+                    {pipeline.isDefault && (
+                      <span className="text-xs opacity-75">(Default)</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Messages */}

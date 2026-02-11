@@ -235,6 +235,58 @@ function DashboardContent() {
   const [selectedRegion, setSelectedRegion] = useState(regionFromUrl);
   const [regionDropdownOpen, setRegionDropdownOpen] = useState(false);
 
+  // Pipeline selection
+  interface PipelineOption {
+    id: string;
+    hubspotId: string;
+    name: string;
+    isDefault: boolean;
+  }
+  const [availablePipelines, setAvailablePipelines] = useState<PipelineOption[]>([]);
+  const [selectedPipeline, setSelectedPipeline] = useState<string | null>(null); // hubspotId
+  const [pipelineDropdownOpen, setPipelineDropdownOpen] = useState(false);
+  const pipelineDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fetch pipelines when region changes
+  useEffect(() => {
+    let cancelled = false;
+    setSelectedPipeline(null);
+    setAvailablePipelines([]);
+
+    fetch(`/api/pipelines?region=${selectedRegion}`)
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        const pipelines = data.pipelines || [];
+        setAvailablePipelines(pipelines);
+        const defaultPipeline = pipelines.find((p: PipelineOption) => p.isDefault) || pipelines[0];
+        if (defaultPipeline) {
+          setSelectedPipeline(defaultPipeline.hubspotId);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAvailablePipelines([]);
+          setSelectedPipeline(null);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [selectedRegion]);
+
+  // Close pipeline dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (pipelineDropdownRef.current && !pipelineDropdownRef.current.contains(event.target as Node)) {
+        setPipelineDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const currentPipeline = availablePipelines.find(p => p.hubspotId === selectedPipeline);
+
   // Update region when URL changes
   useEffect(() => {
     const regionParam = searchParams.get('region') || 'JP';
@@ -259,11 +311,14 @@ function DashboardContent() {
   const [selectedStages, setSelectedStages] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
-  // SWR for dashboard data - cache per region only
+  // SWR for dashboard data - cache per region + pipeline
   // Owner filtering is done client-side for instant response
   // Date filtering will be done client-side for better UX
   // We fetch a wide date range (2024-2026) and filter client-side
-  const swrKey = `/api/dashboard?region=${selectedRegion}&startYear=2024&startQuarter=1&endYear=2026&endQuarter=4&topDealsLimit=500&topDealsSortBy=amount`;
+  // Don't fetch until pipeline is resolved (null = still loading pipelines)
+  const swrKey = selectedPipeline
+    ? `/api/dashboard?region=${selectedRegion}&pipeline=${selectedPipeline}&startYear=2024&startQuarter=1&endYear=2026&endQuarter=4&topDealsLimit=500&topDealsSortBy=amount`
+    : null;
   const {
     data: swrData,
     error: swrError,
@@ -279,7 +334,9 @@ function DashboardContent() {
   });
 
   // Separate SWR for owner-specific targets (allows instant owner switching)
-  const ownerTargetKey = `/api/owner-targets?region=${selectedRegion}&owner=${encodeURIComponent(selectedOwner)}&startYear=${startYear}&startQuarter=${startQuarter}&endYear=${endYear}&endQuarter=${endQuarter}`;
+  const ownerTargetKey = selectedPipeline
+    ? `/api/owner-targets?region=${selectedRegion}&pipeline=${selectedPipeline}&owner=${encodeURIComponent(selectedOwner)}&startYear=${startYear}&startQuarter=${startQuarter}&endYear=${endYear}&endQuarter=${endQuarter}`
+    : null;
   const { data: ownerTargetData } = useSWR<{
     success: boolean;
     owner: string;
@@ -322,6 +379,9 @@ function DashboardContent() {
   const handleRegionChange = (regionCode: string) => {
     setSelectedRegion(regionCode);
     setRegionDropdownOpen(false);
+    // Pipeline will be reset by the useEffect on selectedRegion
+    setSelectedPipeline(null);
+    setAvailablePipelines([]);
 
     // Reset language based on region (APAC = English only, JP = keep user preference or default to English)
     if (regionCode === 'APAC') {
@@ -345,6 +405,16 @@ function DashboardContent() {
 
     // Update URL with only the region parameter (remove other filters)
     router.push(`/dashboard?region=${regionCode}`);
+  };
+
+  // Handle pipeline change
+  const handlePipelineChange = (hubspotId: string) => {
+    setSelectedPipeline(hubspotId);
+    setPipelineDropdownOpen(false);
+    // Reset filters when switching pipeline
+    setSelectedOwner('All');
+    setSelectedStages([]);
+    setSelectedCategories([]);
   };
 
   // Sync state
@@ -1265,6 +1335,42 @@ function DashboardContent() {
                     </div>
                   )}
                 </div>
+
+                {/* Pipeline Switcher - only show if there are 2+ pipelines */}
+                {availablePipelines.length > 1 && (
+                  <div className="relative hidden sm:block" ref={pipelineDropdownRef}>
+                    <button
+                      onClick={() => setPipelineDropdownOpen(!pipelineDropdownOpen)}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-600 transition-colors"
+                    >
+                      <span className="text-sm font-medium text-white">{currentPipeline?.name || 'Pipeline'}</span>
+                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${pipelineDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {pipelineDropdownOpen && (
+                      <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-50 min-w-[200px]">
+                        {availablePipelines.map((pipeline) => (
+                          <button
+                            key={pipeline.hubspotId}
+                            onClick={() => handlePipelineChange(pipeline.hubspotId)}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 transition-colors ${
+                              selectedPipeline === pipeline.hubspotId ? 'bg-slate-50' : ''
+                            }`}
+                          >
+                            <span className={`text-sm font-medium ${selectedPipeline === pipeline.hubspotId ? 'text-slate-900' : 'text-slate-600'}`}>
+                              {pipeline.name}
+                            </span>
+                            {pipeline.isDefault && (
+                              <span className="text-xs text-slate-400 ml-auto">Default</span>
+                            )}
+                            {selectedPipeline === pipeline.hubspotId && (
+                              <CheckCircle className="h-4 w-4 text-emerald-500 ml-auto" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1349,6 +1455,23 @@ function DashboardContent() {
                 </div>
               )}
             </div>
+
+            {/* Pipeline Switcher - Mobile */}
+            {availablePipelines.length > 1 && (
+              <div className="mt-2">
+                <select
+                  value={selectedPipeline || ''}
+                  onChange={(e) => handlePipelineChange(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-slate-800 text-white text-sm rounded-lg border border-slate-600"
+                >
+                  {availablePipelines.map((pipeline) => (
+                    <option key={pipeline.hubspotId} value={pipeline.hubspotId}>
+                      {pipeline.name}{pipeline.isDefault ? ' (Default)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Mobile: Show sync message here if exists */}
             {syncMessage && (

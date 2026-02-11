@@ -21,6 +21,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
 
     const regionCode = searchParams.get('region');
+    const pipelineCode = searchParams.get('pipeline'); // HubSpot pipeline ID
     const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : undefined;
     const quarter = searchParams.get('quarter') ? parseInt(searchParams.get('quarter')!) : undefined;
     const owner = searchParams.get('owner');
@@ -45,6 +46,16 @@ export async function GET(request: Request) {
       }
 
       where.regionId = region.id;
+
+      // Resolve pipeline if provided
+      if (pipelineCode) {
+        const pipeline = await prisma.pipeline.findFirst({
+          where: { regionId: region.id, hubspotId: pipelineCode, isActive: true },
+        });
+        if (pipeline) {
+          where.pipelineId = pipeline.id;
+        }
+      }
     }
 
     if (year !== undefined) {
@@ -140,7 +151,7 @@ export async function POST(request: Request) {
     await requirePermission('EDIT_TARGETS');
 
     const body = await request.json();
-    const { regionCode, year, quarter, amount, ownerName, currency, notes } = body;
+    const { regionCode, year, quarter, amount, ownerName, currency, notes, pipelineHubspotId } = body;
 
     // Validate required fields
     if (!regionCode || !year || !quarter || amount === undefined) {
@@ -194,10 +205,22 @@ export async function POST(request: Request) {
       );
     }
 
+    // Resolve pipeline if provided
+    let pipelineId: string | null = null;
+    if (pipelineHubspotId) {
+      const pipeline = await prisma.pipeline.findFirst({
+        where: { regionId: region.id, hubspotId: pipelineHubspotId, isActive: true },
+      });
+      if (pipeline) {
+        pipelineId = pipeline.id;
+      }
+    }
+
     // Find existing target first (to handle null ownerName properly)
     const existingTarget = await prisma.target.findFirst({
       where: {
         regionId: region.id,
+        pipelineId: pipelineId,
         year,
         quarter,
         ownerName: ownerName || null,
@@ -229,6 +252,7 @@ export async function POST(request: Request) {
       target = await prisma.target.create({
         data: {
           regionId: region.id,
+          pipelineId: pipelineId,
           year,
           quarter,
           ownerName: ownerName || null,

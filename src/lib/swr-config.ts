@@ -157,13 +157,15 @@ export const swrConfig: SWRConfiguration = {
 
 // Cache key generators for consistent cache management
 export const cacheKeys = {
-  dashboard: (region: string, startYear: number, startQuarter: number, endYear: number, endQuarter: number) =>
-    `/api/dashboard?region=${region}&startYear=${startYear}&startQuarter=${startQuarter}&endYear=${endYear}&endQuarter=${endQuarter}&topDealsLimit=100&topDealsSortBy=amount`,
+  dashboard: (region: string, pipeline: string, startYear: number, startQuarter: number, endYear: number, endQuarter: number) =>
+    `/api/dashboard?region=${region}&pipeline=${pipeline}&startYear=${startYear}&startQuarter=${startQuarter}&endYear=${endYear}&endQuarter=${endQuarter}&topDealsLimit=100&topDealsSortBy=amount`,
 
   dealDetails: (dealId: string) => `/api/deals/${dealId}`,
 
-  targets: (region: string, year: number, quarter: number) =>
-    `/api/targets?region=${region}&year=${year}&quarter=${quarter}`,
+  targets: (region: string, pipeline: string, year: number, quarter: number) =>
+    `/api/targets?region=${region}&pipeline=${pipeline}&year=${year}&quarter=${quarter}`,
+
+  pipelines: (region: string) => `/api/pipelines?region=${region}`,
 };
 
 // Storage key for cache metadata
