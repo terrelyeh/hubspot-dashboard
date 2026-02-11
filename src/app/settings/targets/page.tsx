@@ -107,11 +107,15 @@ export default function TargetsSettingsPage() {
     }));
   }, [selectedRegion]);
 
+  // Track whether pipeline fetch has completed
+  const [pipelinesLoaded, setPipelinesLoaded] = useState(false);
+
   // Fetch pipelines when region changes
   useEffect(() => {
     let cancelled = false;
     setSelectedPipeline(null);
     setAvailablePipelines([]);
+    setPipelinesLoaded(false);
 
     fetch(`/api/pipelines?region=${selectedRegion}`)
       .then(r => r.json())
@@ -123,11 +127,13 @@ export default function TargetsSettingsPage() {
         if (defaultPipeline) {
           setSelectedPipeline(defaultPipeline.hubspotId);
         }
+        setPipelinesLoaded(true);
       })
       .catch(() => {
         if (!cancelled) {
           setAvailablePipelines([]);
           setSelectedPipeline(null);
+          setPipelinesLoaded(true);
         }
       });
 
@@ -136,7 +142,7 @@ export default function TargetsSettingsPage() {
 
   // Fetch targets and owners when region or pipeline changes - must be before conditional returns
   useEffect(() => {
-    if (!selectedPipeline) return; // Wait until pipeline is resolved
+    if (!pipelinesLoaded) return; // Wait until pipeline fetch completes
     // Fetch targets for selected region
     const fetchTargets = async () => {
       try {
@@ -182,7 +188,7 @@ export default function TargetsSettingsPage() {
     setShowBulkForm(false);
     setError('');
     setSuccessMessage('');
-  }, [selectedRegion, selectedPipeline]);
+  }, [selectedRegion, selectedPipeline, pipelinesLoaded]);
 
   // 如果正在加載 session 或是 VIEWER 角色，顯示 loading 或空白
   if (status === 'loading') {

@@ -247,11 +247,15 @@ function DashboardContent() {
   const [pipelineDropdownOpen, setPipelineDropdownOpen] = useState(false);
   const pipelineDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Track whether pipeline fetch has completed (to avoid blocking dashboard load)
+  const [pipelinesLoaded, setPipelinesLoaded] = useState(false);
+
   // Fetch pipelines when region changes
   useEffect(() => {
     let cancelled = false;
     setSelectedPipeline(null);
     setAvailablePipelines([]);
+    setPipelinesLoaded(false);
 
     fetch(`/api/pipelines?region=${selectedRegion}`)
       .then(r => r.json())
@@ -263,11 +267,13 @@ function DashboardContent() {
         if (defaultPipeline) {
           setSelectedPipeline(defaultPipeline.hubspotId);
         }
+        setPipelinesLoaded(true);
       })
       .catch(() => {
         if (!cancelled) {
           setAvailablePipelines([]);
           setSelectedPipeline(null);
+          setPipelinesLoaded(true); // Mark as loaded even on error, so dashboard can proceed
         }
       });
 
@@ -315,9 +321,10 @@ function DashboardContent() {
   // Owner filtering is done client-side for instant response
   // Date filtering will be done client-side for better UX
   // We fetch a wide date range (2024-2026) and filter client-side
-  // Don't fetch until pipeline is resolved (null = still loading pipelines)
-  const swrKey = selectedPipeline
-    ? `/api/dashboard?region=${selectedRegion}&pipeline=${selectedPipeline}&startYear=2024&startQuarter=1&endYear=2026&endQuarter=4&topDealsLimit=500&topDealsSortBy=amount`
+  // Wait for pipeline fetch to complete before loading dashboard data
+  const pipelineParam = selectedPipeline ? `&pipeline=${selectedPipeline}` : '';
+  const swrKey = pipelinesLoaded
+    ? `/api/dashboard?region=${selectedRegion}${pipelineParam}&startYear=2024&startQuarter=1&endYear=2026&endQuarter=4&topDealsLimit=500&topDealsSortBy=amount`
     : null;
   const {
     data: swrData,
@@ -334,8 +341,8 @@ function DashboardContent() {
   });
 
   // Separate SWR for owner-specific targets (allows instant owner switching)
-  const ownerTargetKey = selectedPipeline
-    ? `/api/owner-targets?region=${selectedRegion}&pipeline=${selectedPipeline}&owner=${encodeURIComponent(selectedOwner)}&startYear=${startYear}&startQuarter=${startQuarter}&endYear=${endYear}&endQuarter=${endQuarter}`
+  const ownerTargetKey = pipelinesLoaded
+    ? `/api/owner-targets?region=${selectedRegion}${pipelineParam}&owner=${encodeURIComponent(selectedOwner)}&startYear=${startYear}&startQuarter=${startQuarter}&endYear=${endYear}&endQuarter=${endQuarter}`
     : null;
   const { data: ownerTargetData } = useSWR<{
     success: boolean;
@@ -382,6 +389,7 @@ function DashboardContent() {
     // Pipeline will be reset by the useEffect on selectedRegion
     setSelectedPipeline(null);
     setAvailablePipelines([]);
+    setPipelinesLoaded(false);
 
     // Reset language based on region (APAC = English only, JP = keep user preference or default to English)
     if (regionCode === 'APAC') {
