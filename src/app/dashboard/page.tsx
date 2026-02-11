@@ -416,27 +416,18 @@ function DashboardContent() {
     router.push(`/dashboard?region=${regionCode}`);
   };
 
-  // Handle pipeline change — invalidate SWR cache to force fresh data
+  // Handle pipeline change — nuke all dashboard SWR cache to force fresh data
   const handlePipelineChange = (hubspotId: string) => {
-    // Clear both in-memory SWR cache and localStorage for the new pipeline key
-    // This prevents showing stale data from a previous pipeline selection
-    const newPipelineParam = `&pipeline=${hubspotId}`;
-    const newKey = `/api/dashboard?region=${selectedRegion}${newPipelineParam}&startYear=2024&startQuarter=1&endYear=2026&endQuarter=4&topDealsLimit=500&topDealsSortBy=amount`;
+    // Clear ALL dashboard-related SWR in-memory cache entries using key matcher
+    globalMutate(
+      (key: string) => typeof key === 'string' && key.startsWith('/api/dashboard'),
+      undefined,
+      { revalidate: false } // Don't revalidate old keys, new key will auto-fetch
+    );
 
-    // Invalidate in-memory SWR cache for this key (set to undefined, force revalidate)
-    globalMutate(newKey, undefined, { revalidate: true });
-
-    // Also clear localStorage cache
+    // Also nuke all dashboard entries from localStorage cache
     try {
-      const cacheRaw = localStorage.getItem('swr-dashboard-cache');
-      if (cacheRaw) {
-        const cache = JSON.parse(cacheRaw);
-        const keysToDelete = Object.keys(cache).filter(k => k.includes(`pipeline=${hubspotId}`));
-        if (keysToDelete.length > 0) {
-          keysToDelete.forEach(k => delete cache[k]);
-          localStorage.setItem('swr-dashboard-cache', JSON.stringify(cache));
-        }
-      }
+      localStorage.removeItem('swr-dashboard-cache');
     } catch { /* ignore */ }
 
     setSelectedPipeline(hubspotId);
