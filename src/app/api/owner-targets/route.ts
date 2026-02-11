@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const regionCode = searchParams.get('region');
+    const pipelineCode = searchParams.get('pipeline'); // HubSpot pipeline ID
     const ownerName = searchParams.get('owner');
     const startYear = parseInt(searchParams.get('startYear') || new Date().getFullYear().toString());
     const startQuarter = parseInt(searchParams.get('startQuarter') || '1');
@@ -49,6 +50,18 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    // Resolve pipeline if provided
+    let pipelineId: string | undefined;
+    if (pipelineCode) {
+      const pipeline = await prisma.pipeline.findFirst({
+        where: { regionId: region.id, hubspotId: pipelineCode, isActive: true },
+      });
+      if (pipeline) {
+        pipelineId = pipeline.id;
+      }
+    }
+    const pipelineFilter = pipelineId ? { pipelineId } : {};
 
     // Build quarters in range
     const quartersInRange: { year: number; quarter: number }[] = [];
@@ -77,6 +90,7 @@ export async function GET(request: NextRequest) {
       const anyOwnerTarget = await prisma.target.findFirst({
         where: {
           regionId: region.id,
+          ...pipelineFilter,
           ownerName: { not: null }, // Any owner-specific target
         },
       });
@@ -99,6 +113,7 @@ export async function GET(request: NextRequest) {
         target = await prisma.target.findFirst({
           where: {
             regionId: region.id,
+            ...pipelineFilter,
             year: q.year,
             quarter: q.quarter,
             ownerName: ownerName,
@@ -113,6 +128,7 @@ export async function GET(request: NextRequest) {
           target = await prisma.target.findFirst({
             where: {
               regionId: region.id,
+              ...pipelineFilter,
               year: q.year,
               quarter: q.quarter,
               ownerName: null,

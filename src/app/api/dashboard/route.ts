@@ -144,6 +144,19 @@ export async function GET(request: Request) {
       );
     }
 
+    // ==================== Resolve Pipeline ====================
+    const pipelineCode = searchParams.get('pipeline'); // HubSpot pipeline ID
+    let pipelineId: string | undefined;
+
+    if (pipelineCode) {
+      const pipeline = await prisma.pipeline.findFirst({
+        where: { regionId: region.id, hubspotId: pipelineCode, isActive: true },
+      });
+      if (pipeline) {
+        pipelineId = pipeline.id;
+      }
+    }
+
     // ==================== Parse Query Params ====================
     const hasDateRange = searchParams.has('startYear') || searchParams.has('endYear');
 
@@ -211,6 +224,7 @@ export async function GET(request: Request) {
       prisma.target.findMany({
         where: {
           regionId: region.id,
+          ...(pipelineId ? { pipelineId } : {}),
           ownerName: null,
           OR: quartersInRange.map(q => ({
             year: q.year,
@@ -250,6 +264,7 @@ export async function GET(request: Request) {
     // ==================== Build deal where clauses ====================
     const baseWhere: any = {
       regionId: region.id,
+      ...(pipelineId ? { pipelineId } : {}),
     };
     if (hasRealHubSpotData) {
       baseWhere.hubspotId = { not: { startsWith: 'mock-' } };
@@ -755,6 +770,7 @@ export async function GET(request: Request) {
         code: region.code,
         name: region.name,
       },
+      pipeline: pipelineId || null,
       period: {
         year: startYear,
         quarter: startQuarter,

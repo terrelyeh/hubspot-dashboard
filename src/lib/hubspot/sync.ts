@@ -93,7 +93,10 @@ export async function syncDealsFromHubSpot(
         console.warn('Failed to fetch owners:', error);
         return [];
       }),
-      client.fetchPipelines(),
+      client.fetchPipelines().catch((error) => {
+        console.warn('Failed to fetch pipelines:', error);
+        return [];
+      }),
     ]);
     console.log(`Found ${hubspotDeals.length} deals, ${owners.length} owners in HubSpot`);
 
@@ -114,7 +117,34 @@ export async function syncDealsFromHubSpot(
       owners.map((o: any) => [o.id, o.email])
     );
 
-    // Build stage maps from pipelines
+    // ========== Upsert Pipeline records from HubSpot ==========
+    const pipelineDbMap = new Map<string, string>(); // hubspotPipelineId -> dbPipelineId
+    for (let i = 0; i < pipelines.length; i++) {
+      const hsPipeline = pipelines[i];
+      const dbPipeline = await prisma.pipeline.upsert({
+        where: {
+          hubspotId_regionId: {
+            hubspotId: hsPipeline.id,
+            regionId: regionId,
+          },
+        },
+        update: {
+          name: hsPipeline.label,
+          displayOrder: i,
+        },
+        create: {
+          hubspotId: hsPipeline.id,
+          regionId: regionId,
+          name: hsPipeline.label,
+          isDefault: i === 0, // First pipeline is default
+          displayOrder: i,
+        },
+      });
+      pipelineDbMap.set(hsPipeline.id, dbPipeline.id);
+    }
+    console.log(`Upserted ${pipelines.length} pipelines for region ${regionId}`);
+
+    // Build stage maps from pipelines (pipeline-scoped to avoid cross-pipeline collisions)
     const stageMap = new Map<string, number>();
     const stageLabelMap = new Map<string, string>();
     pipelines.forEach(pipeline => {
@@ -122,8 +152,15 @@ export async function syncDealsFromHubSpot(
         const probability = stage.metadata.probability
           ? parseFloat(stage.metadata.probability) * 100
           : 0;
-        stageMap.set(stage.id, probability);
-        stageLabelMap.set(stage.id, stage.label);
+        // Pipeline-scoped key for accurate stage resolution
+        const scopedKey = `${pipeline.id}:${stage.id}`;
+        stageMap.set(scopedKey, probability);
+        stageLabelMap.set(scopedKey, stage.label);
+        // Also set fallback (plain stageId) if not already set
+        if (!stageMap.has(stage.id)) {
+          stageMap.set(stage.id, probability);
+          stageLabelMap.set(stage.id, stage.label);
+        }
       });
     });
 
@@ -175,12 +212,14 @@ export async function syncDealsFromHubSpot(
           return { created: false, updated: false };
         }
 
-        // Get stage label and probability
+        // Get stage label and probability (pipeline-scoped lookup with fallback)
         const stageId = props.dealstage || 'Unknown';
-        const stageLabel = stageLabelMap.get(stageId) || stageId;
+        const hubspotPipelineId = props.pipeline || '';
+        const scopedStageKey = `${hubspotPipelineId}:${stageId}`;
+        const stageLabel = stageLabelMap.get(scopedStageKey) || stageLabelMap.get(stageId) || stageId;
         const stageProbability = props.hs_deal_stage_probability
           ? parseFloat(props.hs_deal_stage_probability) * 100
-          : stageMap.get(stageId) || 0;
+          : stageMap.get(scopedStageKey) || stageMap.get(stageId) || 0;
 
         // Get owner name
         const ownerName = props.hubspot_owner_id
@@ -196,10 +235,16 @@ export async function syncDealsFromHubSpot(
         const deployTimeRaw = props.expected_close_date || props.deploy_time;
         const deployTime = deployTimeRaw ? new Date(deployTimeRaw) : null;
 
+        // Resolve pipeline DB ID from HubSpot pipeline property
+        const dealPipelineId = hubspotPipelineId
+          ? pipelineDbMap.get(hubspotPipelineId) || null
+          : null;
+
         // Prepare deal data
         const dealData = {
           hubspotId: deal.id,
           regionId: regionId,
+          pipelineId: dealPipelineId,
           name: props.dealname || 'Untitled Deal',
           amount: amount,
           currency: currency,

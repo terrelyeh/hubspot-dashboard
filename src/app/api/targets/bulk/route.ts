@@ -31,6 +31,7 @@ export async function POST(request: Request) {
       targetQuarter,
       growthRate,
       regions: regionCodes,
+      pipelineHubspotId,
     } = body;
 
     // Validate operation
@@ -68,6 +69,18 @@ export async function POST(request: Request) {
       );
     }
 
+    // Resolve pipeline filter if provided
+    let pipelineId: string | null = null;
+    if (pipelineHubspotId) {
+      const pipeline = await prisma.pipeline.findFirst({
+        where: { hubspotId: pipelineHubspotId, isActive: true },
+      });
+      if (pipeline) {
+        pipelineId = pipeline.id;
+      }
+    }
+    const pipelineFilter = pipelineId ? { pipelineId } : {};
+
     let created = 0;
     let updated = 0;
     const results: any[] = [];
@@ -100,6 +113,7 @@ export async function POST(request: Request) {
       const sourceWhere: any = {
         year: sourceYear,
         quarter: sourceQuarter,
+        ...pipelineFilter,
       };
 
       // Filter by specific regions if provided
@@ -149,6 +163,7 @@ export async function POST(request: Request) {
         const existing = await prisma.target.findFirst({
           where: {
             regionId: source.regionId,
+            ...pipelineFilter,
             year: targetYear,
             quarter: targetQuarter,
             ownerName: source.ownerName || null,
@@ -181,6 +196,7 @@ export async function POST(request: Request) {
           target = await prisma.target.create({
             data: {
               regionId: source.regionId,
+              pipelineId: pipelineId,
               year: targetYear,
               quarter: targetQuarter,
               ownerName: source.ownerName || null,
@@ -237,6 +253,7 @@ export async function POST(request: Request) {
       const targetWhere: any = {
         year: targetYear,
         quarter: targetQuarter,
+        ...pipelineFilter,
       };
 
       if (regionCodes && regionCodes.length > 0) {

@@ -26,6 +26,7 @@ interface DashboardResponse {
  */
 export function useDashboardData(
   region: string,
+  pipeline: string,
   startYear: number,
   startQuarter: number,
   endYear: number,
@@ -35,7 +36,7 @@ export function useDashboardData(
   }
 ) {
   const cacheKey = options?.enabled !== false
-    ? cacheKeys.dashboard(region, startYear, startQuarter, endYear, endQuarter)
+    ? cacheKeys.dashboard(region, pipeline, startYear, startQuarter, endYear, endQuarter)
     : null;
 
   const { data, error, isLoading, isValidating, mutate: revalidate } = useSWR<DashboardResponse>(
@@ -96,14 +97,15 @@ export async function clearAllCaches() {
  */
 export function clearDashboardCache(
   region?: string,
+  pipeline?: string,
   startYear?: number,
   startQuarter?: number,
   endYear?: number,
   endQuarter?: number
 ) {
-  if (region && startYear && startQuarter && endYear && endQuarter) {
+  if (region && pipeline && startYear && startQuarter && endYear && endQuarter) {
     // Clear specific cache
-    const key = cacheKeys.dashboard(region, startYear, startQuarter, endYear, endQuarter);
+    const key = cacheKeys.dashboard(region, pipeline, startYear, startQuarter, endYear, endQuarter);
     mutate(key, undefined, { revalidate: false });
   } else {
     // Clear all dashboard caches
