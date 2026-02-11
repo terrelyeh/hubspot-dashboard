@@ -415,8 +415,22 @@ function DashboardContent() {
     router.push(`/dashboard?region=${regionCode}`);
   };
 
-  // Handle pipeline change
+  // Handle pipeline change — clear stale localStorage cache for the new pipeline
   const handlePipelineChange = (hubspotId: string) => {
+    // Invalidate any stale localStorage cache entries for this pipeline
+    // (prevents showing old data from before migration)
+    try {
+      const cacheRaw = localStorage.getItem('swr-dashboard-cache');
+      if (cacheRaw) {
+        const cache = JSON.parse(cacheRaw);
+        const keysToDelete = Object.keys(cache).filter(k => k.includes(`pipeline=${hubspotId}`));
+        if (keysToDelete.length > 0) {
+          keysToDelete.forEach(k => delete cache[k]);
+          localStorage.setItem('swr-dashboard-cache', JSON.stringify(cache));
+        }
+      }
+    } catch { /* ignore */ }
+
     setSelectedPipeline(hubspotId);
     setPipelineDropdownOpen(false);
     // Reset filters when switching pipeline

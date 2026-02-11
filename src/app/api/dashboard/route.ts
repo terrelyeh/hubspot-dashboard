@@ -147,7 +147,6 @@ export async function GET(request: Request) {
     // ==================== Resolve Pipeline ====================
     const pipelineCode = searchParams.get('pipeline'); // HubSpot pipeline ID
     let pipelineId: string | undefined;
-    let pipelineName: string | undefined;
 
     if (pipelineCode) {
       const pipeline = await prisma.pipeline.findFirst({
@@ -155,10 +154,8 @@ export async function GET(request: Request) {
       });
       if (pipeline) {
         pipelineId = pipeline.id;
-        pipelineName = pipeline.name;
       }
     }
-    console.log(`[Dashboard] region=${regionCode}, pipelineCode=${pipelineCode}, pipelineId=${pipelineId}, pipelineName=${pipelineName}`);
 
     // ==================== Parse Query Params ====================
     const hasDateRange = searchParams.has('startYear') || searchParams.has('endYear');
@@ -812,7 +809,6 @@ export async function GET(request: Request) {
         totalForecastFormatted: formatCurrency(weightedForecast),
         totalTarget: targetAmount,
         totalTargetFormatted: formatCurrency(targetAmount),
-        _debug: { pipelineCode, pipelineId, pipelineName, targetsFound: allTargetsInRange.length },
         targetCoverage: {
           quartersWithTargets,
           quartersMissingTargets,
