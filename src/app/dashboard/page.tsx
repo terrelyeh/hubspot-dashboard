@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import useSWR, { useSWRConfig } from 'swr';
+import useSWR from 'swr';
 import {
   TrendingUp,
   Target,
@@ -229,7 +229,6 @@ function DashboardContent() {
   const { t, setLanguage } = useLanguage();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { mutate: globalMutate } = useSWRConfig();
 
   // Region selection (from URL or default to JP)
   const regionFromUrl = searchParams.get('region') || 'JP';
@@ -414,20 +413,8 @@ function DashboardContent() {
     router.push(`/dashboard?region=${regionCode}`);
   };
 
-  // Handle pipeline change — nuke all dashboard SWR cache to force fresh data
+  // Handle pipeline change
   const handlePipelineChange = (hubspotId: string) => {
-    // Clear ALL dashboard-related SWR in-memory cache entries using key matcher
-    globalMutate(
-      (key: string) => typeof key === 'string' && key.startsWith('/api/dashboard'),
-      undefined,
-      { revalidate: false } // Don't revalidate old keys, new key will auto-fetch
-    );
-
-    // Also nuke all dashboard entries from localStorage cache
-    try {
-      localStorage.removeItem('swr-dashboard-cache');
-    } catch { /* ignore */ }
-
     setSelectedPipeline(hubspotId);
     setPipelineDropdownOpen(false);
     // Reset filters when switching pipeline
