@@ -362,7 +362,7 @@ function DashboardContent() {
   // Derive loading, error, data states from SWR
   // isLoading is true only on first load for this key (no cached data)
   // swrData will be undefined when switching to a new region (new cache key)
-  const loading = swrLoading;
+  const loading = swrLoading || !pipelinesLoaded;
   const error = swrError?.message || (swrData && !swrData.success ? 'Failed to load data' : null);
   const usingMockData = swrData?.usingMockData || false;
   // isValidating indicates background refresh (revalidation with existing data)
