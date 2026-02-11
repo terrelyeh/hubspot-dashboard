@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import useSWR from 'swr';
+import useSWR, { useSWRConfig } from 'swr';
 import {
   TrendingUp,
   Target,
@@ -229,6 +229,7 @@ function DashboardContent() {
   const { t, setLanguage } = useLanguage();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { mutate: globalMutate } = useSWRConfig();
 
   // Region selection (from URL or default to JP)
   const regionFromUrl = searchParams.get('region') || 'JP';
@@ -415,10 +416,17 @@ function DashboardContent() {
     router.push(`/dashboard?region=${regionCode}`);
   };
 
-  // Handle pipeline change — clear stale localStorage cache for the new pipeline
+  // Handle pipeline change — invalidate SWR cache to force fresh data
   const handlePipelineChange = (hubspotId: string) => {
-    // Invalidate any stale localStorage cache entries for this pipeline
-    // (prevents showing old data from before migration)
+    // Clear both in-memory SWR cache and localStorage for the new pipeline key
+    // This prevents showing stale data from a previous pipeline selection
+    const newPipelineParam = `&pipeline=${hubspotId}`;
+    const newKey = `/api/dashboard?region=${selectedRegion}${newPipelineParam}&startYear=2024&startQuarter=1&endYear=2026&endQuarter=4&topDealsLimit=500&topDealsSortBy=amount`;
+
+    // Invalidate in-memory SWR cache for this key (set to undefined, force revalidate)
+    globalMutate(newKey, undefined, { revalidate: true });
+
+    // Also clear localStorage cache
     try {
       const cacheRaw = localStorage.getItem('swr-dashboard-cache');
       if (cacheRaw) {
