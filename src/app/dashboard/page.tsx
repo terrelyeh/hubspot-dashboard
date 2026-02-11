@@ -1344,38 +1344,48 @@ function DashboardContent() {
                   )}
                 </div>
 
-                {/* Pipeline Switcher - only show if there are 2+ pipelines */}
-                {availablePipelines.length > 1 && (
+                {/* Pipeline Switcher - show when pipelines are available */}
+                {availablePipelines.length >= 1 && (
                   <div className="relative hidden sm:block" ref={pipelineDropdownRef}>
-                    <button
-                      onClick={() => setPipelineDropdownOpen(!pipelineDropdownOpen)}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-600 transition-colors"
-                    >
-                      <span className="text-sm font-medium text-white">{currentPipeline?.name || 'Pipeline'}</span>
-                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${pipelineDropdownOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                    {pipelineDropdownOpen && (
-                      <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-50 min-w-[200px]">
-                        {availablePipelines.map((pipeline) => (
-                          <button
-                            key={pipeline.hubspotId}
-                            onClick={() => handlePipelineChange(pipeline.hubspotId)}
-                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 transition-colors ${
-                              selectedPipeline === pipeline.hubspotId ? 'bg-slate-50' : ''
-                            }`}
-                          >
-                            <span className={`text-sm font-medium ${selectedPipeline === pipeline.hubspotId ? 'text-slate-900' : 'text-slate-600'}`}>
-                              {pipeline.name}
-                            </span>
-                            {pipeline.isDefault && (
-                              <span className="text-xs text-slate-400 ml-auto">Default</span>
-                            )}
-                            {selectedPipeline === pipeline.hubspotId && (
-                              <CheckCircle className="h-4 w-4 text-emerald-500 ml-auto" />
-                            )}
-                          </button>
-                        ))}
+                    {availablePipelines.length === 1 ? (
+                      /* Single pipeline: show as static label */
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700">
+                        <span className="text-sm text-slate-400">{availablePipelines[0].name}</span>
                       </div>
+                    ) : (
+                      /* Multiple pipelines: show dropdown */
+                      <>
+                        <button
+                          onClick={() => setPipelineDropdownOpen(!pipelineDropdownOpen)}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-600 transition-colors"
+                        >
+                          <span className="text-sm font-medium text-white">{currentPipeline?.name || 'Pipeline'}</span>
+                          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${pipelineDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {pipelineDropdownOpen && (
+                          <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-50 min-w-[200px]">
+                            {availablePipelines.map((pipeline) => (
+                              <button
+                                key={pipeline.hubspotId}
+                                onClick={() => handlePipelineChange(pipeline.hubspotId)}
+                                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 transition-colors ${
+                                  selectedPipeline === pipeline.hubspotId ? 'bg-slate-50' : ''
+                                }`}
+                              >
+                                <span className={`text-sm font-medium ${selectedPipeline === pipeline.hubspotId ? 'text-slate-900' : 'text-slate-600'}`}>
+                                  {pipeline.name}
+                                </span>
+                                {pipeline.isDefault && (
+                                  <span className="text-xs text-slate-400 ml-auto">Default</span>
+                                )}
+                                {selectedPipeline === pipeline.hubspotId && (
+                                  <CheckCircle className="h-4 w-4 text-emerald-500 ml-auto" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -1465,19 +1475,25 @@ function DashboardContent() {
             </div>
 
             {/* Pipeline Switcher - Mobile */}
-            {availablePipelines.length > 1 && (
+            {availablePipelines.length >= 1 && (
               <div className="mt-2">
-                <select
-                  value={selectedPipeline || ''}
-                  onChange={(e) => handlePipelineChange(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-800 text-white text-sm rounded-lg border border-slate-600"
-                >
-                  {availablePipelines.map((pipeline) => (
-                    <option key={pipeline.hubspotId} value={pipeline.hubspotId}>
-                      {pipeline.name}{pipeline.isDefault ? ' (Default)' : ''}
-                    </option>
-                  ))}
-                </select>
+                {availablePipelines.length === 1 ? (
+                  <div className="px-3 py-1.5 bg-slate-800/50 text-slate-400 text-sm rounded-lg border border-slate-700">
+                    {availablePipelines[0].name}
+                  </div>
+                ) : (
+                  <select
+                    value={selectedPipeline || ''}
+                    onChange={(e) => handlePipelineChange(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-800 text-white text-sm rounded-lg border border-slate-600"
+                  >
+                    {availablePipelines.map((pipeline) => (
+                      <option key={pipeline.hubspotId} value={pipeline.hubspotId}>
+                        {pipeline.name}{pipeline.isDefault ? ' (Default)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             )}
 

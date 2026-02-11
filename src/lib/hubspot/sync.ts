@@ -93,7 +93,10 @@ export async function syncDealsFromHubSpot(
         console.warn('Failed to fetch owners:', error);
         return [];
       }),
-      client.fetchPipelines(),
+      client.fetchPipelines().catch((error) => {
+        console.warn('Failed to fetch pipelines:', error);
+        return [];
+      }),
     ]);
     console.log(`Found ${hubspotDeals.length} deals, ${owners.length} owners in HubSpot`);
 
