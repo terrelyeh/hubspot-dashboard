@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requirePermission } from '@/lib/auth/permissions';
+import { requirePermission, requireRegionAccess } from '@/lib/auth/permissions';
 
 /**
  * GET /api/targets
@@ -30,6 +30,18 @@ export async function GET(request: Request) {
     const where: any = {};
 
     if (regionCode) {
+      // Region access control
+      try {
+        await requireRegionAccess(regionCode);
+      } catch (error: any) {
+        if (error.message === 'Unauthorized') {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        if (error.message === 'Forbidden') {
+          return NextResponse.json({ error: 'Region access denied' }, { status: 403 });
+        }
+      }
+
       const region = await prisma.region.findUnique({
         where: { code: regionCode },
       });
@@ -152,6 +164,17 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { regionCode, year, quarter, amount, ownerName, currency, notes, pipelineHubspotId } = body;
+
+    // Region access control
+    if (regionCode) {
+      try {
+        await requireRegionAccess(regionCode);
+      } catch (error: any) {
+        if (error.message === 'Forbidden') {
+          return NextResponse.json({ error: 'Region access denied' }, { status: 403 });
+        }
+      }
+    }
 
     // Validate required fields
     if (!regionCode || !year || !quarter || amount === undefined) {
@@ -353,6 +376,7 @@ export async function DELETE(request: Request) {
     // Check if target exists
     const existingTarget = await prisma.target.findUnique({
       where: { id },
+      include: { region: { select: { code: true } } },
     });
 
     if (!existingTarget) {
@@ -364,6 +388,15 @@ export async function DELETE(request: Request) {
         },
         { status: 404 }
       );
+    }
+
+    // Region access control for the target's region
+    try {
+      await requireRegionAccess(existingTarget.region.code);
+    } catch (error: any) {
+      if (error.message === 'Forbidden') {
+        return NextResponse.json({ error: 'Region access denied' }, { status: 403 });
+      }
     }
 
     // Delete target

@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireRegionAccess } from '@/lib/auth/permissions';
 
 function formatCurrency(amount: number): string {
   if (amount >= 1000000) {
@@ -37,6 +38,18 @@ export async function GET(request: NextRequest) {
         { success: false, error: 'Region is required' },
         { status: 400 }
       );
+    }
+
+    // Region access control
+    try {
+      await requireRegionAccess(regionCode);
+    } catch (error: any) {
+      if (error.message === 'Unauthorized') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      if (error.message === 'Forbidden') {
+        return NextResponse.json({ error: 'Region access denied' }, { status: 403 });
+      }
     }
 
     // Find region

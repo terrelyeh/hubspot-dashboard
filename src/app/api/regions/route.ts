@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { loadAllRegions } from '@/lib/regions/loader';
 import { prisma } from '@/lib/db';
+import { getCurrentUser, canAccessRegion, type Role } from '@/lib/auth/permissions';
 
 /**
  * GET /api/regions
@@ -19,7 +20,15 @@ export async function GET(request: Request) {
     const includeStats = searchParams.get('includeStats') === 'true';
 
     // Load region configurations from MD files
-    const regionConfigs = loadAllRegions();
+    const allRegionConfigs = loadAllRegions();
+
+    // Filter regions by user access
+    const user = await getCurrentUser();
+    const regionConfigs = user
+      ? allRegionConfigs.filter(config =>
+          canAccessRegion(user.role as Role, user.regionAccess, config.code)
+        )
+      : allRegionConfigs;
 
     // If stats not needed, return configs only
     if (!includeStats) {

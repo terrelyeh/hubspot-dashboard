@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireRegionAccess, requirePermission } from '@/lib/auth/permissions';
 
 /**
  * POST /api/targets/bulk
@@ -22,6 +23,9 @@ import { prisma } from '@/lib/db';
  */
 export async function POST(request: Request) {
   try {
+    // 權限檢查：只有 ADMIN 和 MANAGER 可以執行批量操作
+    await requirePermission('EDIT_TARGETS');
+
     const body = await request.json();
     const {
       operation,
@@ -118,6 +122,17 @@ export async function POST(request: Request) {
 
       // Filter by specific regions if provided
       if (regionCodes && regionCodes.length > 0) {
+        // Region access control for each region
+        for (const code of regionCodes) {
+          try {
+            await requireRegionAccess(code);
+          } catch (error: any) {
+            if (error.message === 'Forbidden') {
+              return NextResponse.json({ error: `Region access denied: ${code}` }, { status: 403 });
+            }
+          }
+        }
+
         const regionsToInclude = await prisma.region.findMany({
           where: { code: { in: regionCodes } },
         });
@@ -257,6 +272,17 @@ export async function POST(request: Request) {
       };
 
       if (regionCodes && regionCodes.length > 0) {
+        // Region access control for each region
+        for (const code of regionCodes) {
+          try {
+            await requireRegionAccess(code);
+          } catch (error: any) {
+            if (error.message === 'Forbidden') {
+              return NextResponse.json({ error: `Region access denied: ${code}` }, { status: 403 });
+            }
+          }
+        }
+
         const regionsToInclude = await prisma.region.findMany({
           where: { code: { in: regionCodes } },
         });

@@ -23,6 +23,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { useLanguage } from '@/lib/i18n';
 import { LanguageSwitcherDropdown } from '@/components/LanguageSwitcher';
 import { UserMenu } from '@/components/UserMenu';
@@ -227,12 +228,28 @@ function DashboardLoading() {
 function DashboardContent() {
   // All hooks must be called at the top level, before any conditional returns
   const { t, setLanguage } = useLanguage();
+  const { data: session } = useSession();
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Region selection (from URL or default to JP)
-  const regionFromUrl = searchParams.get('region') || 'JP';
-  const [selectedRegion, setSelectedRegion] = useState(regionFromUrl);
+  // Filter regions by user's access permissions
+  const accessibleRegions = useMemo(() => {
+    if (!session?.user) return REGIONS as unknown as typeof REGIONS[number][];
+    if (session.user.role === 'ADMIN') return REGIONS as unknown as typeof REGIONS[number][];
+    return (REGIONS as unknown as typeof REGIONS[number][]).filter(
+      r => session.user.regionAccess?.includes(r.code)
+    );
+  }, [session]);
+
+  // Region selection (from URL or default to first accessible region)
+  const defaultRegion = useMemo(() => {
+    const regionFromUrl = searchParams.get('region');
+    if (regionFromUrl && accessibleRegions.some(r => r.code === regionFromUrl)) {
+      return regionFromUrl;
+    }
+    return accessibleRegions[0]?.code || 'JP';
+  }, [searchParams, accessibleRegions]);
+  const [selectedRegion, setSelectedRegion] = useState(defaultRegion);
   const [regionDropdownOpen, setRegionDropdownOpen] = useState(false);
 
   // Pipeline selection
@@ -293,15 +310,19 @@ function DashboardContent() {
 
   const currentPipeline = availablePipelines.find(p => p.hubspotId === selectedPipeline);
 
-  // Update region when URL changes
+  // Update region when URL changes (validate against accessible regions)
   useEffect(() => {
-    const regionParam = searchParams.get('region') || 'JP';
-    if (regionParam !== selectedRegion) {
+    const regionParam = searchParams.get('region');
+    if (regionParam && accessibleRegions.some(r => r.code === regionParam) && regionParam !== selectedRegion) {
       setSelectedRegion(regionParam);
+    } else if (regionParam && !accessibleRegions.some(r => r.code === regionParam) && accessibleRegions.length > 0) {
+      // Redirect to first accessible region if URL region is not accessible
+      setSelectedRegion(accessibleRegions[0].code);
+      router.replace(`/dashboard?region=${accessibleRegions[0].code}`);
     }
-  }, [searchParams]);
+  }, [searchParams, accessibleRegions]);
 
-  const currentRegion = REGIONS.find(r => r.code === selectedRegion) || REGIONS[0];
+  const currentRegion = accessibleRegions.find(r => r.code === selectedRegion) || accessibleRegions[0] || REGIONS[0];
 
   // Filters - Date Range (moved up for SWR key generation)
   const currentYear = new Date().getFullYear();
@@ -1323,7 +1344,7 @@ function DashboardContent() {
                   </button>
                   {regionDropdownOpen && (
                     <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-50 min-w-[180px]">
-                      {REGIONS.map((region) => (
+                      {accessibleRegions.map((region) => (
                         <button
                           key={region.code}
                           onClick={() => handleRegionChange(region.code)}
@@ -1453,7 +1474,7 @@ function DashboardContent() {
               </button>
               {regionDropdownOpen && (
                 <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-50 min-w-[180px]">
-                  {REGIONS.map((region) => (
+                  {accessibleRegions.map((region) => (
                     <button
                       key={region.code}
                       onClick={() => handleRegionChange(region.code)}

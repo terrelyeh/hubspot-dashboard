@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
@@ -45,8 +45,17 @@ export default function TargetsSettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // Region & pipeline selection
-  const [selectedRegion, setSelectedRegion] = useState('JP');
+  // Filter regions by user's access permissions
+  const accessibleRegions = useMemo(() => {
+    if (!session?.user) return REGIONS;
+    if (session.user.role === 'ADMIN') return REGIONS;
+    return REGIONS.filter(r => session.user.regionAccess?.includes(r.code));
+  }, [session]);
+
+  // Region & pipeline selection (default to first accessible region)
+  const [selectedRegion, setSelectedRegion] = useState(
+    () => accessibleRegions[0]?.code || 'JP'
+  );
   const [selectedPipeline, setSelectedPipeline] = useState<string | null>(null);
 
   // Form states
@@ -72,7 +81,14 @@ export default function TargetsSettingsPage() {
     growthRate: 10,
   });
 
-  const currentRegionConfig = REGIONS.find(r => r.code === selectedRegion) || REGIONS[0];
+  const currentRegionConfig = accessibleRegions.find(r => r.code === selectedRegion) || accessibleRegions[0] || REGIONS[0];
+
+  // Update selectedRegion when accessible regions change (e.g., after session loads)
+  useEffect(() => {
+    if (accessibleRegions.length > 0 && !accessibleRegions.some(r => r.code === selectedRegion)) {
+      setSelectedRegion(accessibleRegions[0].code);
+    }
+  }, [accessibleRegions]);
 
   // ==================== SWR: Pipelines ====================
   const { data: pipelinesData } = useSWR<{ success: boolean; pipelines: PipelineOption[] }>(
@@ -351,7 +367,7 @@ export default function TargetsSettingsPage() {
               <span className="text-sm font-bold text-slate-700">Select Region:</span>
             </div>
             <div className="flex gap-2">
-              {REGIONS.map((region) => (
+              {accessibleRegions.map((region) => (
                 <button
                   key={region.code}
                   onClick={() => setSelectedRegion(region.code)}

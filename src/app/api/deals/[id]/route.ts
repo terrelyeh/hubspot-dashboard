@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { createHubSpotClient } from '@/lib/hubspot/client';
+import { requireRegionAccess } from '@/lib/auth/permissions';
 
 /**
  * GET /api/deals/[id]
@@ -27,6 +28,18 @@ export async function GET(
         { success: false, message: 'Deal not found' },
         { status: 404 }
       );
+    }
+
+    // Region access control
+    try {
+      await requireRegionAccess(deal.region.code);
+    } catch (error: any) {
+      if (error.message === 'Unauthorized') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      if (error.message === 'Forbidden') {
+        return NextResponse.json({ error: 'Region access denied' }, { status: 403 });
+      }
     }
 
     // If this is a mock deal, return without fetching from HubSpot

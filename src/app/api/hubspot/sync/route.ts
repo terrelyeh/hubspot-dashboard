@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { syncDealsFromHubSpot, syncAllRegions } from '@/lib/hubspot/sync';
 import { prisma } from '@/lib/db';
+import { requireRegionAccess, requirePermission } from '@/lib/auth/permissions';
 
 /**
  * POST /api/hubspot/sync
@@ -19,6 +20,9 @@ import { prisma } from '@/lib/db';
  */
 export async function POST(request: Request) {
   try {
+    // 權限檢查：只有 ADMIN 和 MANAGER 可以觸發同步
+    await requirePermission('TRIGGER_SYNC');
+
     const body = await request.json().catch(() => ({}));
     const { regionCode, force, startDate: startDateStr, endDate: endDateStr, maxDeals, skipLineItems } = body;
 
@@ -52,6 +56,15 @@ export async function POST(request: Request) {
     let results;
 
     if (regionCode) {
+      // Region access control
+      try {
+        await requireRegionAccess(regionCode);
+      } catch (error: any) {
+        if (error.message === 'Forbidden') {
+          return NextResponse.json({ error: 'Region access denied' }, { status: 403 });
+        }
+      }
+
       const region = await prisma.region.findUnique({
         where: { code: regionCode },
       });

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireRegionAccess } from '@/lib/auth/permissions';
 
 // ==================== Helper Functions ====================
 
@@ -131,6 +132,18 @@ export async function GET(request: Request) {
 
     // Get region parameter (default to JP for backwards compatibility)
     const regionCode = searchParams.get('region') || 'JP';
+
+    // Region access control
+    try {
+      await requireRegionAccess(regionCode);
+    } catch (error: any) {
+      if (error.message === 'Unauthorized') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      if (error.message === 'Forbidden') {
+        return NextResponse.json({ error: 'Region access denied' }, { status: 403 });
+      }
+    }
 
     // Fetch the region from database
     const region = await prisma.region.findUnique({
