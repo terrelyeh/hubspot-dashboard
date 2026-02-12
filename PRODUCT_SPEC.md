@@ -446,6 +446,10 @@ HubSpot Dashboard is a centralized web application that:
 | **Pipeline Stage Config** | Set probability for each stage | ✅ Implemented |
 | **Pipeline Scope** | Multiple pipelines per region with isolated data | ✅ Implemented (v1.1) |
 | **SWR Caching** | Stale-while-revalidate for dashboard and target management | ✅ Implemented (v1.1) |
+| **Authentication** | NextAuth.js v5 with JWT, login page, session management | ✅ Implemented (v1.1) |
+| **Role-Based Access** | ADMIN/MANAGER/VIEWER roles with permission system | ✅ Implemented (v1.1) |
+| **Region Access Control** | Users restricted to assigned regions | ✅ Implemented (v1.1) |
+| **User Management** | Admin UI for user CRUD and region access assignment | ✅ Implemented (v1.1) |
 
 ### Should Have (P1) - Version 1.2
 
@@ -461,7 +465,7 @@ HubSpot Dashboard is a centralized web application that:
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| **User Authentication** | Role-based access control | Medium |
+| **Audit Logging** | Track user actions and data changes | Medium |
 | **Email Notifications** | Alerts for stale deals, large deals | Low |
 | **Deal Collaboration** | Comments and notes on deals | Low |
 | **Historical Trends** | Quarter-over-quarter comparisons | Medium |
@@ -695,12 +699,12 @@ HubSpot Dashboard is a centralized web application that:
 
 ## Out of Scope
 
-### Explicitly Not Included in V1.0
+### Explicitly Not Included in V1.0 (Some now implemented in V1.1)
 
-1. **User Authentication**
-   - No login system
-   - No role-based permissions
-   - Assumption: Internal tool on secure network
+1. ~~**User Authentication**~~ → ✅ Implemented in v1.1
+   - NextAuth.js v5 with JWT, Credentials provider
+   - RBAC: ADMIN, MANAGER, VIEWER
+   - Region access control via UserRegionAccess
 
 2. **Real-Time Sync**
    - No WebSocket updates
@@ -735,14 +739,19 @@ HubSpot Dashboard is a centralized web application that:
 ## Future Roadmap
 
 ### Version 1.1 (Q1 2026) ✅
-**Focus**: Pipeline Scope & Performance
+**Focus**: Pipeline Scope, Performance & Security
 
 - ✅ Multi-pipeline support per region with fully isolated deals, targets, and forecasts
 - ✅ SWR caching for instant data display on region/pipeline switching
 - ✅ Pipeline selector UI (dropdown for multi-pipeline, static label for single)
 - ✅ Pipeline-scoped target management
+- ✅ Authentication: NextAuth.js v5 with JWT, Credentials provider, bcryptjs
+- ✅ Role-based access control: ADMIN, MANAGER, VIEWER
+- ✅ Region access control: UserRegionAccess junction table
+- ✅ User management admin UI: `/admin/users` (ADMIN only)
+- ✅ Route protection middleware (redirect to `/login`)
 
-**Business Value**: Enable pipeline-level tracking for regions with multiple sales channels
+**Business Value**: Enable pipeline-level tracking and secure multi-user access with role-based permissions
 
 ---
 
@@ -754,21 +763,9 @@ HubSpot Dashboard is a centralized web application that:
 - Mobile-responsive design
 - Report export (Excel, PDF)
 - Scheduled sync automation
-
-**Business Value**: Improve user efficiency by 20%
-
----
-
-### Version 1.2 (Q3 2026)
-**Focus**: Collaboration & Security
-
-- User authentication (SSO)
-- Role-based access control
-- Deal comments and notes
-- Activity feed
 - Audit logging
 
-**Business Value**: Enable broader team usage, ensure compliance
+**Business Value**: Improve user efficiency by 20%
 
 ---
 
@@ -806,7 +803,7 @@ HubSpot Dashboard is a centralized web application that:
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
-| 1.1 | 2026-02-12 | Pipeline scope, SWR caching, bug fixes | Terrel Yeh |
+| 1.1 | 2026-02-12 | Pipeline scope, SWR caching, auth & RBAC, bug fixes | Terrel Yeh |
 | 1.0 | 2026-02-05 | Initial PRD | Terrel Yeh |
 
 ---

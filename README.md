@@ -12,6 +12,7 @@ A powerful web dashboard that integrates multiple HubSpot accounts across differ
 - 📈 **Weighted Forecast**: Intelligent forecasting based on pipeline stage probabilities
 - 💱 **Multi-Currency**: Support for USD, JPY with automatic conversion
 - ⚡ **SWR Caching**: Instant data display with smart background revalidation
+- 🔐 **Authentication & RBAC**: NextAuth.js v5 with JWT, role-based access (ADMIN/MANAGER/VIEWER), region-level permissions
 - 🎨 **Interactive UI**: Slideout panels, expandable sections, and intuitive navigation
 
 ---
@@ -48,6 +49,7 @@ Dashboard (/)
 
 - **Frontend**: Next.js 15.5+ (App Router), React 19, TypeScript 5, SWR
 - **Backend**: Next.js API Routes
+- **Authentication**: NextAuth.js v5 (JWT + Credentials), bcryptjs
 - **Database**: PostgreSQL (Supabase + PgBouncer)
 - **ORM**: Prisma 6.2.1
 - **Styling**: Tailwind CSS 3.4.1
@@ -142,6 +144,8 @@ hubspot-dashboard/
 ├── src/
 │   ├── app/
 │   │   ├── api/               # API endpoints
+│   │   │   ├── admin/users/   # User management API (ADMIN only)
+│   │   │   ├── auth/          # NextAuth.js endpoints
 │   │   │   ├── dashboard/     # Dashboard data API
 │   │   │   ├── deals/[id]/    # Deal details API
 │   │   │   ├── hubspot/       # HubSpot sync & test
@@ -150,20 +154,25 @@ hubspot-dashboard/
 │   │   │   ├── owner-targets/  # Owner-specific targets (v1.1)
 │   │   │   ├── regions/       # Region list
 │   │   │   └── targets/       # Target management
+│   │   ├── admin/users/       # User management UI (ADMIN only)
 │   │   ├── dashboard/
 │   │   │   └── page.tsx       # Main dashboard with region selector
+│   │   ├── login/             # Login page
 │   │   ├── pipeline-stages/   # Pipeline stage config page
 │   │   ├── settings/          # Settings pages
 │   │   └── layout.tsx         # Global layout
 │   ├── components/            # React components
 │   ├── lib/                   # Business logic & utilities
+│   │   ├── auth/             # Permission system & helpers
 │   │   ├── hubspot/          # HubSpot API client & sync
 │   │   ├── currency/         # Currency conversion
 │   │   ├── swr-config.ts     # SWR cache provider with localStorage
 │   │   └── db.ts             # Prisma client
-│   └── types/                # TypeScript type definitions
+│   ├── types/                # TypeScript type definitions
+│   ├── auth.ts               # NextAuth.js v5 configuration
+│   └── middleware.ts          # Route protection middleware
 ├── prisma/
-│   ├── schema.prisma         # Database schema
+│   ├── schema.prisma         # Database schema (incl. User, Role, UserRegionAccess)
 │   ├── migrations/           # Migration history
 │   └── seed.ts               # Seed script
 ├── regions/                  # Regional configuration files
@@ -314,6 +323,9 @@ HUBSPOT_API_KEY_EU=your-eu-api-key
 
 # Database (PostgreSQL recommended for production)
 DATABASE_URL=postgresql://user:password@host:5432/database
+
+# Authentication (NextAuth.js v5)
+AUTH_SECRET=your-random-secret-string
 ```
 
 ### Deployment Steps
@@ -343,8 +355,13 @@ For detailed deployment instructions, see [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT
 
 ---
 
-## 🔐 Security Notes
+## 🔐 Security & Authentication
 
+- ✅ **Authentication**: NextAuth.js v5 with JWT strategy and bcryptjs password hashing
+- ✅ **Role-Based Access**: ADMIN (full access), MANAGER (edit targets, assigned regions), VIEWER (read-only, assigned regions)
+- ✅ **Region Access Control**: Users restricted to assigned regions via `UserRegionAccess` junction table
+- ✅ **Route Protection**: Middleware redirects unauthenticated users to `/login`
+- ✅ **Admin Panel**: `/admin/users` for user management (ADMIN role only)
 - ✅ API keys are only used server-side
 - ✅ All sensitive data in `.env` files (excluded from git)
 - ✅ Database queries include proper validation
@@ -408,10 +425,12 @@ npx prisma generate
 - ✅ Target management (per region & pipeline)
 - ✅ Weighted forecasting
 - ✅ Multi-currency support
+- ✅ Authentication & RBAC (NextAuth.js v5, ADMIN/MANAGER/VIEWER roles)
+- ✅ Region access control & user management admin UI
 
 ### Future Enhancements
 - 🔜 Per-region Pipeline Stage configuration
-- 🔜 User authentication & authorization
+- 🔜 Audit logging
 - 🔜 Email/Slack notifications
 - 🔜 Report export (PDF/Excel)
 - 🔜 Real-time updates (WebSocket)

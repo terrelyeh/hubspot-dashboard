@@ -7,6 +7,7 @@
 - [ ] 複製 `.env.example` 到 `.env.production`
 - [ ] 設定正確的 HubSpot API Keys（每個區域一個）
 - [ ] 設定正確的 `DATABASE_URL`（PostgreSQL 連線字串）
+- [ ] 設定正確的 `AUTH_SECRET`（NextAuth.js JWT 加密金鑰）
 - [ ] 確認所有環境變數都沒有遺漏
 
 ```bash
@@ -20,6 +21,9 @@ HUBSPOT_API_KEY_APAC=pat-na1-yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
 
 # Database
 DATABASE_URL=postgresql://user:password@host:5432/database
+
+# Authentication (NextAuth.js v5)
+AUTH_SECRET=your-random-secret-string  # 使用 openssl rand -base64 32 產生
 
 # Optional: Enable real HubSpot sync (default: false for mock data)
 ENABLE_REAL_HUBSPOT_SYNC=true
@@ -89,21 +93,45 @@ fetch('/api/migrate-pipeline', { method: 'POST' })
   .then(d => console.log(d));
 ```
 
-### 9. 安全性檢查
+### 9. 認證系統設定（v1.1）
+
+- [ ] 設定 `AUTH_SECRET` 環境變數（使用 `openssl rand -base64 32` 產生）
+- [ ] 建立初始 ADMIN 使用者帳號（透過 Prisma seed 或直接 SQL）
+- [ ] 驗證登入頁面 (`/login`) 正常運作
+- [ ] 驗證 ADMIN 可訪問 `/admin/users` 管理介面
+- [ ] 驗證 MANAGER 無法訪問 `/admin` 路由（應被重導至 `/dashboard`）
+- [ ] 驗證 VIEWER 只能檢視 Dashboard，無法編輯 Targets
+- [ ] 驗證 Region Access 限制正確（非 ADMIN 使用者只能看到被指派的區域）
+- [ ] 確認 JWT cookie 在 production 使用 `__Secure-` 前綴
+
+```bash
+# 建立初始 ADMIN 使用者（透過 Prisma Studio 或 seed script）
+npx prisma studio
+# 在 User table 新增：
+# email: admin@example.com
+# password: (bcryptjs hashed)
+# role: ADMIN
+# isActive: true
+```
+
+### 10. 安全性檢查
 
 - [ ] API 端點有適當的錯誤處理
 - [ ] 沒有敏感資訊暴露在前端
 - [ ] HubSpot API Key 只在後端使用
 - [ ] 資料庫查詢有適當的驗證
+- [ ] NextAuth.js `AUTH_SECRET` 已設定且不在版本控制中
+- [ ] 密碼使用 bcryptjs 加密儲存
+- [ ] 中介軟體（middleware）正確阻擋未認證的請求
 
-### 10. 效能優化
+### 11. 效能優化
 
 - [ ] 圖片已優化（如有）
 - [ ] 靜態資源已壓縮
 - [ ] 考慮啟用 ISR（Incremental Static Regeneration）
 - [ ] 考慮加入快取機制（Redis 等）
 
-### 11. Vercel 部署設定
+### 12. Vercel 部署設定
 
 - [ ] 連接 GitHub Repository 到 Vercel
 - [ ] 在 Vercel Dashboard 設定環境變數
@@ -111,9 +139,12 @@ fetch('/api/migrate-pipeline', { method: 'POST' })
 - [ ] 設定正確的 Output Directory: `.next`
 - [ ] 設定 Node.js 版本（如需要）
 
-### 12. 部署後驗證
+### 13. 部署後驗證
 
 - [ ] 訪問生產環境 URL 確認網站可訪問
+- [ ] 測試登入頁面正常運作（`/login`）
+- [ ] 測試 ADMIN 使用者可登入並訪問所有功能
+- [ ] 測試 MANAGER/VIEWER 的 Region Access 限制正確
 - [ ] 測試 HubSpot 資料同步功能
 - [ ] 測試 Dashboard 顯示正確
 - [ ] 測試 Deal Details 展開功能
@@ -123,17 +154,18 @@ fetch('/api/migrate-pipeline', { method: 'POST' })
 - [ ] 測試 Pipeline Stages 配置
 - [ ] 測試 Pipeline 選單顯示與切換（多 Pipeline 區域）
 - [ ] 測試 Pipeline 切換後 Target、Deals 資料正確隔離
+- [ ] 測試 `/admin/users` 使用者管理介面（ADMIN only）
 - [ ] 檢查瀏覽器 Console 沒有錯誤
 - [ ] 檢查 Vercel Logs 沒有錯誤
 
-### 13. 監控設定
+### 14. 監控設定
 
 - [ ] 設定錯誤追蹤（Sentry 等）
 - [ ] 設定效能監控
 - [ ] 設定可用性監控（Uptime Robot 等）
 - [ ] 設定 Alert 通知
 
-### 14. 備份與回滾計畫
+### 15. 備份與回滾計畫
 
 - [ ] 建立資料庫備份策略
 - [ ] 記錄回滾步驟
@@ -223,6 +255,7 @@ vercel link
 # 4. 設定環境變數
 vercel env add HUBSPOT_API_KEY production
 vercel env add DATABASE_URL production
+vercel env add AUTH_SECRET production
 
 # 5. 部署
 vercel --prod

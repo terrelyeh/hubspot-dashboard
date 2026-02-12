@@ -22,11 +22,33 @@ All notable changes to this project will be documented in this file.
   - Target management page (pipelines, targets, and owners data)
   - localStorage cache persistence via custom SWR cache provider
 
+- **Authentication & Authorization**:
+  - NextAuth.js v5 with JWT strategy (30-day sessions) and Credentials provider
+  - Three roles: ADMIN (full access, all regions), MANAGER (edit targets, assigned regions), VIEWER (read-only, assigned regions)
+  - Region access control via `UserRegionAccess` junction table
+  - Granular permission system (VIEW_DASHBOARD, EDIT_TARGETS, TRIGGER_SYNC, MANAGE_USERS, etc.)
+  - Route protection middleware — unauthenticated users redirected to `/login`
+  - `/admin` routes restricted to ADMIN role
+
+- **User Management**:
+  - Admin UI at `/admin/users` for creating, editing, and deactivating users
+  - Role assignment and region access checkbox configuration
+  - Password hashing with bcryptjs
+  - Last login tracking
+
+- **New API Endpoints** (Auth):
+  - `GET/POST /api/auth/*` — NextAuth.js authentication endpoints
+  - `GET/POST/PUT/DELETE /api/admin/users` — User CRUD (ADMIN only)
+
 ### Changed
 - **Database Schema**:
   - Added `Pipeline` model with `@@unique([regionId, hubspotId])`
+  - Added `User` model with `Role` enum (ADMIN, MANAGER, VIEWER), password hash, and `isActive` flag
+  - Added `UserRegionAccess` junction table for many-to-many user-region access control
+  - Added `Account`, `Session`, `VerificationToken` models for NextAuth.js
   - `Deal` model: added `pipelineId` field linking to Pipeline
   - `Target` model: added `pipelineId` field, changed unique constraint to `@@unique([regionId, pipelineId, ownerName, year, quarter])`
+  - `Region` model: added `userAccess` relation to `UserRegionAccess`
 
 - **HubSpot Sync**: Now fetches and upserts pipelines from HubSpot, associates deals with their pipeline records, and resolves stages per pipeline to avoid cross-pipeline collisions
 

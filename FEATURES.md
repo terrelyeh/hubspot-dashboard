@@ -33,6 +33,7 @@
 - 📈 **Weighted Forecasting**: Intelligent forecast based on stage probabilities
 - 💱 **Multi-Currency**: Automatic conversion between USD, JPY, and more
 - ⚡ **SWR Caching**: Stale-while-revalidate pattern for instant data display and smart background updates
+- 🔐 **Authentication & Authorization**: NextAuth.js v5 with JWT, role-based access control, and region-level permissions
 - 🎨 **Interactive UI**: Slideout panels, expandable cards, one-click navigation
 
 ---
@@ -383,6 +384,8 @@ Configure the probability value for each pipeline stage, used in weighted foreca
 
 ### Backend
 - **API**: Next.js API Routes (serverless functions)
+- **Authentication**: NextAuth.js v5 (JWT strategy, Credentials provider)
+- **Password Hashing**: bcryptjs
 - **Database ORM**: Prisma 6.2.1
 - **Database**: PostgreSQL (production with Supabase + PgBouncer)
 - **Runtime**: Node.js 18+
@@ -394,6 +397,42 @@ Configure the probability value for each pipeline stage, used in weighted foreca
 ---
 
 ## Database Schema
+
+### Authentication Models
+
+#### User
+```prisma
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  password      String?   // bcryptjs hashed
+  role          Role      @default(VIEWER)
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  regionAccess  UserRegionAccess[]
+}
+```
+
+#### Role Enum
+```prisma
+enum Role {
+  ADMIN    // Full access, all regions
+  MANAGER  // Can manage targets, limited by region
+  VIEWER   // Read-only, limited by region
+}
+```
+
+#### UserRegionAccess
+```prisma
+model UserRegionAccess {
+  userId    String
+  regionId  String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  region    Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  @@unique([userId, regionId])
+}
+```
 
 ### Core Models
 
@@ -662,6 +701,23 @@ Get owner-specific target data for a region and pipeline, with quarterly breakdo
 
 #### `POST /api/migrate-pipeline`
 One-time migration endpoint to move legacy `pipelineId = null` targets and deals to each region's default pipeline. Idempotent.
+
+### Authentication & User Management APIs
+
+#### `GET/POST /api/auth/*`
+NextAuth.js v5 authentication endpoints (sign-in, sign-out, session, CSRF).
+
+#### `GET /api/admin/users`
+List all users with their role and region access. Protected by `MANAGE_USERS` permission.
+
+#### `POST /api/admin/users`
+Create a new user. Requires name, email, password, role, and region access array.
+
+#### `PUT /api/admin/users/[id]`
+Update user details (role, region access, active status).
+
+#### `DELETE /api/admin/users/[id]`
+Delete a user account.
 
 ### Other APIs
 
@@ -956,13 +1012,117 @@ Recommended indexes:
 
 ---
 
+## Authentication & Authorization
+
+### Overview
+
+The system uses **NextAuth.js v5** with JWT strategy for authentication and a role-based permission system for authorization.
+
+### Authentication Stack
+
+- **Library**: NextAuth.js v5
+- **Strategy**: JWT (30-day session)
+- **Provider**: Credentials (email + password)
+- **Password Hashing**: bcryptjs
+- **Login Page**: `/login`
+
+### Role-Based Access Control (RBAC)
+
+Three predefined roles control access throughout the application:
+
+| Role | Dashboard | Deal Details | Targets | HubSpot Sync | User Admin |
+|------|-----------|-------------|---------|-------------|------------|
+| **ADMIN** | ✅ All regions | ✅ | ✅ Edit | ✅ Trigger | ✅ Full |
+| **MANAGER** | ✅ Assigned regions | ✅ | ✅ Edit | ✅ Trigger | ❌ |
+| **VIEWER** | ✅ Assigned regions | ✅ | ❌ View only | ❌ | ❌ |
+
+### Region Access Control
+
+- **ADMIN**: Automatically has access to all regions
+- **MANAGER / VIEWER**: Access limited to assigned regions via the `UserRegionAccess` junction table
+- Region access is checked on every API request using `canAccessRegion()`
+- The region selector only shows regions the user is permitted to view
+
+### Permission System
+
+| Permission | Allowed Roles | Description |
+|-----------|---------------|-------------|
+| `VIEW_DASHBOARD` | ADMIN, MANAGER, VIEWER | View dashboard metrics |
+| `VIEW_DEAL_DETAILS` | ADMIN, MANAGER, VIEWER | View deal line items and contacts |
+| `VIEW_TARGETS` | ADMIN, MANAGER | View target settings |
+| `EDIT_TARGETS` | ADMIN, MANAGER | Create/update targets |
+| `TRIGGER_SYNC` | ADMIN, MANAGER | Trigger HubSpot sync |
+| `VIEW_SYNC_LOGS` | ADMIN, MANAGER | View sync history |
+| `MANAGE_USERS` | ADMIN | Create/edit/delete users |
+| `MANAGE_REGIONS` | ADMIN | Manage region settings |
+
+### User Management
+
+**Route**: `/admin/users` (ADMIN only)
+
+Admin interface for managing users:
+- Create new users with name, email, password, and role
+- Edit existing users (change role, update region access)
+- Activate/deactivate user accounts
+- Assign region access via checkbox UI per region
+- View last login timestamp
+
+### Database Models
+
+```prisma
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  password      String?   // bcryptjs hashed
+  role          Role      @default(VIEWER)
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  regionAccess  UserRegionAccess[]
+}
+
+enum Role {
+  ADMIN    // Full access, all regions
+  MANAGER  // Can manage targets, limited by region
+  VIEWER   // Read-only, limited by region
+}
+
+model UserRegionAccess {
+  userId    String
+  regionId  String
+  user      User     @relation(...)
+  region    Region   @relation(...)
+  @@unique([userId, regionId])
+}
+```
+
+### Middleware
+
+All routes (except `/login` and `/api/auth`) are protected by middleware:
+- Unauthenticated users are redirected to `/login`
+- `/admin/*` routes restricted to ADMIN role only
+- JWT token validated on every request
+
+### API Endpoints
+
+#### `GET/POST /api/admin/users`
+CRUD operations for user management. Protected by `requirePermission("MANAGE_USERS")`.
+
+#### `GET/POST /api/auth/*`
+NextAuth.js authentication endpoints (sign-in, sign-out, session).
+
+---
+
 ## Security
 
+✅ **Authentication**: NextAuth.js v5 with JWT and bcryptjs password hashing
+✅ **Authorization**: Role-based access control with region-level permissions
 ✅ **API Keys**: Server-side only, never exposed to frontend
 ✅ **Environment Variables**: Excluded from git via `.gitignore`
 ✅ **Database Queries**: Parameterized with Prisma
 ✅ **Input Validation**: Server-side validation on all endpoints
 ✅ **HTTPS**: Enforce in production
+✅ **Route Protection**: Middleware blocks unauthenticated access
 
 ---
 
@@ -972,15 +1132,13 @@ Recommended indexes:
 - ✅ Pipeline Scope: Multi-pipeline support per region with isolated deals, targets, and forecasts
 - ✅ SWR Caching: Stale-while-revalidate data fetching for dashboard and target management
 - ✅ Pipeline Selector: Dropdown for multi-pipeline regions, static label for single-pipeline
+- ✅ Authentication & Authorization: NextAuth.js v5 with JWT, RBAC (ADMIN/MANAGER/VIEWER), region access control
+- ✅ User Management: Admin UI for user CRUD, role assignment, and region access configuration
 
 ### Version 1.2
 - 🔜 Per-region Pipeline Stage configuration
 - 🔜 Real-time data updates (WebSocket)
 - 🔜 Enhanced mobile UI
-
-### Version 1.3
-- 🔜 User authentication & authorization
-- 🔜 Role-based access control
 - 🔜 Audit logging
 
 ### Version 2.0
