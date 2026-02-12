@@ -1,8 +1,8 @@
 # HubSpot Dashboard - Product Specification
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Document Owner**: Terrel Yeh
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-02-12
 **Status**: ✅ Implemented
 
 ---
@@ -39,10 +39,11 @@ Sales teams operating across multiple regions (US, APAC, Japan, India, Europe) f
 HubSpot Dashboard is a centralized web application that:
 
 ✅ **Consolidates** data from 5 independent HubSpot accounts into a unified view
-✅ **Enables** instant region switching without losing context
+✅ **Enables** instant region and pipeline switching without losing context
 ✅ **Automates** weighted forecasting based on configurable stage probabilities
 ✅ **Provides** rich deal details including line items and contacts on-demand
-✅ **Simplifies** target management with multi-currency support
+✅ **Simplifies** target management with multi-currency support, scoped per pipeline
+✅ **Isolates** deals, targets, and forecasts per pipeline within each region
 
 ### Business Impact
 
@@ -80,7 +81,8 @@ HubSpot Dashboard is a centralized web application that:
 ### Secondary Objectives
 
 - Support multi-currency operations (USD, JPY, EUR, etc.)
-- Enable per-region target setting and tracking
+- Enable per-region, per-pipeline target setting and tracking
+- Support multiple pipelines per region as independent sub-dimensions
 - Provide flexible Pipeline Stage configuration
 - Maintain data security and access control
 
@@ -230,6 +232,22 @@ HubSpot Dashboard is a centralized web application that:
 
 ---
 
+#### User Story 1.4: Pipeline Switching (v1.1)
+**As a** Regional Sales Director
+**I want to** switch between pipelines within a region
+**So that** I can view deals, targets, and forecasts isolated per pipeline
+
+**Acceptance Criteria**:
+- Pipeline selector visible below region selector when region has 2+ pipelines
+- Single-pipeline regions show a static pipeline label (no dropdown)
+- Switching pipeline updates all dashboard metrics (deals, targets, forecast, stages)
+- Default pipeline is pre-selected on region switch
+- Pipeline selection does not persist across region changes
+
+**Priority**: P0 (Must Have) — ✅ Implemented in v1.1
+
+---
+
 ### Epic 2: Deal Details & Intelligence
 
 #### User Story 2.1: Expandable Deal Cards
@@ -306,6 +324,8 @@ HubSpot Dashboard is a centralized web application that:
 - Can enter target amount in USD or JPY
 - System converts and stores in USD automatically
 - Can assign target to specific region
+- Can assign target to specific pipeline within the region (v1.1)
+- Switching region/pipeline shows cached data instantly via SWR (v1.1)
 
 **Priority**: P0 (Must Have)
 
@@ -424,8 +444,10 @@ HubSpot Dashboard is a centralized web application that:
 | **Multi-Currency** | USD and JPY with automatic conversion | ✅ Implemented |
 | **HubSpot Sync** | Manual sync with YTD default and date range filtering | ✅ Implemented |
 | **Pipeline Stage Config** | Set probability for each stage | ✅ Implemented |
+| **Pipeline Scope** | Multiple pipelines per region with isolated data | ✅ Implemented (v1.1) |
+| **SWR Caching** | Stale-while-revalidate for dashboard and target management | ✅ Implemented (v1.1) |
 
-### Should Have (P1) - Version 1.1
+### Should Have (P1) - Version 1.2
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
@@ -712,7 +734,19 @@ HubSpot Dashboard is a centralized web application that:
 
 ## Future Roadmap
 
-### Version 1.1 (Q2 2026)
+### Version 1.1 (Q1 2026) ✅
+**Focus**: Pipeline Scope & Performance
+
+- ✅ Multi-pipeline support per region with fully isolated deals, targets, and forecasts
+- ✅ SWR caching for instant data display on region/pipeline switching
+- ✅ Pipeline selector UI (dropdown for multi-pipeline, static label for single)
+- ✅ Pipeline-scoped target management
+
+**Business Value**: Enable pipeline-level tracking for regions with multiple sales channels
+
+---
+
+### Version 1.2 (Q2 2026)
 **Focus**: Enhanced Configuration & UX
 
 - Per-region Pipeline Stage configuration
@@ -772,10 +806,11 @@ HubSpot Dashboard is a centralized web application that:
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
+| 1.1 | 2026-02-12 | Pipeline scope, SWR caching, bug fixes | Terrel Yeh |
 | 1.0 | 2026-02-05 | Initial PRD | Terrel Yeh |
 
 ---
 
 **Document Status**: ✅ Complete
-**Implementation Status**: ✅ V1.0 Implemented
+**Implementation Status**: ✅ V1.1 Implemented
 **Next Review**: Q2 2026

@@ -6,11 +6,12 @@ A powerful web dashboard that integrates multiple HubSpot accounts across differ
 
 - 🌍 **Multi-Region Support**: Seamlessly switch between regions (US, APAC, IN, JP, EU)
 - 🔑 **Multi-Account Architecture**: Each region connects to its own HubSpot account with separate API keys
+- 🔀 **Pipeline Scope**: Multiple pipelines per region with fully isolated deals, targets, and forecasts
 - 📊 **Deal Details**: Expandable deal cards showing Line Items, Contacts, and custom properties
-- 🎯 **Target Management**: Set and track quarterly targets by owner and region
+- 🎯 **Target Management**: Set and track quarterly targets by owner, region, and pipeline
 - 📈 **Weighted Forecast**: Intelligent forecasting based on pipeline stage probabilities
 - 💱 **Multi-Currency**: Support for USD, JPY with automatic conversion
-- ⚡ **Real-time Sync**: Live data synchronization from HubSpot CRM
+- ⚡ **SWR Caching**: Instant data display with smart background revalidation
 - 🎨 **Interactive UI**: Slideout panels, expandable sections, and intuitive navigation
 
 ---
@@ -23,16 +24,20 @@ Unlike traditional two-tier dashboards, this system uses a **single-layer archit
 
 ```
 Dashboard (/)
-  └─ Region Selector (Top-right corner)
-      ├─ US → HubSpot Account 1 (API Key 1)
-      ├─ APAC → HubSpot Account 2 (API Key 2)
-      ├─ JP → HubSpot Account 3 (API Key 3)
-      ├─ IN → HubSpot Account 4 (API Key 4)
-      └─ EU → HubSpot Account 5 (API Key 5)
+  ├─ Region Selector (Top-right corner)
+  │   ├─ US → HubSpot Account 1 (API Key 1)
+  │   ├─ APAC → HubSpot Account 2 (API Key 2)
+  │   ├─ JP → HubSpot Account 3 (API Key 3)
+  │   ├─ IN → HubSpot Account 4 (API Key 4)
+  │   └─ EU → HubSpot Account 5 (API Key 5)
+  └─ Pipeline Selector (Below region)
+      ├─ Sales Pipeline (default)
+      └─ Deal Registration
 ```
 
 **Why this approach?**
 - Each region has different Pipeline Stage definitions
+- Each region can have multiple pipelines with isolated data
 - Deal properties vary by region
 - Independent HubSpot accounts per region
 - Direct access to relevant data without extra navigation
@@ -41,10 +46,10 @@ Dashboard (/)
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: Next.js 15.5+ (App Router), React 19, TypeScript 5
+- **Frontend**: Next.js 15.5+ (App Router), React 19, TypeScript 5, SWR
 - **Backend**: Next.js API Routes
-- **Database**: SQLite (dev) / PostgreSQL (production recommended)
-- **ORM**: Prisma 6.2.0
+- **Database**: PostgreSQL (Supabase + PgBouncer)
+- **ORM**: Prisma 6.2.1
 - **Styling**: Tailwind CSS 3.4.1
 - **Deployment**: Vercel (recommended) or any Node.js hosting
 
@@ -140,7 +145,9 @@ hubspot-dashboard/
 │   │   │   ├── dashboard/     # Dashboard data API
 │   │   │   ├── deals/[id]/    # Deal details API
 │   │   │   ├── hubspot/       # HubSpot sync & test
+│   │   │   ├── pipelines/      # Pipeline list API (v1.1)
 │   │   │   ├── pipeline-stages/ # Stage configuration
+│   │   │   ├── owner-targets/  # Owner-specific targets (v1.1)
 │   │   │   ├── regions/       # Region list
 │   │   │   └── targets/       # Target management
 │   │   ├── dashboard/
@@ -152,6 +159,7 @@ hubspot-dashboard/
 │   ├── lib/                   # Business logic & utilities
 │   │   ├── hubspot/          # HubSpot API client & sync
 │   │   ├── currency/         # Currency conversion
+│   │   ├── swr-config.ts     # SWR cache provider with localStorage
 │   │   └── db.ts             # Prisma client
 │   └── types/                # TypeScript type definitions
 ├── prisma/
@@ -214,6 +222,8 @@ The main dashboard (`/dashboard`) displays comprehensive metrics for the selecte
 
 **Region Selector**: Located in the top-right corner, allows instant switching between regions. Each switch loads data from the corresponding HubSpot account.
 
+**Pipeline Selector** (v1.1): Displayed below the region selector. For regions with multiple pipelines, a dropdown allows switching between pipelines. All metrics (deals, targets, forecast) are fully isolated per pipeline.
+
 ### 2. Deal Details with Line Items & Contacts
 
 Click any deal card or table row to view:
@@ -239,11 +249,13 @@ Click any deal card or table row to view:
 
 ### 3. Target Management
 
-Set quarterly targets for each owner by region:
+Set quarterly targets for each owner by region and pipeline:
 - Owner selection
 - Quarter selection (Q1-Q4)
 - Currency selection (USD/JPY with auto-conversion)
 - Region assignment
+- Pipeline assignment (v1.1)
+- SWR caching for instant region/pipeline switching (v1.1)
 
 ### 4. Pipeline Stages Configuration
 
@@ -274,9 +286,10 @@ Configure probability values for each pipeline stage:
 
 ### What Gets Synced
 
-- **Deals**: Deal records within selected date range (based on closeDate)
+- **Pipelines**: Pipeline names and IDs from HubSpot (v1.1)
+- **Deals**: Deal records within selected date range (based on closeDate), linked to pipeline
 - **Owners**: Sales rep information
-- **Pipeline Stages**: Stage names and order
+- **Pipeline Stages**: Stage names and order (resolved per pipeline)
 
 ### On-Demand Data
 
@@ -387,10 +400,12 @@ npx prisma generate
 
 ## 🎯 Roadmap
 
-### Current Version: 1.0.0
+### Current Version: 1.1.0
 - ✅ Multi-region dashboard with switching
+- ✅ Pipeline scope: multiple pipelines per region with isolated data
+- ✅ SWR caching for instant data display
 - ✅ Deal details with Line Items & Contacts
-- ✅ Target management
+- ✅ Target management (per region & pipeline)
 - ✅ Weighted forecasting
 - ✅ Multi-currency support
 
@@ -416,6 +431,6 @@ Proprietary - Internal Use Only
 
 ---
 
-**Last Updated**: 2026-02-08
-**Version**: 1.0.0
+**Last Updated**: 2026-02-12
+**Version**: 1.1.0
 **Maintainer**: Terrel Yeh

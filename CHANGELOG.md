@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-02-12
+
+### Added
+- **Pipeline Scope**: Each region now supports multiple HubSpot pipelines as independent sub-dimensions
+  - Deals, targets, stages, and forecasts are fully isolated per pipeline
+  - Pipeline selector in dashboard (dropdown for 2+ pipelines, static label for 1)
+  - Pipeline selector in target management
+  - New `Pipeline` database model with `isDefault`, `isActive`, and `displayOrder` fields
+
+- **New API Endpoints**:
+  - `GET /api/pipelines` - List active pipelines for a region
+  - `GET /api/owner-targets` - Get owner-specific target data with quarterly breakdown
+  - `POST /api/migrate-pipeline` - One-time migration for legacy `pipelineId = null` data
+
+- **SWR Data Fetching**: Replaced raw `fetch` + `useEffect` with SWR (stale-while-revalidate) for:
+  - Dashboard data (`/api/dashboard`)
+  - Owner target data (`/api/owner-targets`)
+  - Target management page (pipelines, targets, and owners data)
+  - localStorage cache persistence via custom SWR cache provider
+
+### Changed
+- **Database Schema**:
+  - Added `Pipeline` model with `@@unique([regionId, hubspotId])`
+  - `Deal` model: added `pipelineId` field linking to Pipeline
+  - `Target` model: added `pipelineId` field, changed unique constraint to `@@unique([regionId, pipelineId, ownerName, year, quarter])`
+
+- **HubSpot Sync**: Now fetches and upserts pipelines from HubSpot, associates deals with their pipeline records, and resolves stages per pipeline to avoid cross-pipeline collisions
+
+- **Target Management**: Converted from raw `fetch` + `useEffect` to SWR hooks, reducing loading spinners on region/pipeline switching
+
+- **Dashboard**: Pipeline filter applied to all queries (dashboard API, owner-targets API)
+
+### Fixed
+- **Pipeline selector not showing**: Changed condition from `> 1` to `>= 1` to show pipeline info for all regions
+- **Flash of "Error Loading Dashboard"**: Added `!pipelinesLoaded` to loading state to prevent false error screen during navigation
+- **Incorrect target amount on pipeline switch**: Fixed `owner-targets` API missing `pipelineFilter` in `owner=All` query, which caused wrong pipeline's target to be displayed
+- **Stale data on pipeline switch**: Removed `keepPreviousData: true` from owner-targets SWR to prevent cross-pipeline data leakage
+
+### Removed
+- Temporary debug endpoint (`/api/debug-targets`)
+- Unnecessary cache-clearing workarounds (globalMutate, localStorage clearing on pipeline switch)
+
+---
+
 ## [1.0.0] - 2026-02-05
 
 ### Added

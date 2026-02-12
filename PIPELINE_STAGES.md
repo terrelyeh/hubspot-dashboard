@@ -143,6 +143,24 @@ Stages are color-coded for visual distinction:
 - **Closed Won**: Emerald-600 (green)
 - **Closed Lost**: Red-600 (red)
 
+## Pipeline Scope (v1.1)
+
+As of v1.1, the system supports **multiple pipelines per region**. Each pipeline from HubSpot is synced as a `Pipeline` record in the database. Stages are resolved per pipeline during sync to avoid cross-pipeline collisions (e.g., two pipelines may have different stages with the same internal ID).
+
+```
+Region (JP)
+  ├── Sales Pipeline (default)
+  │     ├── Initial Contact (10%)
+  │     ├── Qualified Opp. (20%)
+  │     └── ...
+  └── Deal Registration
+        ├── New Registration (10%)
+        ├── Under Review (30%)
+        └── ...
+```
+
+Deals and targets are associated with their respective pipeline, enabling fully isolated metrics per pipeline.
+
 ## Future Enhancements
 
 Potential improvements:
@@ -151,7 +169,7 @@ Potential improvements:
 2. **Custom Stages**: Allow users to create custom stages
 3. **Stage Analytics**: Track deal velocity by stage
 4. **Stage History**: Maintain audit log of stage changes
-5. **Regional Stages**: Different pipelines per region
+5. **Per-Pipeline Stage Probabilities**: Different probability values per pipeline (partially implemented via pipeline-scoped stage resolution)
 6. **Stage Templates**: Pre-configured pipeline templates
 
 ## Integration Points
@@ -191,5 +209,5 @@ To adjust win probabilities:
 
 ---
 
-**Last Updated:** 2024-02-04
-**Version:** 1.0.0
+**Last Updated:** 2026-02-12
+**Version:** 1.1.0

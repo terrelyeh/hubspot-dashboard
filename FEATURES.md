@@ -1,7 +1,7 @@
 # HubSpot Dashboard - Complete Feature Documentation
 
-**Version**: 1.0.0
-**Last Updated**: 2026-02-08
+**Version**: 1.1.0
+**Last Updated**: 2026-02-12
 **Maintainer**: Terrel Yeh
 
 ---
@@ -27,20 +27,21 @@
 ### Key Capabilities
 
 - 🌍 **Multi-Region, Multi-Account**: Each region (US, APAC, JP, IN, EU) uses its own HubSpot account
+- 🔀 **Pipeline Scope**: Each region supports multiple pipelines as independent sub-dimensions, with fully isolated deals, targets, stages, and forecasts per pipeline
 - 📊 **Rich Deal Details**: Line Items (products), Contacts, and custom properties
-- 🎯 **Target Management**: Owner-level quarterly targets with achievement tracking
+- 🎯 **Target Management**: Owner-level quarterly targets with achievement tracking, scoped per pipeline
 - 📈 **Weighted Forecasting**: Intelligent forecast based on stage probabilities
 - 💱 **Multi-Currency**: Automatic conversion between USD, JPY, and more
-- ⚡ **On-Demand Loading**: Performance-optimized data fetching
+- ⚡ **SWR Caching**: Stale-while-revalidate pattern for instant data display and smart background updates
 - 🎨 **Interactive UI**: Slideout panels, expandable cards, one-click navigation
 
 ---
 
 ## Architecture
 
-### Single-Layer Design with Region Switching
+### Single-Layer Design with Region & Pipeline Switching
 
-The dashboard uses a **streamlined single-layer architecture** instead of traditional two-tier designs:
+The dashboard uses a **streamlined single-layer architecture** with region and pipeline switching:
 
 ```
 ┌─────────────────────────────────────────┐
@@ -50,6 +51,13 @@ The dashboard uses a **streamlined single-layer architecture** instead of tradit
 │  │  ┌─────┬──────┬─────┬─────┬────┐│   │
 │  │  │ US  │ APAC │ JP  │ IN  │ EU ││   │
 │  │  └─────┴──────┴─────┴─────┴────┘│   │
+│  │                                   │   │
+│  │  Pipeline Selector (Below region) │   │
+│  │  ┌──────────────────────────────┐│   │
+│  │  │ Sales Pipeline ▾             ││   │
+│  │  │ ├─ Sales Pipeline (default)  ││   │
+│  │  │ └─ Deal Registration         ││   │
+│  │  └──────────────────────────────┘│   │
 │  └─────────────────────────────────┘   │
 │                                         │
 │  [Quarter Performance]                  │
@@ -59,6 +67,16 @@ The dashboard uses a **streamlined single-layer architecture** instead of tradit
 │  [Top 10 Deals - Clickable]            │
 └─────────────────────────────────────────┘
 ```
+
+#### Pipeline Scope (v1.1)
+
+Each region can have **multiple pipelines** from HubSpot. Pipelines act as independent sub-dimensions within a region:
+
+- **Deals** are filtered by the selected pipeline
+- **Targets** are set and tracked per pipeline
+- **Stages** and **forecasts** are calculated per pipeline
+- Switching pipelines instantly updates all dashboard metrics
+- Single-pipeline regions show a static label; multi-pipeline regions show a dropdown
 
 ### Multi-Account Architecture
 
@@ -235,14 +253,16 @@ Sortable table showing:
 
 **Route**: `/settings/targets`
 
-Set and manage quarterly targets for each sales owner by region.
+Set and manage quarterly targets for each sales owner by region and pipeline.
 
 #### Features
 - **Owner Selection**: Choose from synced HubSpot owners
 - **Quarter Selection**: Q1-Q4 for any year
 - **Currency Selection**: USD, JPY (auto-converted to USD for storage)
 - **Region Assignment**: Link target to specific region
+- **Pipeline Assignment**: Link target to specific pipeline within the region
 - **Bulk Operations**: Set multiple targets at once
+- **SWR Caching**: Instant switching between regions/pipelines with cached data
 
 #### Data Flow
 ```
@@ -323,11 +343,17 @@ Configure the probability value for each pipeline stage, used in weighted foreca
 
 #### What Gets Synced
 
+**Pipelines** (v1.1):
+- Pipeline names and HubSpot IDs
+- Default pipeline identification per region
+- Used for pipeline-scope filtering
+
 **Deals**:
 - Deal name, amount, currency
 - Stage, probability, forecast category
 - Close date, created date
 - Owner information
+- Pipeline association (linked to Pipeline record)
 - Custom properties (distributor, priority, description)
 
 **Owners**:
@@ -335,7 +361,7 @@ Configure the probability value for each pipeline stage, used in weighted foreca
 - Used for target assignment
 
 **Pipeline Stages**:
-- Stage names and order
+- Stage names and order (resolved per pipeline)
 - Used for probability configuration
 
 **Not Synced Initially** (fetched on-demand):
@@ -352,12 +378,13 @@ Configure the probability value for each pipeline stage, used in weighted foreca
 - **Language**: TypeScript 5
 - **UI Library**: React 19
 - **Styling**: Tailwind CSS 3.4.1
-- **State Management**: React hooks (useState, useEffect)
+- **Data Fetching**: SWR (stale-while-revalidate) with localStorage cache persistence
+- **State Management**: React hooks (useState, useEffect) + SWR for server state
 
 ### Backend
 - **API**: Next.js API Routes (serverless functions)
-- **Database ORM**: Prisma 6.2.0
-- **Database**: SQLite (dev) / PostgreSQL (production)
+- **Database ORM**: Prisma 6.2.1
+- **Database**: PostgreSQL (production with Supabase + PgBouncer)
 - **Runtime**: Node.js 18+
 
 ### Integrations
@@ -373,40 +400,61 @@ Configure the probability value for each pipeline stage, used in weighted foreca
 #### Region
 ```prisma
 model Region {
-  id       String   @id @default(cuid())
-  code     String   @unique  // NA, EU, APAC, JP, IN
-  name     String
-  flag     String?  // Emoji flag
-  deals    Deal[]
-  targets  Target[]
+  id         String     @id @default(cuid())
+  code       String     @unique  // US, EU, APAC, JP, IN
+  name       String
+  flag       String?    // Emoji flag
+  deals      Deal[]
+  targets    Target[]
+  pipelines  Pipeline[]
+}
+```
+
+#### Pipeline (v1.1)
+```prisma
+model Pipeline {
+  id           String   @id @default(cuid())
+  hubspotId    String                          // HubSpot pipeline ID
+  regionId     String
+  name         String                          // HubSpot pipeline label
+  isDefault    Boolean  @default(false)        // One default per region
+  isActive     Boolean  @default(true)
+  displayOrder Int      @default(0)
+  region       Region   @relation(fields: [regionId], references: [id])
+  deals        Deal[]
+  targets      Target[]
+
+  @@unique([regionId, hubspotId])
 }
 ```
 
 #### Deal
 ```prisma
 model Deal {
-  id                String   @id @default(cuid())
-  hubspotId         String   @unique
-  name              String
-  amountUsd         Float    // Stored in USD
-  currency          String   @default("USD")
-  stage             String
-  stageProbability  Float
-  forecastCategory  String?
-  closeDate         DateTime
-  createdAt         DateTime
-  lastModifiedAt    DateTime
-  ownerEmail        String?
-  ownerName         String?
-  priority          String?  // high, medium, low
-  description       String?
-  distributor       String?
-  numContacts       Int      @default(0)
-  hubspotUrl        String?
-  regionId          String
-  region            Region   @relation(fields: [regionId], references: [id])
-  lineItems         LineItem[]
-  contacts          DealContact[]
+  id                   String    @id @default(cuid())
+  hubspotId            String
+  regionId             String
+  pipelineId           String?   // Links to Pipeline for pipeline-scope filtering
+  name                 String
+  amountUsd            Float     // Stored in USD
+  currency             String    @default("USD")
+  stage                String
+  stageProbability     Float
+  forecastCategory     String?
+  closeDate            DateTime
+  createdAt            DateTime
+  lastModifiedAt       DateTime
+  ownerEmail           String?
+  ownerName            String?
+  priority             String?   // high, medium, low
+  description          String?
+  distributor          String?
+  numContacts          Int       @default(0)
+  hubspotUrl           String?
+  region               Region    @relation(fields: [regionId], references: [id])
+  pipeline             Pipeline? @relation(fields: [pipelineId], references: [id])
+  lineItems            LineItem[]
+  contacts             DealContact[]
 }
 ```
 
@@ -449,18 +497,20 @@ model DealContact {
 #### Target
 ```prisma
 model Target {
-  id         String   @id @default(cuid())
-  ownerEmail String
-  ownerName  String?
-  quarter    String   // "Q1 2024", "Q2 2024"
-  targetUsd  Float    // Stored in USD
-  currency   String   @default("USD")
-  regionId   String
-  region     Region   @relation(fields: [regionId], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id              String    @id @default(cuid())
+  regionId        String
+  pipelineId      String?   // Nullable for migration; null = region-level (legacy)
+  ownerName       String?   // null = region-level target, otherwise owner-specific
+  year            Int
+  quarter         Int       // 1-4
+  amount          Float     // Stored in USD
+  currency        String    @default("USD")
+  region          Region    @relation(fields: [regionId], references: [id])
+  pipeline        Pipeline? @relation(fields: [pipelineId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  @@unique([ownerEmail, quarter, regionId])
+  @@unique([regionId, pipelineId, ownerName, year, quarter])
 }
 ```
 
@@ -582,6 +632,37 @@ Create or update a target.
 #### `POST /api/targets/bulk`
 Batch create/update multiple targets.
 
+### Pipeline APIs (v1.1)
+
+#### `GET /api/pipelines`
+List active pipelines for a region.
+
+**Query Parameters**:
+- `region`: Region code (e.g., `JP`, `APAC`)
+
+**Response**:
+```json
+{
+  "success": true,
+  "pipelines": [
+    { "id": "...", "hubspotId": "default", "name": "Sales Pipeline", "isDefault": true },
+    { "id": "...", "hubspotId": "135924308", "name": "Deal Registration", "isDefault": false }
+  ]
+}
+```
+
+#### `GET /api/owner-targets`
+Get owner-specific target data for a region and pipeline, with quarterly breakdown.
+
+**Query Parameters**:
+- `region`: Region code
+- `pipeline`: Pipeline hubspotId (optional)
+- `owner`: Owner name or `All`
+- `startYear`, `startQuarter`, `endYear`, `endQuarter`: Date range
+
+#### `POST /api/migrate-pipeline`
+One-time migration endpoint to move legacy `pipelineId = null` targets and deals to each region's default pipeline. Idempotent.
+
 ### Other APIs
 
 #### `GET /api/regions`
@@ -640,6 +721,9 @@ class HubSpotClient {
 
   // Fetch pipeline stages
   async fetchPipelineStages(): Promise<HubSpotPipelineStage[]>
+
+  // Fetch pipelines (v1.1)
+  async fetchPipelines(): Promise<HubSpotPipeline[]>
 }
 ```
 
@@ -866,9 +950,9 @@ Recommended indexes:
 
 ### Caching Strategy
 
-- Exchange rates: 24-hour cache
-- Dashboard data: Consider Redis for production
-- HubSpot API responses: Rate-limited caching
+- **SWR (Stale-While-Revalidate)**: Client-side caching with localStorage persistence for dashboard and target management data. Deduping interval of 5 minutes prevents redundant API calls.
+- **Exchange rates**: 24-hour cache
+- **HubSpot API responses**: Rate-limited caching
 
 ---
 
@@ -884,12 +968,17 @@ Recommended indexes:
 
 ## Future Roadmap
 
-### Version 1.1
+### Version 1.1 ✅
+- ✅ Pipeline Scope: Multi-pipeline support per region with isolated deals, targets, and forecasts
+- ✅ SWR Caching: Stale-while-revalidate data fetching for dashboard and target management
+- ✅ Pipeline Selector: Dropdown for multi-pipeline regions, static label for single-pipeline
+
+### Version 1.2
 - 🔜 Per-region Pipeline Stage configuration
 - 🔜 Real-time data updates (WebSocket)
 - 🔜 Enhanced mobile UI
 
-### Version 1.2
+### Version 1.3
 - 🔜 User authentication & authorization
 - 🔜 Role-based access control
 - 🔜 Audit logging

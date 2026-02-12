@@ -74,21 +74,36 @@ git commit -m "feat: Complete HubSpot Dashboard with Line Items and Deal Details
 - [ ] HUBSPOT_SETUP.md 包含完整的 HubSpot 設定步驟
 - [ ] API 文件已更新（如有）
 
-### 8. 安全性檢查
+### 8. Pipeline 資料遷移（v1.1）
+
+- [ ] 對每個區域執行 HubSpot Sync，確保 Pipeline 資料已同步到資料庫
+- [ ] 執行 `/api/migrate-pipeline`（POST）將 `pipelineId = null` 的舊資料遷移到各區域的預設 Pipeline
+- [ ] 驗證 Dashboard 的 Pipeline 選單正確顯示
+- [ ] 驗證 Target Management 的 Pipeline 選單正確顯示
+- [ ] 確認各 Pipeline 的 deals、targets 資料正確隔離
+
+```bash
+# 在瀏覽器 DevTools Console 中執行遷移：
+fetch('/api/migrate-pipeline', { method: 'POST' })
+  .then(r => r.json())
+  .then(d => console.log(d));
+```
+
+### 9. 安全性檢查
 
 - [ ] API 端點有適當的錯誤處理
 - [ ] 沒有敏感資訊暴露在前端
 - [ ] HubSpot API Key 只在後端使用
 - [ ] 資料庫查詢有適當的驗證
 
-### 9. 效能優化
+### 10. 效能優化
 
 - [ ] 圖片已優化（如有）
 - [ ] 靜態資源已壓縮
 - [ ] 考慮啟用 ISR（Incremental Static Regeneration）
 - [ ] 考慮加入快取機制（Redis 等）
 
-### 10. Vercel 部署設定
+### 11. Vercel 部署設定
 
 - [ ] 連接 GitHub Repository 到 Vercel
 - [ ] 在 Vercel Dashboard 設定環境變數
@@ -96,7 +111,7 @@ git commit -m "feat: Complete HubSpot Dashboard with Line Items and Deal Details
 - [ ] 設定正確的 Output Directory: `.next`
 - [ ] 設定 Node.js 版本（如需要）
 
-### 11. 部署後驗證
+### 12. 部署後驗證
 
 - [ ] 訪問生產環境 URL 確認網站可訪問
 - [ ] 測試 HubSpot 資料同步功能
@@ -106,17 +121,19 @@ git commit -m "feat: Complete HubSpot Dashboard with Line Items and Deal Details
 - [ ] 測試 Contacts 顯示
 - [ ] 測試 Target 設定功能
 - [ ] 測試 Pipeline Stages 配置
+- [ ] 測試 Pipeline 選單顯示與切換（多 Pipeline 區域）
+- [ ] 測試 Pipeline 切換後 Target、Deals 資料正確隔離
 - [ ] 檢查瀏覽器 Console 沒有錯誤
 - [ ] 檢查 Vercel Logs 沒有錯誤
 
-### 12. 監控設定
+### 13. 監控設定
 
 - [ ] 設定錯誤追蹤（Sentry 等）
 - [ ] 設定效能監控
 - [ ] 設定可用性監控（Uptime Robot 等）
 - [ ] 設定 Alert 通知
 
-### 13. 備份與回滾計畫
+### 14. 備份與回滾計畫
 
 - [ ] 建立資料庫備份策略
 - [ ] 記錄回滾步驟
@@ -147,6 +164,10 @@ git commit -m "feat: Complete HubSpot Dashboard with Line Items and Deal Details
    INSERT INTO "Region" (id, code, name, currency, timezone, "isActive", "createdAt", "updatedAt")
    VALUES ('cuid-latam', 'LATAM', 'Latin America', 'USD', 'America/Sao_Paulo', true, NOW(), NOW());
    ```
+
+5. **執行 HubSpot Sync 同步 Pipeline 資料**（v1.1）
+   - Sync 完成後，HubSpot 中的 Pipeline 會自動建立到資料庫
+   - 第一個同步的 Pipeline 會設為 `isDefault = true`
 
 ### API Key 命名規則
 
@@ -266,4 +287,4 @@ npx prisma db pull
 
 **準備好了嗎？** ✅ 完成所有檢查項目後，就可以進行部署了！
 
-**最後更新**: 2026-02-08
+**最後更新**: 2026-02-12

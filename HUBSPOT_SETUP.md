@@ -28,11 +28,14 @@ In the **Scopes** tab, grant the following permissions:
 #### Required Scopes:
 - ✅ `crm.objects.deals.read` - Read deals
 - ✅ `crm.objects.owners.read` - Read deal owners
-- ✅ `crm.schemas.deals.read` - Read deal pipelines and stages
+- ✅ `crm.schemas.deals.read` - Read deal pipelines and stages (required for pipeline sync)
+- ✅ `crm.objects.line_items.read` - Read line items (product details)
+- ✅ `crm.objects.contacts.read` - Read contact data
 
 #### Optional (for future features):
 - `crm.objects.companies.read` - Read company data
-- `crm.objects.contacts.read` - Read contact data
+
+> ⚠️ **Important**: `crm.schemas.deals.read` is required for the pipeline sync feature (v1.1). Without this scope, the system cannot fetch pipeline definitions from HubSpot. Do **NOT** use `crm.pipelines.orders.read` — that scope is for Orders pipelines, not Deals.
 
 ### Step 3: Generate Access Token
 
@@ -115,8 +118,10 @@ The dashboard syncs the following from HubSpot:
 - Owner name
 - Owner email
 
-### Pipelines
-- Pipeline stages
+### Pipelines (v1.1)
+- Pipeline names and HubSpot IDs (e.g., "Sales Pipeline", "Deal Registration")
+- Default pipeline identification per region
+- Pipeline stages (resolved per pipeline to avoid cross-pipeline collisions)
 - Stage probabilities
 
 ## 🔄 Sync Schedule
