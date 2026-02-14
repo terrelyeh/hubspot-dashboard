@@ -2170,7 +2170,11 @@ function DashboardContent() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-700">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${
+                          deal.probability < 50
+                            ? 'bg-rose-100 text-rose-600'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
                           {deal.probability}%
                         </span>
                       </td>
@@ -2221,7 +2225,9 @@ function DashboardContent() {
                     </div>
                     <div className="relative h-6 bg-slate-100 rounded-md overflow-hidden">
                       <div
-                        className="absolute inset-y-0 left-0 bg-blue-500 transition-all duration-500 flex items-center"
+                        className={`absolute inset-y-0 left-0 transition-all duration-500 flex items-center ${
+                          stage.probability < 50 ? 'bg-rose-400' : 'bg-blue-500'
+                        }`}
                         style={{ width: `${barWidth}%` }}
                       >
                         {barWidth > 25 && (
@@ -2551,7 +2557,11 @@ function DashboardContent() {
                             </div>
                             <div>
                               <p className="text-xs font-semibold text-slate-500 uppercase mb-1">{t('probabilityLabel')}</p>
-                              <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-bold bg-blue-100 text-blue-700">
+                              <span className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-bold ${
+                                deal.probability < 50
+                                  ? 'bg-rose-100 text-rose-600'
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}>
                                 {deal.probability}%
                               </span>
                             </div>
