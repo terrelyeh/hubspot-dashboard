@@ -158,6 +158,7 @@ interface DashboardData {
   filters: {
     availableOwners: string[];
     availableStages: string[];
+    allStages: string[];
     availableForecastCategories: string[];
   };
 }
@@ -1703,30 +1704,40 @@ function DashboardContent() {
                         Clear
                       </button>
                     </div>
-                    {data.filters.availableStages.map(stage => (
-                      <div
-                        key={stage}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedStages(prev =>
-                            prev.includes(stage)
-                              ? prev.filter(s => s !== stage)
-                              : [...prev, stage]
-                          );
-                        }}
-                        className={`flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer transition-colors ${
-                          selectedStages.includes(stage) ? 'bg-slate-50' : ''
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedStages.includes(stage)}
-                          readOnly
-                          className="w-3.5 h-3.5 text-orange-500 border-slate-300 rounded focus:ring-orange-500 pointer-events-none"
-                        />
-                        <span className="text-sm text-slate-700">{stage}</span>
-                      </div>
-                    ))}
+                    {(data.filters.allStages || data.filters.availableStages).map(stage => {
+                      const hasDeals = data.filters.availableStages.includes(stage);
+                      return (
+                        <div
+                          key={stage}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!hasDeals) return;
+                            setSelectedStages(prev =>
+                              prev.includes(stage)
+                                ? prev.filter(s => s !== stage)
+                                : [...prev, stage]
+                            );
+                          }}
+                          className={`flex items-center gap-2.5 px-3 py-2 transition-colors ${
+                            hasDeals
+                              ? `hover:bg-slate-50 cursor-pointer ${selectedStages.includes(stage) ? 'bg-slate-50' : ''}`
+                              : 'cursor-not-allowed opacity-40'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedStages.includes(stage)}
+                            disabled={!hasDeals}
+                            readOnly
+                            className={`w-3.5 h-3.5 border-slate-300 rounded pointer-events-none ${
+                              hasDeals ? 'text-orange-500 focus:ring-orange-500' : 'text-slate-300'
+                            }`}
+                          />
+                          <span className={`text-sm ${hasDeals ? 'text-slate-700' : 'text-slate-400'}`}>{stage}</span>
+                          {!hasDeals && <span className="ml-auto text-xs text-slate-300">No deals</span>}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 {selectedStages.length > 0 && (

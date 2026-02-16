@@ -649,6 +649,14 @@ export async function GET(request: Request) {
     const uniqueOwners = [...new Set(allOwnersInRegion.map(d => d.ownerName).filter(Boolean))].sort() as string[];
     const uniqueStages = [...new Set(deals.map(d => d.stage))].sort();
 
+    // Fetch all defined pipeline stages (for showing disabled stages in dropdown)
+    const allPipelineStages = await prisma.pipelineStage.findMany({
+      where: { isActive: true },
+      orderBy: { displayOrder: 'asc' },
+      select: { name: true, displayOrder: true, probability: true },
+    });
+    const allStageNames = allPipelineStages.map(s => s.name);
+
     // ==================== BATCH 3: Product Summary (parallel) ====================
     // P0-3 FIX: Fetch ALL line items for these deals in ONE query, then group in memory
     const dealIds = deals.map(d => d.id);
@@ -909,6 +917,7 @@ export async function GET(request: Request) {
       filters: {
         availableOwners: uniqueOwners,
         availableStages: uniqueStages,
+        allStages: allStageNames,
         availableForecastCategories: ['Commit', 'Best Case', 'Pipeline', 'Omitted'],
       },
       lastSynced: new Date().toISOString(),
