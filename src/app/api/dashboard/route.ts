@@ -649,13 +649,14 @@ export async function GET(request: Request) {
     const uniqueOwners = [...new Set(allOwnersInRegion.map(d => d.ownerName).filter(Boolean))].sort() as string[];
     const uniqueStages = [...new Set(deals.map(d => d.stage))].sort();
 
-    // Fetch all defined pipeline stages (for showing disabled stages in dropdown)
-    const allPipelineStages = await prisma.pipelineStage.findMany({
-      where: { isActive: true },
-      orderBy: { displayOrder: 'asc' },
-      select: { name: true, displayOrder: true, probability: true },
+    // Fetch ALL distinct stages across all time periods for this region+pipeline
+    // (not limited to current date range, so we can show greyed-out stages in dropdown)
+    const allDealsForStages = await prisma.deal.findMany({
+      where: baseWhere,
+      select: { stage: true },
+      distinct: ['stage'],
     });
-    const allStageNames = allPipelineStages.map(s => s.name);
+    const allStageNames = [...new Set(allDealsForStages.map(d => d.stage))].sort();
 
     // ==================== BATCH 3: Product Summary (parallel) ====================
     // P0-3 FIX: Fetch ALL line items for these deals in ONE query, then group in memory
